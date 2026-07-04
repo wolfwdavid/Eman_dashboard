@@ -41,9 +41,12 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [ ] LIVE draft — BLOCKED on Google service account + a {{placeholder}} template Doc (+ ANTHROPIC_API_KEY for the narrative)
 
 ## Phase 6 — Reminders + scheduling
-- [ ] Deadline reminder logic: T-7 days, daily until filled and/or past due
-- [ ] Monday 9AM grants + news digest
-- [ ] `schedule` + `send_telegram` tools; Task Scheduler entries
+- [x] `reminders.py`: T-7 cadence (daily within window, stop on filled/past-due) + Monday digest formatting (pure)
+- [x] JobQueue wiring in `main.py`: daily 9AM deadline sweep + Monday 9AM digest per allowed chat
+- [x] `outbound.py`: cross-thread send bridge (run_coroutine_threadsafe) for the threaded agent loop
+- [x] `send_telegram` + `schedule` tools (on-demand reminder/digest/upcoming views)
+- [x] Offline-verified cadence (due-today/3d fire; submitted/outside/past-due/undated excluded) + digest ordering
+- [ ] LIVE reminders/digest — BLOCKED on Telegram token + a known chat id (Eman `/start`s once) + Notion set up
 
 ## Phase 7 — Grants + News dashboard
 - [ ] SvelteKit → GH Pages reading agent-published grants/news data
@@ -99,3 +102,18 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - **Not yet verifiable by me:** the real Opus score (needs ANTHROPIC_API_KEY). Design choice: near-term
   odds, so a strong-fit grant DID can't yet apply for (VIA_FISCAL_SPONSOR / AFTER_501C3) scores LOW +
   actionable_now=false, rather than a misleading high fit score.
+
+### Phase 5
+- **Built:** `clients/google_docs.py` (SA copy-template + replaceAllText, deferred google imports so the
+  request builder is testable without the heavy libs) + `draft_application` tool (Opus narrative + org fields).
+- **Verified offline:** replaceAllText payload shape (matchCase, None→"" for atomic batch), unconfigured/
+  missing-funder guards return friendly messages without any network call.
+
+### Phase 6
+- **Built:** `reminders.py` (pure cadence + digest formatting), JobQueue jobs in `main.py` (daily deadline
+  sweep + Monday 9AM digest, tz-aware), `outbound.py` (thread→loop send bridge), `send_telegram` + `schedule`
+  tools. `tzdata` added for Windows zoneinfo.
+- **Verified offline:** cadence rules exact (due-today + due-3d fire; Submitted/outside-7d/past-due/undated
+  excluded); digest orders actionable by score and includes news; full package imports with all 6 tools live.
+- **Design:** proactive sends via JobQueue (in-process, kept alive by supervisor.bat); `schedule` tool gives
+  the same views on demand ("what's due?"). Proactive sends need a known chat id — Eman `/start`s once.
