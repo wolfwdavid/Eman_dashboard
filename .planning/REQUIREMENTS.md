@@ -48,8 +48,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Deployment
 
-- [ ] **DPLY-01**: The site fully prerenders to static files via `adapter-static`
-- [ ] **DPLY-02**: The GitHub Pages base path resolves correctly for repo `Eman_dashboard` (all assets/links routed through `base`), with `.nojekyll` and a `404.html` SPA fallback
+- [x] **DPLY-01**: The site fully prerenders to static files via `adapter-static`
+- [x] **DPLY-02**: The GitHub Pages base path resolves correctly for repo `Eman_dashboard` (all assets/links routed through `base`), with `.nojekyll` and a `404.html` SPA fallback
 - [ ] **DPLY-03**: A GitHub Actions workflow builds and publishes the site to GitHub Pages
 
 ### Premium Aesthetic
@@ -94,8 +94,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DPLY-01 | Phase 1 | Pending |
-| DPLY-02 | Phase 1 | Pending |
+| DPLY-01 | Phase 1 | Complete |
+| DPLY-02 | Phase 1 | Complete |
 | DPLY-03 | Phase 1 | Pending |
 | DATA-01 | Phase 2 | Pending |
 | DATA-02 | Phase 2 | Pending |

@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-07-04T22:16:44.657Z"
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+---
+
 # Project State
 
 ## Project Reference
@@ -5,20 +19,17 @@
 See: .planning/PROJECT.md (updated 2026-07-04)
 
 **Core value:** The Crystarium sphere grid makes the entire grant pipeline legible and navigable at a glance — funder status, funding amount, and deadline urgency are all readable from the shape and glow of the grid before a single click.
-**Current focus:** Phase 1 — Deploy Skeleton + Toolchain
+**Current focus:** Phase 01 — Deploy Skeleton + Toolchain
 
 ## Current Position
 
-Phase: 1 of 5 (Deploy Skeleton + Toolchain)
-Plan: 0 of ~2 in current phase
-Status: Ready to plan
-Last activity: 2026-07-04 — Roadmap created (5 phases, 29 v1 requirements mapped)
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 01 (Deploy Skeleton + Toolchain) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: — min
 - Total execution time: 0.0 hours
@@ -30,10 +41,12 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: —
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 13 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -45,6 +58,8 @@ Recent decisions affecting current work:
 - Roadmap: **Deploy-first, data-as-contract** build order (both ARCHITECTURE.md and PITFALLS.md converge on it) — Phase 1 ships a real Pages skeleton before any 3D.
 - Roadmap: QR-code generation TOOL (DATA-06) lives in Phase 2 (build tool); QR panel UI (QRUI-01/02) lives in Phase 4.
 - Stack: pin `three@0.185.1` (postprocessing peer constraint <0.186), Node 22 LTS, pnpm exclusively.
+- [Phase 01]: paths.relative=false: emit absolute /Eman_dashboard/_app/ URLs so the DPLY-02 base-prefix grep is verifiable (SvelteKit default relative './_app/' is not)
+- [Phase 01]: static/.nojekyll added manually — adapter-static 3.0.10 does not auto-emit it (research note outdated)
 
 ### Pending Todos
 
@@ -60,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-04
-Stopped at: ROADMAP.md + STATE.md created, REQUIREMENTS.md traceability populated
-Resume file: None — next step is `/gsd:plan-phase 1`
+Last session: 2026-07-04T22:16:34.337Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None

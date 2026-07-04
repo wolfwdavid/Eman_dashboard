@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans (waves 1 → 2 → 3)
 
 Plans:
-- [ ] 01-01-PLAN.md — Scaffold SvelteKit 5 + Tailwind v4 (pnpm/Node 22), adapter-static + base-path-from-env config, and the Nyquist verification harness (`tools/verify-build.mjs`, `playwright.config.ts`, `tests/smoke.spec.ts`) [wave 1]
+- [x] 01-01-PLAN.md — Scaffold SvelteKit 5 + Tailwind v4 (pnpm/Node 22), adapter-static + base-path-from-env config, and the Nyquist verification harness (`tools/verify-build.mjs`, `playwright.config.ts`, `tests/smoke.spec.ts`) [wave 1]
 - [ ] 01-02-PLAN.md — Styled dark landing shell (Orbitron title / DID grant command center), `+layout.ts` (prerender+ssr, WHY documented), self-hosted fonts, `.nojekyll`; turn the harness green on a `BASE_PATH` build [wave 2]
 - [ ] 01-03-PLAN.md — GitHub Actions `deploy.yml`, set Pages source, push to main, and confirm the live `github.io/Eman_dashboard/` URL serves the styled shell with zero 404s [wave 3, checkpoint]
 
