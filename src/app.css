@@ -15,10 +15,13 @@
 	--color-gold: #ffcf6b; /* active/secured accent */
 }
 
-/* Base premium dark background so the deployed URL visibly proves CSS loaded */
+/* Base premium dark background so the deployed URL visibly proves CSS loaded.
+   Set background-color explicitly (not just the gradient image) so the computed
+   body background is non-transparent — the smoke test asserts on backgroundColor. */
 html,
 body {
-	background: radial-gradient(ellipse at top, #0b1020 0%, var(--color-void) 60%);
+	background-color: var(--color-void);
+	background-image: radial-gradient(ellipse at top, #0b1020 0%, var(--color-void) 60%);
 	color: #e8ecf4;
 	font-family: var(--font-body);
 	min-height: 100%;
