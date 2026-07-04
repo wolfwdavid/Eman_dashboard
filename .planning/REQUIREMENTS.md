@@ -94,13 +94,43 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| DPLY-01 | Phase 1 | Pending |
+| DPLY-02 | Phase 1 | Pending |
+| DPLY-03 | Phase 1 | Pending |
+| DATA-01 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| DATA-04 | Phase 2 | Pending |
+| DATA-05 | Phase 2 | Pending |
+| DATA-06 | Phase 2 | Pending |
+| CRYS-01 | Phase 3 | Pending |
+| CRYS-02 | Phase 3 | Pending |
+| CRYS-03 | Phase 3 | Pending |
+| CRYS-04 | Phase 3 | Pending |
+| CRYS-05 | Phase 3 | Pending |
+| CRYS-06 | Phase 3 | Pending |
+| CRYS-07 | Phase 3 | Pending |
+| CRYS-08 | Phase 3 | Pending |
+| DETL-01 | Phase 4 | Pending |
+| DETL-02 | Phase 4 | Pending |
+| DETL-03 | Phase 4 | Pending |
+| PIPE-01 | Phase 4 | Pending |
+| PIPE-02 | Phase 4 | Pending |
+| PIPE-03 | Phase 4 | Pending |
+| PIPE-04 | Phase 4 | Pending |
+| PIPE-05 | Phase 4 | Pending |
+| QRUI-01 | Phase 4 | Pending |
+| QRUI-02 | Phase 4 | Pending |
+| AEST-01 | Phase 5 | Pending |
+| AEST-02 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 26 total
-- Mapped to phases: (pending roadmap)
-- Unmapped: (pending roadmap)
+- v1 requirements: 29 total
+- Mapped to phases: 29 (100%)
+- Unmapped: 0
+
+*Note: the earlier "26 total" count was superseded when the requirements were expanded to the current 29 (DATA 6, CRYS 8, DETL 3, PIPE 5, QRUI 2, DPLY 3, AEST 2).*
 
 ---
 *Requirements defined: 2026-07-04*
-*Last updated: 2026-07-04 after initial definition*
+*Last updated: 2026-07-04 after roadmap creation (traceability populated)*
