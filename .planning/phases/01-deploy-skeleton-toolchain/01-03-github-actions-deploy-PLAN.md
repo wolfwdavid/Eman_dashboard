@@ -206,7 +206,7 @@ Sibling `../diversityincludesdisability_three/.github/workflows/deploy.yml` runs
     1. Open https://wolfwdavid.github.io/Eman_dashboard/ in a browser.
     2. Confirm you see a STYLED dark-premium page (radial dark gradient background) with the Orbitron "Eman_dashboard" title and the DID grant command center subtitle — NOT a blank/white/unstyled page.
     3. Open DevTools → Network tab, hard-refresh (Ctrl+Shift+R), and confirm ZERO 404s — every `_app/…` asset request is 200 and its URL includes the `/Eman_dashboard/` segment.
-    4. (Optional) Visit a deep path like https://wolfwdavid.github.io/Eman_dashboard/nope/ and confirm it falls back gracefully (404.html/SPA) rather than GitHub's raw 404.
+    4. (Required — ROADMAP success criterion) Visit a deep path like https://wolfwdavid.github.io/Eman_dashboard/nope/ and confirm it falls back via the app's own 404.html (styled, with the Eman_dashboard title) rather than GitHub's raw generic 404 page. This proves the SPA `fallback: '404.html'` works on the real host.
     If the Pages source was not auto-set by `gh api`, set it now: repo Settings → Pages → Source = GitHub Actions, then re-run the workflow (Actions tab → Deploy → Re-run) and re-check.
   </how-to-verify>
   <resume-signal>Type "approved" if the styled site loads with no 404s, or describe what you see (blank page / 404s / wrong assets).</resume-signal>

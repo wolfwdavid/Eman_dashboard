@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grant Tracker &mdash; Diversity Includes Disability</title>
+<style>
+  /* DID palette: blue + orange chosen for low-vision / visual-impairment friendliness.
+     High contrast, large type, clear focus states throughout. */
+  :root{
+    --blue:#0B5FA5; --blue-dark:#08436f; --orange:#C75200; --orange-soft:#FFF1E6;
+    --ink:#16202b; --muted:#4a5763; --line:#cdd6df; --bg:#f6f8fa; --card:#ffffff;
+    --green:#1b6e3c; --green-soft:#e4f3ea; --slate:#445; --slate-soft:#eef1f4;
+    --red:#9a2622; --red-soft:#fbe9e8; --teal:#0a6e6e; --teal-soft:#e2f2f2;
+    --focus:#C75200;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  a{color:var(--blue-dark); font-weight:600}
+  a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, th button:focus-visible{
+    outline:3px solid var(--focus); outline-offset:2px; border-radius:4px;
+  }
+  .skip{position:absolute;left:-999px;top:auto}
+  .skip:focus{left:12px;top:12px;z-index:50;background:#fff;padding:10px 14px;border:2px solid var(--blue);border-radius:6px}
+  header{background:linear-gradient(100deg,var(--blue),var(--blue-dark));color:#fff;padding:28px 20px}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+  header h1{margin:0 0 4px;font-size:1.7rem;letter-spacing:.2px}
+  header p{margin:0;color:#dce8f4;font-size:1rem}
+  .accent{height:6px;background:var(--orange)}
+
+  .stats{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--blue);
+        border-radius:10px;padding:12px 16px;min-width:150px;flex:1}
+  .stat b{display:block;font-size:1.6rem;line-height:1.1}
+  .stat span{color:var(--muted);font-size:.86rem;text-transform:uppercase;letter-spacing:.4px}
+  .stat.warn{border-left-color:var(--orange)}
+  .stat.good{border-left-color:var(--green)}
+
+  .note{background:var(--orange-soft);border:1px solid #f3c9a8;border-radius:10px;
+        padding:14px 16px;margin:16px 0;font-size:.95rem}
+  .note b{color:var(--orange)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;
+            background:var(--card);border:1px solid var(--line);border-radius:12px;
+            padding:16px;margin:18px 0 10px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .field input,.field select{font:inherit;padding:9px 11px;border:2px solid var(--line);
+            border-radius:8px;background:#fff;min-width:170px}
+  .field input{min-width:240px}
+  #search{min-width:280px}
+  .btn{font:inherit;font-weight:700;padding:9px 14px;border:2px solid var(--blue);
+       background:#fff;color:var(--blue-dark);border-radius:8px;cursor:pointer}
+  .btn:hover{background:#eef5fb}
+  #count{margin:6px 2px 14px;font-weight:700;color:var(--muted)}
+
+  .tablewrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  table{border-collapse:collapse;width:100%;min-width:920px}
+  caption{text-align:left;padding:14px 16px 0;font-weight:700;color:var(--muted)}
+  th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  thead th{position:sticky;top:0;background:var(--slate-soft);z-index:2;border-bottom:2px solid var(--line)}
+  th button{font:inherit;font-weight:800;color:var(--ink);background:none;border:0;cursor:pointer;
+            padding:0;display:inline-flex;gap:6px;align-items:center;width:100%}
+  th button .arrow{color:var(--orange);font-size:.85em;opacity:.35}
+  th[aria-sort="ascending"] .arrow,th[aria-sort="descending"] .arrow{opacity:1}
+  tbody tr:hover{background:#f3f7fb}
+  td.funder{font-weight:700;min-width:230px}
+  td.amount{white-space:nowrap;font-variant-numeric:tabular-nums}
+  td.action{color:var(--muted);font-size:.92rem;min-width:200px}
+  .deadline-soon{color:var(--red);font-weight:800}
+
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:800;white-space:nowrap}
+  .s-inprogress{background:var(--orange-soft);color:var(--orange)}
+  .s-applied{background:#e7f0fb;color:var(--blue-dark)}
+  .s-toresearch{background:var(--slate-soft);color:var(--slate)}
+  .s-recurring{background:var(--teal-soft);color:var(--teal)}
+  .s-noteligible,.s-declined{background:var(--red-soft);color:var(--red)}
+  .s-activefunder{background:var(--green-soft);color:var(--green)}
+  .c-yes{color:var(--red);font-weight:800}
+  .c-yesfs{color:var(--orange);font-weight:700}
+  .c-no{color:var(--green);font-weight:800}
+  .c-unknown{color:var(--muted)}
+
+  h2.section{margin:34px 0 10px;font-size:1.25rem;border-left:5px solid var(--orange);padding-left:12px}
+  .resources{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px}
+  .res{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .res b{display:block}
+  .res small{color:var(--muted)}
+  footer{color:var(--muted);font-size:.85rem;padding:24px 0 40px;text-align:center}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-weight:600}
+  @media print{
+    .controls,.skip,header .accent{display:none}
+    body{background:#fff;font-size:12px}
+    thead th{position:static}
+    .tablewrap{overflow:visible;border:0}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#table">Skip to grant table</a>
+<header>
+  <div class="wrap">
+    <h1>Grant Tracker</h1>
+    <p>Diversity Includes Disability &mdash; funding pipeline &amp; status</p>
+  </div>
+</header>
+<div class="accent" role="presentation"></div>
+
+<main class="wrap" id="main">
+
+  <section aria-label="Summary" class="stats" id="stats"></section>
+
+  <p class="note"><b>Eligibility note:</b> DID is an S-corp LLC with <b>501(c)(3) status pending</b>.
+     Funders marked <span class="c-yes">Yes</span> need that status now; those marked
+     <span class="c-yesfs">Yes&nbsp;&mdash;&nbsp;or&nbsp;fiscal&nbsp;sponsor</span> can be reached today via a
+     fiscal sponsor (e.g.&nbsp;the Fund for the City of NY / NY Community Trust pathway).
+     Federal sources are intentionally excluded per DID's strategy.</p>
+
+  <section class="controls" aria-label="Filter and search">
+    <div class="field">
+      <label for="search">Search</label>
+      <input id="search" type="search" placeholder="funder, amount, keyword&hellip;" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="fStatus">Status</label>
+      <select id="fStatus"><option value="">All statuses</option></select>
+    </div>
+    <div class="field">
+      <label for="f501">501(c)(3) required</label>
+      <select id="f501"><option value="">Any</option></select>
+    </div>
+    <div class="field">
+      <button type="button" class="btn" id="reset">Reset</button>
+    </div>
+  </section>
+
+  <p id="count" role="status" aria-live="polite"></p>
+
+  <div class="tablewrap">
+    <table id="table" aria-describedby="count">
+      <caption>Click a column header to sort. Use the controls above to filter.</caption>
+      <thead>
+        <tr>
+          <th scope="col" aria-sort="none"><button type="button" data-k="funder">Funder / Program <span class="arrow" aria-hidden="true">&#8597;</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" data-k="amount">Amount <span class="arrow" aria-hidden="true">&#8597;</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" data-k="dsort">Deadline <span class="arrow" aria-hidden="true">&#8597;</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" data-k="c501">501(c)(3) <span class="arrow" aria-hidden="true">&#8597;</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" data-k="fit">Fit / Eligibility</button></th>
+          <th scope="col" aria-sort="none"><button type="button" data-k="status">Status <span class="arrow" aria-hidden="true">&#8597;</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" data-k="action">Next action</button></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="empty" hidden>No grants match your filters. <button type="button" class="btn" onclick="document.getElementById('reset').click()">Reset</button></p>
+
+  <h2 class="section">Research databases &amp; tools</h2>
+  <p style="color:var(--muted);margin-top:0">Not grants themselves &mdash; portals and resources for finding more opportunities.</p>
+  <div class="resources" id="resources"></div>
+
+  <footer>
+    Built from the DID working doc &middot; credentials, contacts &amp; logins intentionally excluded.
+    <br>Self-contained &mdash; works offline, no internet or tracking. Editable companion file: <code>grants.csv</code>.
+  </footer>
+</main>
+
+<script>
+const GRANTS = [
+ {funder:"NY Community Trust", amount:"$20,000 (received 2025)", deadline:"Annual relationship", dsort:"2026-01-01", c501:"No", fit:"Current sole funder; accessibility / older-adults program; possible fiscal-sponsor pathway via Fund for the City of NY", status:"Active funder", action:"Send grant success report; explore renewed/expanded funding; pursue fiscal sponsorship", link:"https://www.thenytrust.org"},
+ {funder:"Harry S. Black & Allon Fuller Fund (Bank of America)", amount:"$5k–$20k (avg $10k)", deadline:"2026-06-30", dsort:"2026-06-30", c501:"Yes — or fiscal sponsor", fit:"Strong: funds orgs serving physically disabled adults in NYC; general operating + program funds", status:"In progress", action:"Assemble attachments (budgets, board list, 990, 501c3 letter or fiscal sponsor); apply via BofA portal", link:"https://bofa-gh.foundationsource.com/form"},
+ {funder:"Ford Foundation — JustFilms Documentary Production", amount:"~$50k–$200k", deadline:"2026-09-01", dsort:"2026-09-01", c501:"Yes — or fiscal sponsor", fit:"Strong mission fit; needs artist-driven feature doc (Opera America performance as basis)", status:"To research", action:"Develop film concept; secure fiscal sponsor + filmmaker partner", link:"https://www.fordfoundation.org"},
+ {funder:"Ford Foundation — NYC Good Neighbor Committee", amount:"$100,000+", deadline:"Check 2026 cycle", dsort:"2026-03-01", c501:"Yes — or fiscal sponsor", fit:"Large NYC community awards (awards issued Dec–Feb)", status:"To research", action:"Confirm 2026 cycle open date", link:"https://www.fordfoundation.org/about/about-the-ford-foundation/new-york-city-good-neighbor-committee/"},
+ {funder:"Ben & Jerry's Foundation — Jerry Greenfield Grassroots Organizing", amount:"Up to $30k (avg $20k)", deadline:"2027-02-18 (2026 passed)", dsort:"2027-02-18", c501:"Yes — or fiscal sponsor", fit:"Constituent-led grassroots; budget < $350k; US only; unrestricted operating support", status:"In progress", action:"Prep LOI for next cycle (LOI ~Dec 2026)", link:"https://www.benandjerrysfoundation.org"},
+ {funder:"Third Wave Fund — Disability Frontlines Fund", amount:"$5k–$35k (2-year)", deadline:"Invitation only", dsort:"zzzz", c501:"No", fit:"Excellent: BIPOC disabled, intersectional, grassroots movements", status:"To research", action:"Build relationship; inquire about invitation", link:"https://www.thirdwavefund.org"},
+ {funder:"The Awesome Foundation — Disability Chapter", amount:"$1,000", deadline:"Rolling (monthly)", dsort:"zzz1", c501:"No", fit:"Honors Alice Wong; fast microgrant; model DID donation page after it", status:"Recurring", action:"Submit a project pitch", link:"https://www.awesomefoundation.org"},
+ {funder:"Matriarch Digital Media — Our Greatness Grant", amount:"Micro (TBD)", deadline:"Rolling (monthly)", dsort:"zzz1", c501:"No", fit:"Independent Women-of-Color podcasters", status:"Recurring", action:"Apply for podcast support", link:"https://www.matriarchdigitalmedia.com"},
+ {funder:"Giving Joy Grants", amount:"$500 (micro)", deadline:"Cycle open (2026)", dsort:"zzz2", c501:"No", fit:"General microgrant", status:"To research", action:"Submit application", link:"https://givingjoygrants.org"},
+ {funder:"NYC Office for Prevention of Hate Crimes — Community Project / Youth Ambassador", amount:"Up to $10k; $1k/youth project", deadline:"Opens ~Oct 31–Nov 30", dsort:"2026-10-31", c501:"No", fit:"Disability + anti-hate; active partnership; HEARTworks art contest referral ($500/$300/$200 youth prizes)", status:"In progress", action:"Follow up email; HEARTworks youth referrals; finalize partnership", link:"https://www.nyc.gov/site/stophate"},
+ {funder:"NYC Commission on Human Rights — Community Project Grants", amount:"Up to $10k", deadline:"Opens ~Oct 2026", dsort:"2026-10-31", c501:"No", fit:"Ages 14+; cannot combine with PATH Forward initiative", status:"To research", action:"Apply in fall cycle", link:"https://www.nyc.gov/site/cchr"},
+ {funder:"Just Thrive (Justworks x The Well Work)", amount:"$2k–$6k", deadline:"Ongoing (recheck Mar 2026)", dsort:"zzz2", c501:"No", fit:"Requires Justworks PEO customer + 2+ W-2 employees; 50%+ owned by historically excluded group", status:"Not eligible (yet)", action:"Revisit after hiring W-2 staff + joining Justworks", link:"https://www.justworks.com"},
+ {funder:"Brava Thrive Grant", amount:"TBD (incl. AI access)", deadline:"Reapply Jan 2026", dsort:"2026-01-15", c501:"Unknown", fit:"Submitted; received 14-day AI access; invited to reapply", status:"Applied", action:"Reapply in 2026 window", link:"https://www.brava.org"},
+ {funder:"Hey Helen Grant", amount:"$10,000", deadline:"2025-12-30 (passed)", dsort:"2025-12-30", c501:"No", fit:"Women founders; unrestricted; $15 admin fee", status:"Declined", action:"—", link:"https://www.heyhelen.com"},
+ {funder:"Echoing Green Fellowship", amount:"Fellowship support", deadline:"Annual", dsort:"zzz3", c501:"No", fit:"Applied 3× unsuccessfully; very detailed application", status:"To research", action:"Research requirements before a 4th attempt", link:"https://echoinggreen.org"},
+ {funder:"TGR Foundation", amount:"TBD", deadline:"TBD", dsort:"zzz4", c501:"Unknown", fit:"Education focus", status:"To research", action:"Review funder 990 + guidelines", link:"https://tgrfoundation.org"},
+ {funder:"Tisch Art Fund", amount:"TBD", deadline:"TBD", dsort:"zzz4", c501:"Unknown", fit:"Arts funding", status:"To research", action:"Research guidelines", link:"https://tisch.nyu.edu"},
+ {funder:"W.K. Kellogg Foundation", amount:"TBD", deadline:"Rolling", dsort:"zzz3", c501:"Unknown", fit:"Racial equity; children & families", status:"To research", action:"Review how-to-apply", link:"https://www.wkkf.org/grantseekers/"},
+ {funder:"Yield Giving (MacKenzie Scott)", amount:"Large", deadline:"Open calls", dsort:"zzz3", c501:"Unknown", fit:"NY / Northeast focus available", status:"To research", action:"Watch for open call", link:"https://yieldgiving.com"},
+ {funder:"Bank of America Charitable Foundation", amount:"TBD", deadline:"TBD", dsort:"zzz4", c501:"Likely yes", fit:"Community impact / economic mobility", status:"To research", action:"Review funding areas", link:"https://about.bankofamerica.com"},
+ {funder:"Wells Fargo (Versaic)", amount:"TBD", deadline:"TBD", dsort:"zzz4", c501:"Likely yes", fit:"Corporate giving portal", status:"To research", action:"Check eligibility", link:"https://wellsfargo.versaic.com"},
+ {funder:"The CEK Foundation", amount:"TBD", deadline:"TBD", dsort:"zzz4", c501:"Unknown", fit:"—", status:"To research", action:"Review approach", link:"https://www.thecekfoundation.org"},
+ {funder:"Milbank Foundation", amount:"TBD", deadline:"TBD", dsort:"zzz4", c501:"Unknown", fit:"Disability-relevant giving", status:"To research", action:"Review grant guidelines", link:"https://milbankfoundation.net/grant-guidelines/"},
+ {funder:"Borealis Philanthropy — DIF Joy Grants", amount:"TBD", deadline:"2025 cycle (recheck)", dsort:"zzz3", c501:"No", fit:"Disability Inclusion Fund (DIF); intermediary funder", status:"To research", action:"Check 2026 Joy grants cycle", link:"https://borealisphilanthropy.org"},
+ {funder:"Stavros Niarchos Foundation (SNF)", amount:"TBD", deadline:"Rolling", dsort:"zzz3", c501:"Likely yes", fit:"Large international foundation", status:"To research", action:"Run foundation search", link:"https://www.snf.org"},
+ {funder:"TD Bank — Funding Opportunities", amount:"TBD", deadline:"—", dsort:"zzz5", c501:"Yes", fit:"501(c)(3) designation required", status:"Not eligible (yet)", action:"Revisit after 501(c)(3)", link:"https://www.td.com/us/en/about-us/funding-opportunities"},
+ {funder:"Truist Foundation", amount:"TBD", deadline:"—", dsort:"zzz5", c501:"Unknown", fit:"Wants programs that grow small businesses / financial independence — poor fit", status:"Not eligible", action:"—", link:"https://www.truistfoundation.org"},
+ {funder:"37 Angels", amount:"Equity investment", deadline:"Rolling", dsort:"zzz5", c501:"No", fit:"Women founders — angel INVESTMENT, not a grant", status:"To research", action:"Note: equity, not grant funding", link:"https://www.37angels.com/female"}
+];
+
+const RESOURCES = [
+ {name:"Inside Philanthropy — GrantFinder", note:"Membership database of funders & grants", link:"https://www.insidephilanthropy.com"},
+ {name:"New York Grant Watch — Disabilities", note:"NY disability grants listings", link:"https://newyork.grantwatch.com/cat/7/disabilities-grants.html"},
+ {name:"Instrumentl", note:"NY nonprofits serving disabled — grant search", link:"https://www.instrumentl.com"},
+ {name:"NYC Grant Portal", note:"NYC disability nonprofit grants", link:"https://new-york-city.thegrantportal.com/grants-for-nonprofits/disabilities"},
+ {name:"Candid / Philanthropy News Digest", note:"Newsletter — funding alerts (streamline subscriptions)", link:"https://philanthropynewsdigest.org"},
+ {name:"Black & Brown Podcast Collective", note:"Podcast networking + grant opportunities", link:"https://www.bbpodcollective.com"},
+ {name:"The Podcast Host — Grants", note:"Podcasting grants list (US/UK)", link:"https://www.thepodcasthost.com/business-of-podcasting/podcasting-grants-uk-usa/"},
+ {name:"Lipav Writing School", note:"Grant-writing training (via Linda Peavy)", link:"https://lipavwritingschool.thinkific.com"},
+ {name:"SKIP (helloskip.com)", note:"Small-business grants resource — needs a manager", link:"https://www.helloskip.com"},
+ {name:"Borealis Philanthropy", note:"Disability Inclusion Fund intermediary", link:"https://borealisphilanthropy.org"},
+ {name:"Federal sources (AVOID)", note:"sam.gov / grants.gov — excluded per DID strategy", link:"https://www.grants.gov"}
+];
+
+const statusClass = s => "s-"+s.toLowerCase().replace(/[^a-z]/g,"");
+const c501Class = v => {
+  const t=v.toLowerCase();
+  if(t.startsWith("yes —")||t.startsWith("yes -")) return "c-yesfs";
+  if(t==="yes") return "c-yes";
+  if(t==="no") return "c-no";
+  return "c-unknown";
+};
+const todayISO = "2026-06-29";
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+const rowsEl=document.getElementById('rows');
+const countEl=document.getElementById('count');
+const emptyEl=document.getElementById('empty');
+let sortKey=null, sortDir=1;
+
+function render(){
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  const fs=document.getElementById('fStatus').value;
+  const f5=document.getElementById('f501').value;
+  let data=GRANTS.filter(g=>{
+    if(fs && g.status!==fs) return false;
+    if(f5 && g.c501!==f5) return false;
+    if(q){
+      const hay=(g.funder+" "+g.amount+" "+g.deadline+" "+g.fit+" "+g.status+" "+g.action).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if(sortKey){
+    data.sort((a,b)=>{
+      let x=(a[sortKey]||"").toString().toLowerCase(), y=(b[sortKey]||"").toString().toLowerCase();
+      return x<y?-1*sortDir : x>y?1*sortDir : 0;
+    });
+  }
+  rowsEl.innerHTML = data.map(g=>{
+    const soon = /^\d{4}-\d{2}-\d{2}$/.test(g.dsort) && g.dsort>=todayISO && g.dsort<="2026-09-30";
+    const dl = (g.deadline.includes("passed")||g.deadline==="—")
+      ? `<span style="color:var(--muted)">${esc(g.deadline)}</span>`
+      : (soon? `<span class="deadline-soon">${esc(g.deadline)}</span>` : esc(g.deadline));
+    return `<tr>
+      <td class="funder"><a href="${g.link}" target="_blank" rel="noopener">${esc(g.funder)}</a></td>
+      <td class="amount">${esc(g.amount)}</td>
+      <td>${dl}</td>
+      <td><span class="${c501Class(g.c501)}">${esc(g.c501)}</span></td>
+      <td>${esc(g.fit)}</td>
+      <td><span class="pill ${statusClass(g.status)}">${esc(g.status)}</span></td>
+      <td class="action">${esc(g.action)}</td>
+    </tr>`;
+  }).join("");
+  countEl.textContent = `Showing ${data.length} of ${GRANTS.length} opportunities`;
+  emptyEl.hidden = data.length>0;
+}
+
+function buildStats(){
+  const by=s=>GRANTS.filter(g=>g.status===s).length;
+  const actionable=GRANTS.filter(g=>["In progress","To research","Recurring","Applied","Active funder"].includes(g.status) && g.c501!=="Yes").length;
+  const cards=[
+    {n:GRANTS.length, l:"Total opportunities", c:""},
+    {n:by("In progress"), l:"In progress", c:"warn"},
+    {n:by("To research"), l:"To research", c:""},
+    {n:actionable, l:"Actionable now*", c:"good"},
+    {n:by("Not eligible (yet)")+by("Not eligible"), l:"Blocked / not eligible", c:"warn"}
+  ];
+  document.getElementById('stats').innerHTML = cards.map(c=>
+    `<div class="stat ${c.c}"><b>${c.n}</b><span>${c.l}</span></div>`).join("");
+}
+
+function buildFilters(){
+  const statuses=[...new Set(GRANTS.map(g=>g.status))];
+  const fStatus=document.getElementById('fStatus');
+  statuses.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;fStatus.appendChild(o);});
+  const c5=[...new Set(GRANTS.map(g=>g.c501))];
+  const f501=document.getElementById('f501');
+  c5.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;f501.appendChild(o);});
+}
+
+function buildResources(){
+  document.getElementById('resources').innerHTML = RESOURCES.map(r=>
+    `<div class="res"><b><a href="${r.link}" target="_blank" rel="noopener">${esc(r.name)}</a></b><small>${esc(r.note)}</small></div>`).join("");
+}
+
+// sorting via header buttons
+document.querySelectorAll('th button[data-k]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const k=btn.dataset.k, th=btn.closest('th');
+    if(sortKey===k){ sortDir*=-1; } else { sortKey=k; sortDir=1; }
+    document.querySelectorAll('thead th').forEach(h=>h.setAttribute('aria-sort','none'));
+    th.setAttribute('aria-sort', sortDir===1?'ascending':'descending');
+    render();
+  });
+});
+['search','fStatus','f501'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+document.getElementById('reset').addEventListener('click',()=>{
+  document.getElementById('search').value='';
+  document.getElementById('fStatus').value='';
+  document.getElementById('f501').value='';
+  sortKey=null; sortDir=1;
+  document.querySelectorAll('thead th').forEach(h=>h.setAttribute('aria-sort','none'));
+  render();
+});
+
+buildStats(); buildFilters(); buildResources(); render();
+</script>
+</body>
+</html>

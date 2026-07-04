@@ -1,0 +1,12 @@
+# Pinned loosely at minor; Phase-1 verification will lock exact versions.
+anthropic>=0.49                       # Claude SDK (Opus 4.8 + Haiku 4.5, tool use)
+python-telegram-bot[job-queue]>=22.0  # Telegram bot; [job-queue] needed for scheduled sends
+notion-client>=2.2                    # Notion REST SDK (2025-09-03 data-source model)
+google-api-python-client>=2.130  # Google Docs + Drive
+google-auth>=2.30          # service-account auth
+requests>=2.32             # grants.gov + foundation scrapers
+beautifulsoup4>=4.12       # HTML scraping of foundation pages
+feedparser>=6.0            # RSS grant/news feeds
+python-dotenv>=1.0         # .env loading
+APScheduler>=3.10          # scheduling fallback / cron-in-process
+pydantic>=2.7              # config + data models
