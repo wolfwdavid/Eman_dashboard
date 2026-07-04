@@ -21,3 +21,7 @@ __pycache__/
 data/local/
 *.sqlite
 *.db
+
+# Dashboard build output (regenerate with `python -m did_agent.publish`)
+dashboard/grants-dashboard.html
+dashboard/data/

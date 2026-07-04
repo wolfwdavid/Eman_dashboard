@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DID Grants — Command Center</title>
+<style>
+  :root {
+    --blue: #14467a; --blue-2: #1f6fb2; --orange: #e8721c; --bg: #f5f7fa;
+    --card: #ffffff; --ink: #10233a; --muted: #5b6b7d; --line: #dde5ee;
+    --open: #1a7f4b; --fiscal: #b06a00; --after: #8a1f1f; --unknown: #55606c; --soon: #c0281f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d1520; --card:#152233; --ink:#e8eef5; --muted:#9fb0c2; --line:#26364a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--blue); color:#fff; padding:22px 20px; }
+  header h1 { margin:0; font-size:1.4rem; }
+  header .meta { opacity:.85; font-size:.85rem; margin-top:4px; }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:22px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .stat .n { font-size:1.7rem; font-weight:700; }
+  .stat .l { font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  h2 { font-size:1.05rem; border-bottom:2px solid var(--orange); padding-bottom:6px; margin:26px 0 12px; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .filters button { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:5px 12px; cursor:pointer; font-size:.85rem; }
+  .filters button.on { background:var(--blue-2); color:#fff; border-color:var(--blue-2); }
+  .tablewrap { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  table { width:100%; border-collapse:collapse; min-width:640px; }
+  th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:.9rem; vertical-align:top; }
+  th { background:transparent; color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.03em; cursor:pointer; }
+  tr:last-child td { border-bottom:none; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:12px; font-size:.72rem; font-weight:600; color:#fff; white-space:nowrap; }
+  .b-OPEN_NOW{background:var(--open);} .b-VIA_FISCAL_SPONSOR{background:var(--fiscal);}
+  .b-AFTER_501C3{background:var(--after);} .b-UNKNOWN{background:var(--unknown);} .b-NOT_ELIGIBLE{background:#333;}
+  .soon { color:var(--soon); font-weight:700; }
+  .score { font-weight:700; }
+  a { color:var(--blue-2); }
+  .news li { margin-bottom:8px; }
+  .news .src { color:var(--muted); font-size:.8rem; }
+  footer { text-align:center; color:var(--muted); font-size:.8rem; padding:24px; }
+  .empty { color:var(--muted); padding:16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Diversity Includes Disability — Grants Command Center</h1>
+  <div class="meta" id="meta"></div>
+</header>
+<main>
+  <section class="stats" id="stats"></section>
+
+  <h2>Deadlines within 30 days</h2>
+  <div class="tablewrap"><table id="soon"><tbody></tbody></table></div>
+
+  <h2>Grant pipeline</h2>
+  <div class="filters" id="filters"></div>
+  <div class="tablewrap"><table id="grid">
+    <thead><tr><th data-k="funder">Funder / Program</th><th data-k="bucket">Eligibility</th>
+    <th data-k="amount">Amount</th><th data-k="deadline">Deadline</th><th data-k="score">Score</th>
+    <th data-k="status">Status</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Grant &amp; disability news</h2>
+  <ul class="news" id="news"></ul>
+</main>
+<footer id="foot"></footer>
+
+<script>
+const DATA = __DATA__;
+const fmtUSD = n => n==null ? "" : "$"+Number(n).toLocaleString();
+const daysUntil = iso => { if(!iso) return null; const d=(new Date(iso+"T00:00:00")-new Date())/86400000; return Math.ceil(d); };
+const BUCKETS = ["OPEN_NOW","VIA_FISCAL_SPONSOR","AFTER_501C3","UNKNOWN"];
+const BLABEL = {OPEN_NOW:"Open now",VIA_FISCAL_SPONSOR:"Via fiscal sponsor",AFTER_501C3:"After 501(c)(3)",UNKNOWN:"Unknown",NOT_ELIGIBLE:"Not eligible"};
+let activeFilter = "ALL";
+let sortKey = "deadline", sortDir = 1;
+
+function pill(b){ return `<span class="pill b-${b}">${BLABEL[b]||b}</span>`; }
+
+function renderStats(){
+  const g = DATA.grants;
+  const total = g.filter(x=>!["NOT_ELIGIBLE","Declined"].includes(x.bucket)).reduce((s,x)=>s+(x.amount||0),0);
+  const byB = Object.fromEntries(BUCKETS.map(b=>[b,g.filter(x=>x.bucket===b).length]));
+  const soon = g.filter(x=>{const d=daysUntil(x.deadline); return d!=null && d>=0 && d<=30;}).length;
+  const cards = [
+    ["Grants tracked", g.length],
+    ["Open now", byB.OPEN_NOW],
+    ["Deadlines ≤30d", soon],
+    ["Pipeline (potential)", fmtUSD(total)],
+  ];
+  document.getElementById("stats").innerHTML = cards.map(([l,n])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+}
+
+function renderSoon(){
+  const rows = DATA.grants.map(x=>({x,d:daysUntil(x.deadline)}))
+    .filter(o=>o.d!=null && o.d>=0 && o.d<=30).sort((a,b)=>a.d-b.d);
+  const tb = document.querySelector("#soon tbody");
+  if(!rows.length){ tb.innerHTML=`<tr><td class="empty">No deadlines in the next 30 days.</td></tr>`; return; }
+  tb.innerHTML = rows.map(({x,d})=>`<tr><td class="soon">${d===0?"DUE TODAY":d+"d"}</td>
+    <td>${x.link?`<a href="${x.link}" target="_blank" rel="noopener">${x.funder}</a>`:x.funder}</td>
+    <td>${pill(x.bucket)}</td><td>${x.deadline||""}</td><td>${fmtUSD(x.amount)}</td></tr>`).join("");
+}
+
+function renderFilters(){
+  const opts = ["ALL",...BUCKETS];
+  document.getElementById("filters").innerHTML = opts.map(b=>
+    `<button data-b="${b}" class="${b===activeFilter?"on":""}">${b==="ALL"?"All":BLABEL[b]}</button>`).join("");
+  document.querySelectorAll("#filters button").forEach(btn=>btn.onclick=()=>{activeFilter=btn.dataset.b; renderFilters(); renderGrid();});
+}
+
+function renderGrid(){
+  let rows = DATA.grants.slice();
+  if(activeFilter!=="ALL") rows = rows.filter(x=>x.bucket===activeFilter);
+  rows.sort((a,b)=>{
+    let va=a[sortKey], vb=b[sortKey];
+    if(sortKey==="amount"||sortKey==="score"){ va=va??-1; vb=vb??-1; return (va-vb)*sortDir; }
+    va=(va||"").toString(); vb=(vb||"").toString(); return va.localeCompare(vb)*sortDir;
+  });
+  const tb = document.querySelector("#grid tbody");
+  tb.innerHTML = rows.map(x=>{
+    const d = daysUntil(x.deadline);
+    const dueClass = (d!=null && d>=0 && d<=7) ? "soon" : "";
+    return `<tr><td>${x.link?`<a href="${x.link}" target="_blank" rel="noopener">${x.funder}</a>`:x.funder}</td>
+      <td>${pill(x.bucket)}</td><td>${x.amount!=null?fmtUSD(x.amount):(x.amount_note||"")}</td>
+      <td class="${dueClass}">${x.deadline||x.deadline_note||""}</td>
+      <td class="score">${x.score!=null?x.score:""}</td><td>${x.status||""}</td></tr>`;
+  }).join("") || `<tr><td class="empty" colspan="6">No grants in this view.</td></tr>`;
+}
+
+function renderNews(){
+  const ul = document.getElementById("news");
+  if(!DATA.news || !DATA.news.length){ ul.innerHTML=`<li class="empty">No news loaded.</li>`; return; }
+  ul.innerHTML = DATA.news.slice(0,15).map(n=>`<li>${n.link?`<a href="${n.link}" target="_blank" rel="noopener">${n.title}</a>`:n.title}<div class="src">${n.source||""}</div></li>`).join("");
+}
+
+document.querySelectorAll("#grid th").forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k; if(k===sortKey) sortDir*=-1; else {sortKey=k; sortDir=1;} renderGrid();
+});
+
+document.getElementById("meta").textContent = `Generated ${DATA.generated_at||""} · ${DATA.grants.length} grants · source: ${DATA.source||"—"}`;
+document.getElementById("foot").textContent = "501(c)(3) pending — eligibility buckets reflect what DID can act on today. Nothing here is auto-submitted.";
+renderStats(); renderSoon(); renderFilters(); renderGrid(); renderNews();
+</script>
+</body>
+</html>

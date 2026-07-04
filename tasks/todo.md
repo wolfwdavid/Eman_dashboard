@@ -48,9 +48,13 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [x] Offline-verified cadence (due-today/3d fire; submitted/outside/past-due/undated excluded) + digest ordering
 - [ ] LIVE reminders/digest — BLOCKED on Telegram token + a known chat id (Eman `/start`s once) + Notion set up
 
-## Phase 7 — Grants + News dashboard
-- [ ] SvelteKit → GH Pages reading agent-published grants/news data
-- [ ] ui-ux-pro-max UI-SPEC (grants pipeline + news feed)
+## Phase 7 — Grants + News dashboard  ✅ VERIFIED
+- [x] Self-contained HTML dashboard (`dashboard/template.html`) — chosen over a SvelteKit route to avoid
+      colliding with the concurrent dashboard-v1 build; data embedded (no server/CORS), double-clickable
+- [x] `publish.py`: Notion-or-CSV + RSS news → renders `dashboard/grants-dashboard.html` (build output, gitignored)
+- [x] Views: stat cards, deadlines ≤30d (DUE TODAY highlight), filterable/sortable pipeline by eligibility bucket, news feed
+- [x] DID palette + dark-mode + responsive + `</script>`-safe; verified: 28 grants + 10 news embedded, JSON valid
+- [~] ui-ux-pro-max: DID brand + a11y-minded design applied directly; a formal ui-ux-pro-max polish pass is optional
 
 ## Review
 
@@ -117,3 +121,15 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
   excluded); digest orders actionable by score and includes news; full package imports with all 6 tools live.
 - **Design:** proactive sends via JobQueue (in-process, kept alive by supervisor.bat); `schedule` tool gives
   the same views on demand ("what's due?"). Proactive sends need a known chat id — Eman `/start`s once.
+
+### Phase 7
+- **Built:** `dashboard/template.html` (self-contained: stat cards, ≤30d deadlines, filter/sort pipeline by
+  eligibility bucket, news feed; DID palette, dark-mode, responsive) + `publish.py` (Notion-or-CSV + RSS →
+  embeds data → `grants-dashboard.html`, a gitignored build output regenerated on demand).
+- **Verified LIVE:** generated a 20KB dashboard from the real 28 grants + 10 live news items; embedded JSON
+  re-parsed valid; buckets faithful; `</script>`-safe. Double-click to open — no server needed.
+- **Decision:** self-contained HTML instead of a SvelteKit route — the repo's SvelteKit app is being built
+  concurrently (dashboard v1); this avoids collision and works offline for Eman today.
+
+## Milestone 2 status: all 7 phases BUILT + committed. Remaining = LIVE integration tests (need Eman's
+## Telegram / Anthropic / Notion tokens + optional Google service account). See each phase's blocked item.
