@@ -20,10 +20,12 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [x] Offline-validated on real grants.csv: 28/28 parsed, all selects valid, buckets faithful
 - [ ] LIVE: create DB + seed 28 grants — BLOCKED on `NOTION_TOKEN` + a shared `NOTION_PARENT_PAGE_ID`
 
-## Phase 3 — Grant scraper
-- [ ] `scrape_grants`: grants.gov Search2 API (federal)
-- [ ] Foundation-source crawlers + grant-news feeds
-- [ ] Dedup + normalize (messy Amount/Deadline strings) → write new opps to Notion
+## Phase 3 — Grant scraper  ✅ LIVE-VERIFIED (no-auth sources)
+- [x] `clients/grants_gov.py`: Search2 + fetchOpportunity, applicant-code → eligibility bucket, → Grant
+- [x] `clients/propublica.py`: Nonprofit Explorer funder prospecting (NY 501c3 by keyword)
+- [x] `clients/feeds.py`: RSS digest (feedparser, resilient to dead/403 feeds)
+- [x] `scrape_grants` tool: orchestrates all 3, upserts federal opps to Notion, degrades gracefully
+- [x] Live-tested: real disability grants bucketed (4 OPEN_NOW/1 NOT_ELIGIBLE), 15 ProPublica leads, RSS items
 
 ## Phase 4 — Scoring engine
 - [ ] `score_grant`: Opus scores award likelihood (fit, eligibility, amount, deadline, competition) → 0-100 + rationale
@@ -70,3 +72,15 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - **Fixed during verification:** normalizer missed "Likely yes" (→ now Yes/AFTER_501C3) and let a downstream
   "fiscal sponsor" mention override a leading "No" (→ leading No now wins → OPEN_NOW).
 - **Not yet verifiable by me:** live create-DB + seed (needs Notion token + a page shared with the integration).
+
+### Phase 3
+- **Built:** `clients/grants_gov.py` (Search2 + fetchOpportunity, applicant-code→bucket, Grant conversion),
+  `clients/propublica.py` (funder prospecting), `clients/feeds.py` (RSS digest), `scrape_grants` tool
+  (orchestrates all three; federal opps upserted to Notion; foundations/news surfaced as leads).
+- **Verified LIVE** (all sources no-auth): probed real API shapes first, then ran the pipeline — grants.gov
+  returned 320 disability opps, top results bucketed correctly (7/8 OPEN_NOW via applicant code 13),
+  amounts/deadlines parsed; ProPublica returned 15 real NY disability funders w/ EINs; RSS returned live news.
+- **Fixed during live verification:** grants.gov returns the literal string `'none'` for missing award
+  amounts — added a safe numeric coercer (`_num`) so `float('none')` no longer crashes the pipeline.
+- **Note:** federal opp titles are prefixed `[grants.gov]` as the funder key so they dedupe cleanly and
+  don't collide with the CSV-seeded foundation rows.
