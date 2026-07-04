@@ -13,9 +13,12 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [x] `supervisor.bat` for Task Scheduler; [ ] register the Task Scheduler task on Eman's machine (user step)
 
 ## Phase 2 — Notion sync (source of truth)
-- [ ] Notion API client + grant schema mapping (Funder/Amount/Deadline/501c3/Status/Fit/Link/Next Action)
-- [ ] Seed Notion DB from `../Rimawi/grants.csv` (28 opps + 11 tools)
-- [ ] `notion_sync` custom tool (read/write/upsert), 501c3 eligibility tagging
+- [x] Notion data-source client (`notion_store.py`, 2025-09-03 API) + 15-property schema
+- [x] Grant model + messy-string normalizers (amount/deadline/501c3/bucket) with raw-text preserved
+- [x] `bootstrap.py` create-DB + seed-from-CSV CLI (idempotent upsert by funder)
+- [x] `notion_sync` custom tool (list/get/upsert), read-modify-write so partial edits don't clobber
+- [x] Offline-validated on real grants.csv: 28/28 parsed, all selects valid, buckets faithful
+- [ ] LIVE: create DB + seed 28 grants — BLOCKED on `NOTION_TOKEN` + a shared `NOTION_PARENT_PAGE_ID`
 
 ## Phase 3 — Grant scraper
 - [ ] `scrape_grants`: grants.gov Search2 API (federal)
@@ -54,3 +57,16 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
   registration (Eman's machine). These are the remaining Phase 1 acceptance items.
 - **Lesson:** research-first fan-out caught the Notion API v2025-09-03 data-source breaking change and the
   Windows `stop_signals=None` requirement before they became runtime bugs — kept as the pattern for P2-P7.
+
+### Phase 2
+- **Built:** `models.py` (Grant + amount/deadline/501c3 normalizers, Notion property (de)serialization,
+  CSV loader), `notion_store.py` (data-source create/query/upsert, `iterate_paginated_api`, rate-limit
+  sleep), `bootstrap.py` (create + seed CLI), `notion_sync` tool (list/get/upsert, merge-then-write).
+- **Config:** added `NOTION_PARENT_PAGE_ID` + `NOTION_GRANTS_DATA_SOURCE_ID`; dropped `NOTION_GRANTS_DB_ID`.
+- **Verified offline** against real `data/grants.csv`: 28/28 rows parse; amount "avg"/range logic correct
+  ($10k avg, $200k range); 5/28 deadlines are real ISO dates (rest free-text, raw kept); every select value
+  is within its allowed option set (no Notion junk-option auto-create); bucket split 12 OPEN_NOW /
+  4 VIA_FISCAL_SPONSOR / 4 AFTER_501C3 / 8 UNKNOWN.
+- **Fixed during verification:** normalizer missed "Likely yes" (→ now Yes/AFTER_501C3) and let a downstream
+  "fiscal sponsor" mention override a leading "No" (→ leading No now wins → OPEN_NOW).
+- **Not yet verifiable by me:** live create-DB + seed (needs Notion token + a page shared with the integration).

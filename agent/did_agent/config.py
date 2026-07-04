@@ -35,7 +35,8 @@ class Settings:
     telegram_bot_token: str
     telegram_allowed_chat_ids: list[int]
     notion_token: str
-    notion_grants_db_id: str
+    notion_grants_data_source_id: str  # resolved once via bootstrap; cache in .env
+    notion_parent_page_id: str         # page (shared with the integration) to create the DB under
     google_service_account_json: str
     google_template_doc_id: str
     timezone: str = "America/New_York"
@@ -48,11 +49,12 @@ class Settings:
 
     def missing(self) -> list[str]:
         """Return names of required secrets that are empty (for a friendly startup error)."""
+        # Required to *start* the bot. NOTION_GRANTS_DATA_SOURCE_ID is not here: it's filled by
+        # `bootstrap create` and only needed when a Notion tool actually runs.
         required = {
             "ANTHROPIC_API_KEY": self.anthropic_api_key,
             "TELEGRAM_BOT_TOKEN": self.telegram_bot_token,
             "NOTION_TOKEN": self.notion_token,
-            "NOTION_GRANTS_DB_ID": self.notion_grants_db_id,
         }
         return [k for k, v in required.items() if not v]
 
@@ -63,7 +65,8 @@ def load_settings() -> Settings:
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
         telegram_allowed_chat_ids=_csv_ints(os.getenv("TELEGRAM_ALLOWED_CHAT_IDS")),
         notion_token=os.getenv("NOTION_TOKEN", ""),
-        notion_grants_db_id=os.getenv("NOTION_GRANTS_DB_ID", ""),
+        notion_grants_data_source_id=os.getenv("NOTION_GRANTS_DATA_SOURCE_ID", ""),
+        notion_parent_page_id=os.getenv("NOTION_PARENT_PAGE_ID", ""),
         google_service_account_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
         google_template_doc_id=os.getenv("GOOGLE_TEMPLATE_DOC_ID", ""),
         timezone=os.getenv("TIMEZONE", "America/New_York"),
