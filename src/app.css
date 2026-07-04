@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Self-hosted variable fonts (no external CDN) */
+@import "@fontsource-variable/orbitron";
+@import "@fontsource-variable/inter";
+
+@theme {
+	--font-display: "Orbitron Variable", ui-sans-serif, system-ui, sans-serif;
+	--font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+	/* Dark premium palette (starter tokens — refine per ui-ux-pro-max UI-SPEC) */
+	--color-void: #05060a; /* page background */
+	--color-panel: #0d1018; /* glass panel base */
+	--color-glow: #38e8ff; /* crystal cyan accent */
+	--color-gold: #ffcf6b; /* active/secured accent */
+}
+
+/* Base premium dark background so the deployed URL visibly proves CSS loaded */
+html,
+body {
+	background: radial-gradient(ellipse at top, #0b1020 0%, var(--color-void) 60%);
+	color: #e8ecf4;
+	font-family: var(--font-body);
+	min-height: 100%;
+}
+
+h1,
+h2,
+.display {
+	font-family: var(--font-display);
+}
