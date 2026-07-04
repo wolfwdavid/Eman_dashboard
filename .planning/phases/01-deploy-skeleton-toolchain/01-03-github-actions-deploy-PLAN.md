@@ -209,7 +209,7 @@ Sibling `../diversityincludesdisability_three/.github/workflows/deploy.yml` runs
     4. (Required — ROADMAP success criterion) Visit a deep path like https://wolfwdavid.github.io/Eman_dashboard/nope/ and confirm it falls back via the app's own 404.html (styled, with the Eman_dashboard title) rather than GitHub's raw generic 404 page. This proves the SPA `fallback: '404.html'` works on the real host.
     If the Pages source was not auto-set by `gh api`, set it now: repo Settings → Pages → Source = GitHub Actions, then re-run the workflow (Actions tab → Deploy → Re-run) and re-check.
   </how-to-verify>
-  <resume-signal>Type "approved" if the styled site loads with no 404s, or describe what you see (blank page / 404s / wrong assets).</resume-signal>
+  <resume-signal>Type "approved" if the styled site loads with no 404s AND the deep-link fallback (step 4) shows the app's styled 404 page, or describe what you see (blank page / 404s / wrong assets / raw GitHub 404).</resume-signal>
   <verify>
     <automated>curl -fsSL https://wolfwdavid.github.io/Eman_dashboard/ | grep -q Eman_dashboard</automated>
   </verify>
