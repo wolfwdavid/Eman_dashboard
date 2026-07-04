@@ -39,6 +39,7 @@ class Settings:
     notion_parent_page_id: str         # page (shared with the integration) to create the DB under
     google_service_account_json: str
     google_template_doc_id: str
+    google_output_folder_id: str = ""
     timezone: str = "America/New_York"
     reminder_lead_days: int = 7
 
@@ -69,6 +70,7 @@ def load_settings() -> Settings:
         notion_parent_page_id=os.getenv("NOTION_PARENT_PAGE_ID", ""),
         google_service_account_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
         google_template_doc_id=os.getenv("GOOGLE_TEMPLATE_DOC_ID", ""),
+        google_output_folder_id=os.getenv("GOOGLE_OUTPUT_FOLDER_ID", ""),
         timezone=os.getenv("TIMEZONE", "America/New_York"),
         reminder_lead_days=int(os.getenv("REMINDER_LEAD_DAYS", "7")),
     )

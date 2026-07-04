@@ -35,8 +35,10 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [ ] LIVE Opus score — BLOCKED on `ANTHROPIC_API_KEY`
 
 ## Phase 5 — Application autofill (Google Docs)
-- [ ] Google Docs API service account + template doc
-- [ ] `draft_application`: fill from grant + DID org profile → returns editable Doc link
+- [x] `clients/google_docs.py`: service-account copy (Drive files.copy) + replaceAllText (Docs batchUpdate); deferred imports
+- [x] `draft_application` tool: Opus-drafted project summary + org fields → filled Doc, returns edit URL; never auto-submits
+- [x] Offline-verified: replaceAllText payloads (matchCase, None→"" atomic-safe), unconfigured/missing-funder guards
+- [ ] LIVE draft — BLOCKED on Google service account + a {{placeholder}} template Doc (+ ANTHROPIC_API_KEY for the narrative)
 
 ## Phase 6 — Reminders + scheduling
 - [ ] Deadline reminder logic: T-7 days, daily until filled and/or past due
