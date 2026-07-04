@@ -28,8 +28,11 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [x] Live-tested: real disability grants bucketed (4 OPEN_NOW/1 NOT_ELIGIBLE), 15 ProPublica leads, RSS items
 
 ## Phase 4 — Scoring engine
-- [ ] `score_grant`: Opus scores award likelihood (fit, eligibility, amount, deadline, competition) → 0-100 + rationale
-- [ ] Write scores + rationale to Notion; sort/flag actionable
+- [x] `scoring.py`: Opus 4.8 + structured output (json_schema) → score 0-100 + likelihood + actionable_now + rationale + key_factors
+- [x] DID org profile + fiscal-sponsor flag baked into the rubric; eligibility weighted hardest
+- [x] `score_grant` tool: look up in Notion, score, merge-write score + rationale back
+- [x] Offline-verified (schema, prompt, parse+clamp via stub client, tool build)
+- [ ] LIVE Opus score — BLOCKED on `ANTHROPIC_API_KEY`
 
 ## Phase 5 — Application autofill (Google Docs)
 - [ ] Google Docs API service account + template doc
@@ -84,3 +87,13 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
   amounts — added a safe numeric coercer (`_num`) so `float('none')` no longer crashes the pipeline.
 - **Note:** federal opp titles are prefixed `[grants.gov]` as the funder key so they dedupe cleanly and
   don't collide with the CSV-seeded foundation rows.
+
+### Phase 4
+- **Built:** `scoring.py` (Opus 4.8 structured-output scorer — DID org profile + fiscal-sponsor flag,
+  eligibility-weighted rubric, 0-100 + likelihood + actionable_now + rationale + key_factors),
+  `score_grant` tool (Notion lookup → score → merge-write). Client uses ambient creds if `.env` key empty.
+- **Verified offline:** schema valid; prompt carries eligibility/fiscal-sponsor context; parse+clamp
+  (150→100) via a stub client; actionable_now respected; tool builds without a live key.
+- **Not yet verifiable by me:** the real Opus score (needs ANTHROPIC_API_KEY). Design choice: near-term
+  odds, so a strong-fit grant DID can't yet apply for (VIA_FISCAL_SPONSOR / AFTER_501C3) scores LOW +
+  actionable_now=false, rather than a misleading high fit score.
