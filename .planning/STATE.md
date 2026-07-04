@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-07-04T22:16:44.657Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-07-04T22:35:33.648Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-07-04)
 ## Current Position
 
 Phase: 01 (Deploy Skeleton + Toolchain) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Plan: 2 of 3
 
 *Updated after each plan completion*
 | Phase 01 P01 | 13 | 2 tasks | 13 files |
+| Phase 01 P02 | 14min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Recent decisions affecting current work:
 - Stack: pin `three@0.185.1` (postprocessing peer constraint <0.186), Node 22 LTS, pnpm exclusively.
 - [Phase 01]: paths.relative=false: emit absolute /Eman_dashboard/_app/ URLs so the DPLY-02 base-prefix grep is verifiable (SvelteKit default relative './_app/' is not)
 - [Phase 01]: static/.nojekyll added manually — adapter-static 3.0.10 does not auto-emit it (research note outdated)
+- [Phase 01]: 01-02: app.css owns Tailwind+@fontsource+@theme, imported via +layout.svelte; favicon via %sveltekit.assets% (base-safe)
+- [Phase 01]: 01-02: explicit body background-color (not just gradient) + playwright webServer BASE_PATH so preview serves the subpath — verify-build + smoke green
 
 ### Pending Todos
 
@@ -75,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-04T22:16:34.337Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-07-04T22:35:25.649Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
