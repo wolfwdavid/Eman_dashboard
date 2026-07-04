@@ -12,7 +12,7 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Deploy to GitHub Pages under repo `Eman_dashboard` (adapter-static, correct base path, .nojekyll, 404.html SPA fallback, Actions pipeline) — Phase 1 (live at https://wolfwdavid.github.io/Eman_dashboard/)
 
 ### Active
 
@@ -24,7 +24,6 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 - [ ] Pipeline overview: totals by status, funding secured vs. potential, deadline timeline, 501(c)(3)-gated vs. open funders
 - [ ] QR code panel rendering codes for TWO configurable website URLs (swappable config)
 - [ ] Custom build tools: CSV→JSON ingest/transform, QR-code generation, data validation
-- [ ] Deploy to GitHub Pages under repo `Eman_dashboard` (static adapter, correct base path)
 
 ### Out of Scope
 
@@ -80,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-04 after initialization*
+*Last updated: 2026-07-04 after Phase 1 (Deploy Skeleton + Toolchain) — live on GitHub Pages*
