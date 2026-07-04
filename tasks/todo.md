@@ -4,12 +4,13 @@ Plan approved decisions: local Windows + Task Scheduler · Telegram only · Clau
 Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE-2-agent-BRIEF.md`.
 
 ## Phase 1 — Foundation + Telegram loop
-- [ ] Python project scaffold (venv/uv, Windows), repo layout, `.gitignore` for `.env`/secrets
-- [ ] `.env` template + secrets loader (Telegram token, ANTHROPIC_API_KEY, Notion token)
-- [ ] Telegram bot skeleton (python-telegram-bot) — receive + reply
-- [ ] Anthropic SDK wiring: Opus 4.8 agent loop + Haiku 4.5 intent router
-- [ ] End-to-end: Eman messages bot → Claude replies (verified)
-- [ ] Task Scheduler entry keeps poller alive across reboots
+- [x] Python project scaffold (venv, Windows), repo layout, `.gitignore` for `.env`/secrets
+- [x] `.env` template + secrets loader (Telegram token, ANTHROPIC_API_KEY, Notion token) + missing-secret guard
+- [x] Telegram bot skeleton (python-telegram-bot) — receive + reply; Windows-robust `run_polling(stop_signals=None)`
+- [x] Anthropic SDK wiring: Opus 4.8 agentic tool loop + Haiku 4.5 intent router
+- [x] Wiring verified (package imports, 6 tools register, model IDs, secrets guard) via venv smoke test
+- [ ] LIVE end-to-end: Eman messages bot → Claude replies — BLOCKED on real tokens (Telegram/Anthropic/Notion)
+- [x] `supervisor.bat` for Task Scheduler; [ ] register the Task Scheduler task on Eman's machine (user step)
 
 ## Phase 2 — Notion sync (source of truth)
 - [ ] Notion API client + grant schema mapping (Funder/Amount/Deadline/501c3/Status/Fit/Link/Next Action)
@@ -39,4 +40,17 @@ Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE
 - [ ] ui-ux-pro-max UI-SPEC (grants pipeline + news feed)
 
 ## Review
-- (to be filled after each phase — verification evidence, diffs, lessons)
+
+### Phase 1 (committed `aa88d33`)
+- **Built:** Python package `agent/did_agent/` — `config.py` (env-backed settings + missing-secret guard),
+  `llm/client.py` (Opus 4.8 agentic tool loop + Haiku 4.5 intent router, adaptive thinking, ToolRegistry),
+  6 tool stubs (spec'd with JSON schemas, bodies raise NotImplementedError tagged to their phase),
+  `main.py` (Telegram bot, allowlist gate, per-chat history, agent run off-thread), `supervisor.bat`.
+- **Grounded by** `.planning/RESEARCH.md` (grants.gov Search2, Notion 2025-09-03 data-source API,
+  Google Docs service-account copy+merge, ProPublica/RSS free sources, Windows/PTB gotchas).
+- **Verified:** `py_compile` all modules; venv install of import-time deps; smoke test confirms package
+  imports, all 6 tools register, model IDs correct, missing-secrets guard names the 4 required secrets.
+- **Not yet verifiable by me:** live "Eman → bot → Claude reply" (needs real tokens); Task Scheduler
+  registration (Eman's machine). These are the remaining Phase 1 acceptance items.
+- **Lesson:** research-first fan-out caught the Notion API v2025-09-03 data-source breaking change and the
+  Windows `stop_signals=None` requirement before they became runtime bugs — kept as the pattern for P2-P7.
