@@ -25,7 +25,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          # Match the local toolchain (pnpm 11) that generated pnpm-lock.yaml and
+          # pnpm-workspace.yaml (allowBuilds: is a pnpm 10+ workspace key; pnpm 9
+          # rejects it with "packages field missing or empty" during the cache step).
+          version: 11
 
       - name: Setup Node
         uses: actions/setup-node@v4
