@@ -28,6 +28,7 @@
 		"@tailwindcss/vite": "^4.3.0",
 		"@types/papaparse": "5.5.2",
 		"@types/qrcode": "1.5.6",
+		"@types/three": "0.185.0",
 		"papaparse": "5.5.4",
 		"qrcode": "1.5.4",
 		"svelte": "^5.56.1",
@@ -40,6 +41,11 @@
 	},
 	"dependencies": {
 		"@fontsource-variable/inter": "^5.2.8",
-		"@fontsource-variable/orbitron": "^5.2.8"
+		"@fontsource-variable/orbitron": "^5.2.8",
+		"@threlte/core": "8.5.16",
+		"@threlte/extras": "9.21.0",
+		"gsap": "3.15.0",
+		"postprocessing": "6.39.2",
+		"three": "0.185.1"
 	}
 }

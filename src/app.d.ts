@@ -1,5 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+import type { InteractivityProps } from '@threlte/extras';
+
 declare global {
 	namespace App {
 		// interface Error {}
@@ -7,6 +9,11 @@ declare global {
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
+	}
+
+	// Type-safe onclick/onpointerenter handlers on Threlte <T.Mesh> (Phase 3 interactivity).
+	namespace Threlte {
+		interface UserProps extends InteractivityProps {}
 	}
 }
 
