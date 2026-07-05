@@ -19,11 +19,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Crystarium (3D Navigation)
 
 - [x] **CRYS-01**: A faithful FFXIII Crystarium sphere grid renders in 3D as the primary navigation surface (Threlte canvas, browser-guarded so WebGL never runs during prerender)
-- [ ] **CRYS-02**: Each funder is a crystal node; node positions are computed deterministically from the data via a pure layout module (status-sectored radial layout)
+- [x] **CRYS-02**: Each funder is a crystal node; node positions are computed deterministically from the data via a pure layout module (status-sectored radial layout)
 - [x] **CRYS-03**: Node visual state (activation level / color) encodes the funder's grant status
-- [ ] **CRYS-04**: Node scale encodes the funder's funding amount
-- [ ] **CRYS-05**: Node glow/pulse encodes deadline urgency (passed/rolling/declined nodes do NOT glow urgent)
-- [ ] **CRYS-06**: Connecting paths render between related nodes (progression spine, funder families, and the NY Community Trust fiscal-sponsor beam to 501c3-gated funders)
+- [x] **CRYS-04**: Node scale encodes the funder's funding amount
+- [x] **CRYS-05**: Node glow/pulse encodes deadline urgency (passed/rolling/declined nodes do NOT glow urgent)
+- [x] **CRYS-06**: Connecting paths render between related nodes (progression spine, funder families, and the NY Community Trust fiscal-sponsor beam to 501c3-gated funders)
 - [ ] **CRYS-07**: Camera orbits the grid and focuses on a node when selected (overview vs. detail zoom)
 - [ ] **CRYS-08**: Hover and selection states are visually distinct, enhanced by bloom/glow postprocessing
 
@@ -104,11 +104,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-05 | Phase 2 | Complete |
 | DATA-06 | Phase 2 | Complete |
 | CRYS-01 | Phase 3 | Complete |
-| CRYS-02 | Phase 3 | Pending |
+| CRYS-02 | Phase 3 | Complete |
 | CRYS-03 | Phase 3 | Complete |
-| CRYS-04 | Phase 3 | Pending |
-| CRYS-05 | Phase 3 | Pending |
-| CRYS-06 | Phase 3 | Pending |
+| CRYS-04 | Phase 3 | Complete |
+| CRYS-05 | Phase 3 | Complete |
+| CRYS-06 | Phase 3 | Complete |
 | CRYS-07 | Phase 3 | Pending |
 | CRYS-08 | Phase 3 | Pending |
 | DETL-01 | Phase 4 | Pending |
