@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Assembles the Crystarium: the GSAP CameraRig, lights, all connecting paths
-	// (spine + Ford/BofA families + the fiscal-sponsor beam), and all 28 crystal
-	// nodes from the pure layout module. The SelectiveBloom composer (Effects) lands
-	// in Task 2 and becomes the single render authority (removing the temp task below).
+	// (spine + Ford/BofA families + the fiscal-sponsor beam), all 28 crystal nodes
+	// from the pure layout module, and the SelectiveBloom composer (Effects) — which
+	// is now the single render authority (the 03-03 temporary render task is removed).
 	//
 	// interactivity() is called ONCE here (high in the tree) so every CrystalNode's
 	// pointer handlers raycast correctly (03-RESEARCH Code Example 2).
-	import { T, useThrelte, useTask } from '@threlte/core';
+	import { T, useThrelte } from '@threlte/core';
 	import { interactivity } from '@threlte/extras';
 	import { computeLayout } from './layout.js';
 	import { grants } from '$lib/data';
@@ -14,6 +14,7 @@
 	import CrystalNode from './CrystalNode.svelte';
 	import CrystalPath from './CrystalPath.svelte';
 	import CameraRig from './CameraRig.svelte';
+	import Effects from './Effects.svelte';
 
 	interactivity();
 
@@ -23,27 +24,19 @@
 	const grantById = new Map(grants.map((g) => [g.id, g]));
 	const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
-	const { renderer, scene, camera, renderStage } = useThrelte();
+	const { renderer } = useThrelte();
 
 	// Near-black indigo void (03-UI-SPEC --bg). Set the WebGL clear colour.
 	$effect(() => {
 		renderer.setClearColor(tokens.bg, 1);
 	});
-
-	// TEMPORARY render authority (from 03-03): the Canvas is `autoRender={false}`
-	// (reserved for the Task-2 bloom composer), so nothing would draw without a render
-	// task. Task 2 mounts <Effects /> as the composer render authority and REMOVES this.
-	useTask(
-		() => {
-			const cam = camera.current;
-			if (cam) renderer.render(scene, cam);
-		},
-		{ stage: renderStage, autoInvalidate: false }
-	);
 </script>
 
 <!-- Auto-orbit + GSAP focus-on-select camera (replaces the 03-03 temp camera). -->
 <CameraRig />
+
+<!-- SelectiveBloom composer — the single render authority (autoRender=false + renderStage). -->
+<Effects />
 
 <!-- Emissive-driven scene: crystals are their own light; keep ambient/key low. -->
 <T.AmbientLight intensity={0.25} color={0x2a3a66} />
