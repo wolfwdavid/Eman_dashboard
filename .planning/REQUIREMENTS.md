@@ -24,8 +24,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CRYS-04**: Node scale encodes the funder's funding amount
 - [x] **CRYS-05**: Node glow/pulse encodes deadline urgency (passed/rolling/declined nodes do NOT glow urgent)
 - [x] **CRYS-06**: Connecting paths render between related nodes (progression spine, funder families, and the NY Community Trust fiscal-sponsor beam to 501c3-gated funders)
-- [ ] **CRYS-07**: Camera orbits the grid and focuses on a node when selected (overview vs. detail zoom)
-- [ ] **CRYS-08**: Hover and selection states are visually distinct, enhanced by bloom/glow postprocessing
+- [x] **CRYS-07**: Camera orbits the grid and focuses on a node when selected (overview vs. detail zoom)
+- [x] **CRYS-08**: Hover and selection states are visually distinct, enhanced by bloom/glow postprocessing
 
 ### Grant Detail
 
@@ -109,8 +109,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CRYS-04 | Phase 3 | Complete |
 | CRYS-05 | Phase 3 | Complete |
 | CRYS-06 | Phase 3 | Complete |
-| CRYS-07 | Phase 3 | Pending |
-| CRYS-08 | Phase 3 | Pending |
+| CRYS-07 | Phase 3 | Complete |
+| CRYS-08 | Phase 3 | Complete |
 | DETL-01 | Phase 4 | Pending |
 | DETL-02 | Phase 4 | Pending |
 | DETL-03 | Phase 4 | Pending |

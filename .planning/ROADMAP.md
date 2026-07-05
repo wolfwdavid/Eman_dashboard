@@ -68,7 +68,7 @@ Plans:
 - [x] 03-01-foundation-deps-config-tokens-PLAN.md — Install pinned 3D deps (three@0.185.1, @threlte/core@8, @threlte/extras, postprocessing, gsap), apply the noExternal/vitest gotchas + typed pointer events, and the tokens.ts colour/activation contract [wave 1]
 - [x] 03-02-pure-layout-module-PLAN.md — PURE deterministic `computeLayout` (ring-by-status, sector-by-501c3, log-scale, TBD->minimal) + derived beam(4)/pulse(3)/family edges + FULL vitest suite (CRYS-02/04/05/06) [wave 2]
 - [x] 03-03-scene-canvas-nodes-hud-PLAN.md — Runes state bridge + prerendered glass HUD + browser-gated Threlte `<Canvas>` rendering all 28 status-coloured/amount-scaled `CrystalNode`s (build stays SSR-safe) [wave 3]
-- [ ] 03-04-paths-camera-bloom-interactions-PLAN.md — `CrystalPath` spine/family/fiscal-sponsor beam + `CameraRig` orbit+GSAP focus + SelectiveBloom composer + deadline pulse + hover/select distinction [wave 4]
+- [x] 03-04-paths-camera-bloom-interactions-PLAN.md — `CrystalPath` spine/family/fiscal-sponsor beam + `CameraRig` orbit+GSAP focus + SelectiveBloom composer + deadline pulse + hover/select distinction [wave 4]
 
 ### Phase 4: HUD / Overlay UI + Fallback
 **Goal**: The 2D dashboard layered over the canvas lets the user drill into any grant and read the entire pipeline at a glance — driven by scene selection through one shared runes state module — plus a 2D fallback so WebGL-less clients never see a black screen.
