@@ -1,0 +1,842 @@
+[
+	{
+		"id": "ny-community-trust",
+		"funder": "NY Community Trust",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "$20,000 (received 2025)",
+			"min": 20000,
+			"max": 20000,
+			"avg": 20000,
+			"isReceived": true,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Annual relationship",
+			"date": null,
+			"cadence": "annual",
+			"note": "relationship",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No - they are 501(c)(3); potential fiscal sponsor",
+		"fit": "Current sole funder; accessibility / older-adults program; possible fiscal-sponsor pathway via Fund for the City of NY",
+		"status": "active",
+		"statusLabel": "Active funder",
+		"nextAction": "Send grant success report; explore renewed/expanded funding; pursue fiscal sponsorship",
+		"link": "https://www.thenytrust.org"
+	},
+	{
+		"id": "harry-s-black-allon-fuller-fund-bank-of-america",
+		"funder": "Harry S. Black & Allon Fuller Fund (Bank of America)",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "$5,000-$20,000 (avg $10,000)",
+			"min": 5000,
+			"max": 20000,
+			"avg": 10000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "2026-06-30 (decision by Oct 31)",
+			"date": "2026-06-30",
+			"cadence": "one-time",
+			"note": "decision by Oct 31",
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Yes - or fiscal sponsor",
+		"fit": "Strong: funds orgs serving physically disabled adults in NYC; general operating + program funds",
+		"status": "in-progress",
+		"statusLabel": "In progress",
+		"nextAction": "Assemble attachments (budgets, board list, 990, 501c3 letter or fiscal sponsor); apply via BofA portal",
+		"link": "https://bofa-gh.foundationsource.com/form"
+	},
+	{
+		"id": "ford-foundation-justfilms-documentary-production",
+		"funder": "Ford Foundation",
+		"program": "JustFilms Documentary Production",
+		"type": "Grant",
+		"amount": {
+			"raw": "~$50,000-$200,000",
+			"min": 50000,
+			"max": 200000,
+			"avg": 125000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "2026-09-01",
+			"date": "2026-09-01",
+			"cadence": "one-time",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Yes - or fiscal sponsor",
+		"fit": "Strong mission fit; needs artist-driven feature doc (Opera America performance as basis)",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Develop film concept; secure fiscal sponsor + filmmaker partner",
+		"link": "https://www.fordfoundation.org"
+	},
+	{
+		"id": "ford-foundation-nyc-good-neighbor-committee",
+		"funder": "Ford Foundation",
+		"program": "NYC Good Neighbor Committee",
+		"type": "Grant",
+		"amount": {
+			"raw": "$100,000+",
+			"min": 100000,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Check 2026 cycle (awards Dec-Feb)",
+			"date": null,
+			"cadence": "unknown",
+			"note": "Check 2026 cycle (awards Dec-Feb)",
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Yes - or fiscal sponsor",
+		"fit": "Large NYC community awards",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Confirm 2026 cycle open date",
+		"link": "https://www.fordfoundation.org/about/about-the-ford-foundation/new-york-city-good-neighbor-committee/"
+	},
+	{
+		"id": "ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing",
+		"funder": "Ben & Jerry's Foundation",
+		"program": "Jerry Greenfield Grassroots Organizing",
+		"type": "Grant",
+		"amount": {
+			"raw": "Up to $30,000 (avg $20,000)",
+			"min": null,
+			"max": 30000,
+			"avg": 20000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "2027-02-18 (2026 cycle passed)",
+			"date": "2027-02-18",
+			"cadence": "one-time",
+			"note": "2026 cycle passed",
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Yes - or fiscal sponsor",
+		"fit": "Constituent-led grassroots; budget under $350k; US only; unrestricted operating support",
+		"status": "in-progress",
+		"statusLabel": "In progress",
+		"nextAction": "Prep LOI for next cycle (LOI ~Dec 2026)",
+		"link": "https://www.benandjerrysfoundation.org"
+	},
+	{
+		"id": "third-wave-fund-disability-frontlines-fund",
+		"funder": "Third Wave Fund",
+		"program": "Disability Frontlines Fund",
+		"type": "Grant",
+		"amount": {
+			"raw": "$5,000-$35,000 (2-year)",
+			"min": 5000,
+			"max": 35000,
+			"avg": 20000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Invitation only",
+			"date": null,
+			"cadence": "invitation",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Excellent: BIPOC disabled, intersectional, grassroots movements",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Build relationship; inquire about invitation",
+		"link": "https://www.thirdwavefund.org"
+	},
+	{
+		"id": "the-awesome-foundation-disability-chapter",
+		"funder": "The Awesome Foundation",
+		"program": "Disability Chapter",
+		"type": "Grant",
+		"amount": {
+			"raw": "$1,000",
+			"min": 1000,
+			"max": 1000,
+			"avg": 1000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Rolling (monthly)",
+			"date": null,
+			"cadence": "rolling",
+			"note": "monthly",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Honors Alice Wong; fast microgrant; model DID donation page after it",
+		"status": "recurring",
+		"statusLabel": "Recurring",
+		"nextAction": "Submit a project pitch",
+		"link": "https://www.awesomefoundation.org"
+	},
+	{
+		"id": "matriarch-digital-media-our-greatness-grant",
+		"funder": "Matriarch Digital Media",
+		"program": "Our Greatness Grant",
+		"type": "Grant",
+		"amount": {
+			"raw": "Micro (amount TBD)",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": true
+		},
+		"deadline": {
+			"raw": "Rolling (monthly review)",
+			"date": null,
+			"cadence": "rolling",
+			"note": "monthly review",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Independent Women-of-Color podcasters",
+		"status": "recurring",
+		"statusLabel": "Recurring",
+		"nextAction": "Apply for podcast support",
+		"link": "https://www.matriarchdigitalmedia.com"
+	},
+	{
+		"id": "giving-joy-grants",
+		"funder": "Giving Joy Grants",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "$500 (micro)",
+			"min": 500,
+			"max": 500,
+			"avg": 500,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": true
+		},
+		"deadline": {
+			"raw": "Cycle open (2026)",
+			"date": null,
+			"cadence": "unknown",
+			"note": "Cycle open (2026)",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "General microgrant",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Submit application",
+		"link": "https://givingjoygrants.org"
+	},
+	{
+		"id": "nyc-office-for-prevention-of-hate-crimes-community-project-youth-ambassador",
+		"funder": "NYC Office for Prevention of Hate Crimes",
+		"program": "Community Project / Youth Ambassador",
+		"type": "Grant",
+		"amount": {
+			"raw": "Up to $10,000 (community); $1,000/youth project",
+			"min": null,
+			"max": 10000,
+			"avg": 10000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Opens ~Oct 31-Nov 30; awards Dec",
+			"date": null,
+			"cadence": "unknown",
+			"note": "Opens ~Oct 31-Nov 30; awards Dec",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Disability + anti-hate; active partnership; HEARTworks art contest referral ($500/$300/$200 youth prizes)",
+		"status": "in-progress",
+		"statusLabel": "In progress",
+		"nextAction": "Follow up email; HEARTworks youth referrals; finalize partnership",
+		"link": "https://www.nyc.gov/site/stophate"
+	},
+	{
+		"id": "nyc-commission-on-human-rights-community-project-grants",
+		"funder": "NYC Commission on Human Rights",
+		"program": "Community Project Grants",
+		"type": "Grant",
+		"amount": {
+			"raw": "Up to $10,000",
+			"min": null,
+			"max": 10000,
+			"avg": 10000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Opens ~Oct 2026",
+			"date": null,
+			"cadence": "unknown",
+			"note": "Opens ~Oct 2026",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Ages 14+; cannot combine with PATH Forward initiative",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Apply in fall cycle",
+		"link": "https://www.nyc.gov/site/cchr"
+	},
+	{
+		"id": "just-thrive-justworks-x-the-well-work",
+		"funder": "Just Thrive (Justworks x The Well Work)",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "$2,000-$6,000",
+			"min": 2000,
+			"max": 6000,
+			"avg": 4000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Ongoing (recheck 2026-03-01)",
+			"date": null,
+			"cadence": "rolling",
+			"note": "recheck 2026-03-01",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Requires Justworks PEO customer + 2+ W-2 employees; 50%+ owned by historically excluded group",
+		"status": "not-eligible-yet",
+		"statusLabel": "Not eligible (yet)",
+		"nextAction": "Revisit after hiring W-2 staff + joining Justworks",
+		"link": "https://www.justworks.com"
+	},
+	{
+		"id": "brava-thrive-grant",
+		"funder": "Brava Thrive Grant",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD (includes AI access)",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Reapply Jan 2026",
+			"date": null,
+			"cadence": "unknown",
+			"note": "Reapply Jan 2026",
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "Submitted; received 14-day AI access; invited to reapply",
+		"status": "applied",
+		"statusLabel": "Applied",
+		"nextAction": "Reapply in 2026 window",
+		"link": "https://www.brava.org"
+	},
+	{
+		"id": "hey-helen-grant",
+		"funder": "Hey Helen Grant",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "$10,000",
+			"min": 10000,
+			"max": 10000,
+			"avg": 10000,
+			"isReceived": false,
+			"isTBD": false,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "2025-12-30 (passed)",
+			"date": "2025-12-30",
+			"cadence": "passed",
+			"note": "passed",
+			"isPassed": true
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Women founders; unrestricted; $15 admin fee",
+		"status": "declined",
+		"statusLabel": "Declined",
+		"nextAction": null,
+		"link": "https://www.heyhelen.com"
+	},
+	{
+		"id": "echoing-green-fellowship",
+		"funder": "Echoing Green Fellowship",
+		"program": null,
+		"type": "Grant/Fellowship",
+		"amount": {
+			"raw": "Fellowship support",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Annual",
+			"date": null,
+			"cadence": "annual",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Applied 3x unsuccessfully; very detailed application",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Research requirements before a 4th attempt",
+		"link": "https://echoinggreen.org"
+	},
+	{
+		"id": "tgr-foundation",
+		"funder": "TGR Foundation",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "TBD",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "Education focus",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Review funder 990 + guidelines",
+		"link": "https://tgrfoundation.org"
+	},
+	{
+		"id": "tisch-art-fund",
+		"funder": "Tisch Art Fund",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "TBD",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "Arts funding",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Research guidelines",
+		"link": "https://tisch.nyu.edu"
+	},
+	{
+		"id": "w-k-kellogg-foundation",
+		"funder": "W.K. Kellogg Foundation",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Rolling",
+			"date": null,
+			"cadence": "rolling",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "Racial equity; children & families",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Review how-to-apply",
+		"link": "https://www.wkkf.org/grantseekers/"
+	},
+	{
+		"id": "yield-giving-mackenzie-scott",
+		"funder": "Yield Giving (MacKenzie Scott)",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "Large",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Open calls",
+			"date": null,
+			"cadence": "unknown",
+			"note": "Open calls",
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "NY / Northeast focus available",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Watch for open call",
+		"link": "https://yieldgiving.com"
+	},
+	{
+		"id": "bank-of-america-charitable-foundation",
+		"funder": "Bank of America Charitable Foundation",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "TBD",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Likely yes",
+		"fit": "Community impact / economic mobility",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Review funding areas",
+		"link": "https://about.bankofamerica.com"
+	},
+	{
+		"id": "wells-fargo-versaic",
+		"funder": "Wells Fargo (Versaic)",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "TBD",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Likely yes",
+		"fit": "Corporate giving portal",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Check eligibility",
+		"link": "https://wellsfargo.versaic.com"
+	},
+	{
+		"id": "the-cek-foundation",
+		"funder": "The CEK Foundation",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "TBD",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "--",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Review approach",
+		"link": "https://www.thecekfoundation.org"
+	},
+	{
+		"id": "milbank-foundation",
+		"funder": "Milbank Foundation",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "TBD",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "Disability-relevant giving",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Review grant guidelines",
+		"link": "https://milbankfoundation.net/grant-guidelines/"
+	},
+	{
+		"id": "borealis-philanthropy-dif-joy-grants",
+		"funder": "Borealis Philanthropy",
+		"program": "DIF Joy Grants",
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "2025 cycle (recheck)",
+			"date": null,
+			"cadence": "unknown",
+			"note": "2025 cycle (recheck)",
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No (intermediary funder)",
+		"fit": "Disability Inclusion Fund (DIF)",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Check 2026 Joy grants cycle",
+		"link": "https://borealisphilanthropy.org"
+	},
+	{
+		"id": "stavros-niarchos-foundation-snf",
+		"funder": "Stavros Niarchos Foundation (SNF)",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Rolling",
+			"date": null,
+			"cadence": "rolling",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Likely yes",
+		"fit": "Large international foundation",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Run foundation search",
+		"link": "https://www.snf.org"
+	},
+	{
+		"id": "td-bank-funding-opportunities",
+		"funder": "TD Bank",
+		"program": "Funding Opportunities",
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "--",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "yes",
+		"requires501c3Raw": "Yes (required)",
+		"fit": "501(c)(3) designation required",
+		"status": "not-eligible-yet",
+		"statusLabel": "Not eligible (yet)",
+		"nextAction": "Revisit after 501(c)(3)",
+		"link": "https://www.td.com/us/en/about-us/funding-opportunities"
+	},
+	{
+		"id": "truist-foundation",
+		"funder": "Truist Foundation",
+		"program": null,
+		"type": "Grant",
+		"amount": {
+			"raw": "TBD",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": false,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "--",
+			"date": null,
+			"cadence": "unknown",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "unknown",
+		"requires501c3Raw": "Unknown",
+		"fit": "Wants programs that grow small businesses / financial independence - poor fit",
+		"status": "not-eligible",
+		"statusLabel": "Not eligible",
+		"nextAction": null,
+		"link": "https://www.truistfoundation.org"
+	},
+	{
+		"id": "37-angels",
+		"funder": "37 Angels",
+		"program": null,
+		"type": "Investment",
+		"amount": {
+			"raw": "Equity investment",
+			"min": null,
+			"max": null,
+			"avg": null,
+			"isReceived": false,
+			"isTBD": true,
+			"isEquity": true,
+			"isMicro": false
+		},
+		"deadline": {
+			"raw": "Rolling",
+			"date": null,
+			"cadence": "rolling",
+			"note": null,
+			"isPassed": false
+		},
+		"requires501c3": "no",
+		"requires501c3Raw": "No",
+		"fit": "Women founders - angel INVESTMENT, not a grant",
+		"status": "to-research",
+		"statusLabel": "To research",
+		"nextAction": "Note: equity, not grant funding",
+		"link": "https://www.37angels.com/female"
+	}
+]
