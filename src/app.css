@@ -15,6 +15,36 @@
 	--color-gold: #ffcf6b; /* active/secured accent */
 }
 
+/* ── 03-UI-SPEC §Color System — the DOM twin of src/lib/crystarium/tokens.ts ──
+   The glassmorphic HUD panels + legend swatches consume these semantic tokens;
+   no raw hex lives in the HUD components. Keep in lock-step with tokens.ts
+   (that file is the numeric-hex source of truth for the Three.js materials). */
+:root {
+	/* Surface tiers */
+	--bg: #05060d; /* deepest scene void (canvas clear + page bg) */
+	--bg-glow: #0a0e1a; /* radial vignette / dome floor tint */
+	--surface: #0f1526; /* opaque HUD base (blur fallback) */
+	--surface-glass: rgba(18, 26, 48, 0.55); /* glass panel fill (+ blur 16px) */
+	--surface-glass-border: rgba(140, 180, 255, 0.18); /* cool 1px hairline */
+	--text-hi: #eaf1ff; /* primary HUD text (cool white) */
+	--text-lo: #8a97b8; /* secondary/muted HUD text (slate) */
+
+	/* Status hues (legend swatches + node emissive twin) */
+	--status-active: #ffc24b; /* secured gold — the ONE warm node */
+	--status-in-progress: #33e1ff; /* bright crystal cyan */
+	--status-applied: #a98bff; /* amethyst violet */
+	--status-recurring: #4be39b; /* emerald — renewable/looping */
+	--status-to-research: #5b84c4; /* muted steel blue frontier */
+	--status-not-eligible-yet: #b0894e; /* desaturated bronze — gated */
+	--status-not-eligible: #565d75; /* cold ash grey — dead */
+	--status-declined: #8a5560; /* ash-rust — burnt-out ember */
+
+	/* Signal accents (reserved) */
+	--secured-gold: #ffc24b; /* secured node + SECURED $20,000 figure ONLY */
+	--urgent: #ff5a3c; /* deadline-pulse additive ONLY */
+	--path: #6fa8ff; /* progression spine + funder-family links */
+}
+
 /* Base premium dark background so the deployed URL visibly proves CSS loaded.
    Set background-color explicitly (not just the gradient image) so the computed
    body background is non-transparent — the smoke test asserts on backgroundColor. */
