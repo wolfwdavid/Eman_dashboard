@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-07-05T02:21:19.546Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-07-05T03:27:14.357Z"
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 11
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-04)
 
 **Core value:** The Crystarium sphere grid makes the entire grant pipeline legible and navigable at a glance — funder status, funding amount, and deadline urgency are all readable from the shape and glow of the grid before a single click.
-**Current focus:** Phase 02 — Data Pipeline + Custom Tools
+**Current focus:** Phase 03 — 3D Crystarium Scene
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (3D Crystarium Scene) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Plan: Not started
 | Phase 02 P03 | 4 | 2 tasks | 4 files |
 | Phase 02 P02 | 11min | 3 tasks | 8 files |
 | Phase 02 P04 | 8min | 2 tasks | 3 files |
+| Phase 03 P01 | 11 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Grant id = slug of full 'Funder / Program' cell; potentialTotal basis = avg ?? max ?? min over 9 rows = 296500; securedTotal=20000 hard-locked
 - [Phase 02]: 02-04: build gate wired as explicit pnpm build:data && build:qr && vite build chain (pnpm skips prebuild) — bad CSV fails the build; validate.test.mjs proves it (unit + spawnSync integration)
 - [Phase 02]: 02-04: qrCodes re-exported from $lib/data barrel (deferred cross-plan wiring closed) — Phase 4 QR panel import ready
+- [Phase 03]: 03-01: three pinned exact 0.185.1 (no caret) — postprocessing 6.39.2 peer ceiling <0.186
+- [Phase 03]: 03-01: postprocessing added to vite ssr.noExternal so prerender resolves the ESM (Pitfall B)
+- [Phase 03]: 03-01: tokens.ts is numeric-hex source of truth for Three materials; UI-SPEC @theme CSS is the DOM twin (keep in lock-step)
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-05T02:03:36.676Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-07-05T03:26:49.731Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
