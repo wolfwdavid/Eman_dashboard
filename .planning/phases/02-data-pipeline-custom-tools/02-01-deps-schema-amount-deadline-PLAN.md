@@ -310,7 +310,7 @@ export interface Grant {
     - `node -e "import('./tools/normalize/deadline.mjs').then(m=>{const a=m.parseDeadline('2025-12-30 (passed)'),b=m.parseDeadline('2027-02-18 (2026 cycle passed)');process.exit(a.isPassed===true&&a.date==='2025-12-30'&&b.isPassed===false&&b.date==='2027-02-18'?0:1)})"` exits 0
     - `node -e "import('./tools/normalize/deadline.mjs').then(m=>{const a=m.parseDeadline('2026-06-30 (decision by Oct 31)');process.exit(a.date==='2026-06-30'&&a.cadence==='one-time'&&a.note==='decision by Oct 31'?0:1)})"` exits 0
     - `node -e "import('./tools/normalize/deadline.mjs').then(m=>{const a=m.parseDeadline('--');process.exit(a.date===null&&a.cadence==='unknown'&&a.note===null?0:1)})"` exits 0
-    - `grep -qv "new Date(" tools/normalize/deadline.mjs` (no blind Date construction on raw strings)
+    - `! grep -q "new Date(" tools/normalize/deadline.mjs` (no blind Date construction on raw strings — exits non-zero if the forbidden string is present)
   </acceptance_criteria>
   <done>parseDeadline satisfies all 20 literal-string cases; only '(passed)' → isPassed; leading-ISO extracted by regex; vitest green.</done>
 </task>

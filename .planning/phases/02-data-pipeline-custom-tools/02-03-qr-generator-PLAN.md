@@ -101,7 +101,7 @@ Output: `src/lib/config/sites.js`, `tools/generate-qr.mjs`, `src/lib/data/qr.gen
     - `grep -c "https://" src/lib/config/sites.js` shows 2 absolute URLs; `grep -qi "placeholder\|swap" src/lib/config/sites.js` (swappable comment present)
     - `grep -q "export const qrCodes" src/lib/data/qr.generated.js && grep -c "<svg" src/lib/data/qr.generated.js` shows 2 inline SVGs
     - `grep -q "startsWith('http')" tools/generate-qr.mjs` (absolute-URL guard present)
-    - `grep -vq "/Eman_dashboard/" src/lib/data/qr.generated.js` (no base prefix ever encoded)
+    - `! grep -q "/Eman_dashboard/" src/lib/data/qr.generated.js` (no base prefix ever encoded — exits non-zero if present)
   </acceptance_criteria>
   <done>sites.js exposes two swappable absolute https URLs; generate-qr.mjs emits qr.generated.js with two inline SVGs encoding the absolute external URLs (never base-prefixed).</done>
 </task>

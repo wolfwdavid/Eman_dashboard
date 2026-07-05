@@ -1,10 +1,11 @@
 ---
 phase: 2
 slug: data-pipeline-custom-tools
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-04
+updated: 2026-07-04
 ---
 
 # Phase 2 — Validation Strategy
@@ -19,9 +20,11 @@ created: 2026-07-04
 |----------|-------|
 | **Framework** | vitest 4.x (unit) — parsers, aggregates, build-gate |
 | **Config file** | `vitest.config.ts` (add if not present) |
-| **Quick run command** | `pnpm exec vitest run tests/data` |
-| **Full suite command** | `pnpm exec vitest run && node tools/ingest-grants.mjs && node tools/validate-grants.mjs && node tools/generate-qr.mjs` |
+| **Quick run command** | `pnpm exec vitest run tools/` |
+| **Full suite command** | `pnpm exec vitest run && node tools/ingest-grants.mjs && node tools/generate-qr.mjs && pnpm build` |
 | **Estimated runtime** | ~8 seconds |
+
+> Note: final plans fold validation into `tools/schema.mjs` + `tools/ingest-grants.mjs` (zod gate) rather than a standalone `validate-grants.mjs`, and colocate tests as `tools/normalize/*.test.mjs`, `tools/aggregates.test.mjs`, `tools/qr.test.mjs`, `tools/validate.test.mjs`. The build gate is wired via explicit `&&` chaining in `package.json` (pnpm does not auto-run `prebuild`).
 
 ---
 
@@ -52,10 +55,10 @@ created: 2026-07-04
 
 ## Wave 0 Requirements
 
-- [ ] `vitest.config.ts` (if not already emitted by Phase 1 scaffold)
-- [ ] `tests/data/` test files: `amount.test.ts`, `deadline.test.ts`, `status.test.ts`, `aggregates.test.ts`, `validate.test.ts`, `qr.test.ts`
-- [ ] `tests/fixtures/grants.bad.csv` — a deliberately malformed row to prove the build gate fires
-- [ ] `papaparse`, `zod`, `qrcode` (+ types) installed as dev/prod deps
+- [ ] `vitest.config.ts` (created in plan 02-01)
+- [ ] Colocated test files: `tools/normalize/amount.test.mjs`, `tools/normalize/deadline.test.mjs`, `tools/aggregates.test.mjs`, `tools/qr.test.mjs`, `tools/validate.test.mjs`
+- [ ] `data/grants.bad.csv` — a deliberately malformed row (Hey Helen bad URL, still 28 rows) to prove the build gate fires; integration test uses `GRANTS_CSV` env override so it never clobbers the real JSON
+- [ ] `papaparse`, `zod` (v4), `qrcode` (+ types) installed as dev/prod deps
 
 ---
 
