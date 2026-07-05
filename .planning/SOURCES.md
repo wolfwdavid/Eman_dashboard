@@ -4,7 +4,9 @@
 
 **Diversity Includes Disability — Eman Rimawi** (private, access-gated):
 
-https://app.notion.com/p/Diversity-Includes-Disability-Eman-Rimawi-289f9c30ac5180828513c4dea1a9fb25
+https://app.notion.com/p/Diversity-Includes-Disability-Eman-Rimawi-76a122f19ac5830e845801398a801336
+
+Page ID (for `NOTION_PARENT_PAGE_ID`): `76a122f19ac5830e845801398a801336`
 
 Contents: org profile, weekly meeting notes (Oct 2025 → Apr 2026), grant reservoir,
 funder contact log, detailed grant write-ups.
