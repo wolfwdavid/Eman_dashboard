@@ -170,16 +170,81 @@ function buildNodes(grants) {
 	return { nodes, ringOrder: flatRingOrder };
 }
 
+// ── Derived sets (CRYS-05/06) — MUST come from data, never hardcoded counts ─────────
+
 /**
- * Compute the deterministic Crystarium layout.
- * (Task 1 scope: positions / rings / sectors / scale. Per-node pulse + beamTarget flags
- * and the spine/family/beam edges are derived in Task 2.)
+ * BEAM (CRYS-06) — exactly 4 fiscal-sponsor targets.
+ * Uses the RAW string, NOT the tri-state: `requires501c3 === 'yes'` wrongly yields 8
+ * (it folds in "Likely yes" + "Yes (required)"). Only the raw value is the sponsor path.
+ */
+const isBeamTarget = (g) => g.requires501c3Raw === 'Yes - or fiscal sponsor';
+
+/**
+ * PULSE (CRYS-05) — exactly 3, CLOCK-FREE. Membership from cadence + isPassed + status,
+ * never `Date.now()` (a live clock would drop harry-s-black's 2026-06-30 date and break
+ * determinism). passed/rolling/annual/invitation/unknown cadences never qualify; declined
+ * / not-eligible / not-eligible-yet never pulse.
+ */
+const NEVER_PULSE = new Set(['declined', 'not-eligible', 'not-eligible-yet']);
+const isPulse = (g) =>
+	g.deadline.cadence === 'one-time' && !g.deadline.isPassed && !NEVER_PULSE.has(g.status);
+
+/**
+ * FAMILY (CRYS-06) — same-funder bridges. Parent SUBSTRING match, NOT equality: the two
+ * BofA funder strings differ ("Harry S. Black … (Bank of America)" vs "Bank of America
+ * Charitable Foundation") yet both contain "Bank of America".
+ * @param {Grant[]} grants
+ */
+const FAMILY_PARENTS = ['Ford Foundation', 'Bank of America'];
+function deriveFamilies(grants) {
+	const groups = new Map();
+	for (const p of FAMILY_PARENTS) groups.set(p, []);
+	for (const g of grants) {
+		const parent = FAMILY_PARENTS.find((p) => g.funder.includes(p));
+		if (parent) groups.get(parent).push(g.id);
+	}
+	const edges = [];
+	for (const ids of groups.values())
+		for (let i = 0; i < ids.length - 1; i++)
+			edges.push({ from: ids[i], to: ids[i + 1], kind: 'family' });
+	return edges;
+}
+
+/**
+ * Compute the full deterministic Crystarium layout.
  * @param {Grant[]} grants - the 28 typed grant records
  * @returns {{ nodes: any[], edges: any[], center: string }}
  */
 export function computeLayout(grants) {
-	const { nodes } = buildNodes(grants);
-	return { nodes, edges: [], center: CENTER_ID };
+	const { nodes, ringOrder } = buildNodes(grants);
+	const nodeIndex = new Map(nodes.map((n) => [n.id, n]));
+
+	// Flag per-node pulse + beamTarget from the data-derived predicates.
+	for (const g of grants) {
+		const node = nodeIndex.get(g.id);
+		if (!node) continue;
+		node.pulse = isPulse(g);
+		node.beamTarget = isBeamTarget(g);
+	}
+
+	const edges = [];
+
+	// Spine: center → each ring's inward-most node, then sequential links within the ring.
+	for (const ring of ['applied', 'in-progress', 'to-research', 'recurring', 'dim']) {
+		const members = ringOrder[ring] ?? [];
+		if (members.length === 0) continue;
+		edges.push({ from: CENTER_ID, to: members[0], kind: 'spine' });
+		for (let i = 0; i < members.length - 1; i++)
+			edges.push({ from: members[i], to: members[i + 1], kind: 'spine' });
+	}
+
+	// Family bridges (Ford pair + BofA pair).
+	for (const e of deriveFamilies(grants)) edges.push(e);
+
+	// Fiscal-sponsor beam: always sourced from the center core.
+	for (const g of grants) if (isBeamTarget(g)) edges.push({ from: CENTER_ID, to: g.id, kind: 'beam' });
+
+	return { nodes, edges, center: CENTER_ID };
 }
 
 export default computeLayout;
