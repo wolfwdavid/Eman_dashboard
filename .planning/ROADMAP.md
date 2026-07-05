@@ -41,16 +41,17 @@ Plans:
 **Depends on**: Phase 1
 **Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, DATA-06
 **Success Criteria** (what must be TRUE):
-  1. Running the build ingests `grants.csv` and emits `grants.generated.json` + `grants.d.ts` with every amount/deadline/status/501c3 field normalized to a typed struct (never a bare number or raw string).
+  1. Running the build ingests `grants.csv` and emits `grants.generated.json` + typed `Grant` interface with every amount/deadline/status/501c3 field normalized to a typed struct (never a bare number or raw string).
   2. Introducing a malformed row (bad enum, dead URL, unparseable date, duplicate id) fails the build with a clear row-level error; reverting it makes the build pass.
-  3. Secured funding computes to exactly $20,000 and "potential" excludes declined, not-eligible, and 37 Angels equity rows — verified by unit tests against all 28 literal amount/deadline strings.
+  3. Secured funding computes to exactly $20,000 and "potential" ($296,500) excludes declined, not-eligible, and 37 Angels equity rows — verified by unit tests against all 28 literal amount/deadline strings.
   4. The QR-generation tool produces scannable codes for the two URLs from a single `config/sites.js` module at build time, and swapping a URL + rebuilding regenerates them with zero code change.
-**Plans**: TBD (~3 plans)
+**Plans**: 4 plans (waves 1 → 2 → 3)
 
 Plans:
-- [ ] 02-01: `schema.mjs` (zod, single source of truth) + amount/deadline/status/501c3 normalizers + `ingest.mjs`, with vitest unit tests against all 28 literal strings
-- [ ] 02-02: `validate.mjs` build gate + `build-data.mjs` orchestrator emitting json + d.ts + `stats.js` partition (secured=$20k), `prebuild` wiring
-- [ ] 02-03: `qr.mjs` tool + `config/sites.js` (two swappable absolute URLs, never base-prefixed), emit QR SVG assets/module
+- [ ] 02-01-deps-schema-amount-deadline-PLAN.md — deps (papaparse/zod4/qrcode) + `vitest.config.ts` + canonical `types.ts` + `schema.mjs` (zod) + `amount`/`deadline` normalizers with vitest tests over all 18/20 literal strings + bad-CSV fixture [wave 1] (DATA-02, DATA-03)
+- [ ] 02-02-status-ingest-aggregates-PLAN.md — `status`/`501c3`/`slug` normalizers + `ingest-grants.mjs` (CSV → `grants.generated.json` + `index.ts` barrel) + `aggregates.mjs` selectors (secured=$20k, potential=$296.5k) [wave 2] (DATA-01, DATA-04)
+- [ ] 02-03-qr-generator-PLAN.md — `config/sites.js` (two swappable absolute URLs, never base-prefixed) + `generate-qr.mjs` emitting inline-SVG `qr.generated.js` + tests [wave 2] (DATA-06)
+- [ ] 02-04-build-gate-wiring-PLAN.md — `validate.test.mjs` (schema unit rejections + bad-CSV spawn → exit 1) + explicit `package.json` build chain (`build:data && build:qr && vite build`, no pnpm prebuild) proving bad data fails the build [wave 3] (DATA-05)
 
 ### Phase 3: 3D Crystarium Scene
 **Goal**: The FFXIII Crystarium sphere grid renders in 3D as the navigable primary surface — all 28 funders as crystal nodes whose ring, scale, and glow make status, amount, and deadline urgency legible from shape before a single click.
@@ -107,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Deploy Skeleton + Toolchain | 0/3 | Not started | - |
-| 2. Data Pipeline + Custom Tools | 0/3 | Not started | - |
+| 2. Data Pipeline + Custom Tools | 0/4 | Not started | - |
 | 3. 3D Crystarium Scene | 0/3 | Not started | - |
 | 4. HUD / Overlay UI + Fallback | 0/3 | Not started | - |
 | 5. Premium Polish / Animation / Perf | 0/2 | Not started | - |
