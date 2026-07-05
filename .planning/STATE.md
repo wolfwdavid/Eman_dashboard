@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-07-05T01:32:53.826Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-07-05T01:44:48.968Z"
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-07-04)
 ## Current Position
 
 Phase: 02 (Data Pipeline + Custom Tools) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Plan: 2 of 4
 | Phase 01 P02 | 14min | 2 tasks | 7 files |
 | Phase 01-deploy-skeleton-toolchain P03 | 8 | 3 tasks | 1 files |
 | Phase 02 P01 | 9 | 3 tasks | 10 files |
+| Phase 02 P03 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 01-deploy-skeleton-toolchain]: Pages source set to GitHub Actions via gh api build_type=workflow (automated, no manual UI step)
 - [Phase 02]: isPassed is the exact literal '(passed)' marker only (clock-independent); '2027-02-18 (2026 cycle passed)' stays isPassed=false (Open Q1)
 - [Phase 02]: Amount normalizers return null (never 0) for TBD/qualitative amounts; avg = explicit (avg $X) else range midpoint
+- [Phase 02]: 02-03: QR targets are absolute external URLs; generator asserts startsWith('http') AND no /Eman_dashboard/ base prefix (Pitfall 5)
+- [Phase 02]: 02-03: sites.js is the single swap point; second URL is an explicit REPLACE-ME placeholder; re-run generate-qr.mjs after swap (no component change)
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-05T01:32:43.029Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-07-05T01:44:31.052Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

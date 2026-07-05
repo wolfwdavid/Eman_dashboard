@@ -14,7 +14,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DATA-03**: A deadline normalizer parses messy deadline strings (e.g. "2026-06-30 (decision by Oct 31)", "Rolling (monthly)", "Invitation only", "2025-12-30 (passed)") into a typed struct (date/cadence/note/passed)
 - [ ] **DATA-04**: Status is normalized to a fixed enum and the 501(c)(3) column to a tri-state (yes / no / unknown)
 - [ ] **DATA-05**: A data validator (schema/enum/URL/date) fails the build when a grant row is malformed
-- [ ] **DATA-06**: A QR-code generation tool produces codes for two site URLs from a single config module at build time (absolute external URLs)
+- [x] **DATA-06**: A QR-code generation tool produces codes for two site URLs from a single config module at build time (absolute external URLs)
 
 ### Crystarium (3D Navigation)
 
@@ -102,7 +102,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-03 | Phase 2 | Complete |
 | DATA-04 | Phase 2 | Pending |
 | DATA-05 | Phase 2 | Pending |
-| DATA-06 | Phase 2 | Pending |
+| DATA-06 | Phase 2 | Complete |
 | CRYS-01 | Phase 3 | Pending |
 | CRYS-02 | Phase 3 | Pending |
 | CRYS-03 | Phase 3 | Pending |
