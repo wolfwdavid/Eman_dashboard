@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-07-04T23:53:11.197Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-07-05T01:32:53.826Z"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 7
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-04)
 
 **Core value:** The Crystarium sphere grid makes the entire grant pipeline legible and navigable at a glance — funder status, funding amount, and deadline urgency are all readable from the shape and glow of the grid before a single click.
-**Current focus:** Phase 01 — Deploy Skeleton + Toolchain
+**Current focus:** Phase 02 — Data Pipeline + Custom Tools
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 02 (Data Pipeline + Custom Tools) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Plan: Not started
 | Phase 01 P01 | 13 | 2 tasks | 13 files |
 | Phase 01 P02 | 14min | 2 tasks | 7 files |
 | Phase 01-deploy-skeleton-toolchain P03 | 8 | 3 tasks | 1 files |
+| Phase 02 P01 | 9 | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-02: explicit body background-color (not just gradient) + playwright webServer BASE_PATH so preview serves the subpath — verify-build + smoke green
 - [Phase 01-deploy-skeleton-toolchain]: CI pnpm pinned to 11 to match local toolchain (pnpm-workspace.yaml allowBuilds: is pnpm 10+; pnpm 9 errored 'packages field missing or empty')
 - [Phase 01-deploy-skeleton-toolchain]: Pages source set to GitHub Actions via gh api build_type=workflow (automated, no manual UI step)
+- [Phase 02]: isPassed is the exact literal '(passed)' marker only (clock-independent); '2027-02-18 (2026 cycle passed)' stays isPassed=false (Open Q1)
+- [Phase 02]: Amount normalizers return null (never 0) for TBD/qualitative amounts; avg = explicit (avg $X) else range midpoint
 
 ### Pending Todos
 
@@ -81,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-04T22:46:19.221Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-07-05T01:32:43.029Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

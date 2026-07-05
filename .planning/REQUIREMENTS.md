@@ -10,8 +10,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Data & Custom Tools
 
 - [ ] **DATA-01**: A custom Node build tool ingests `data/grants.csv` and emits a typed JSON dataset consumed by the app (no runtime fetch)
-- [ ] **DATA-02**: An amount normalizer parses messy amount strings (e.g. "$5,000-$20,000 (avg $10,000)", "$20,000 (received 2025)", "TBD", "$100,000+") into a typed struct (min/max/avg/received/tbd/equity), never a bare number
-- [ ] **DATA-03**: A deadline normalizer parses messy deadline strings (e.g. "2026-06-30 (decision by Oct 31)", "Rolling (monthly)", "Invitation only", "2025-12-30 (passed)") into a typed struct (date/cadence/note/passed)
+- [x] **DATA-02**: An amount normalizer parses messy amount strings (e.g. "$5,000-$20,000 (avg $10,000)", "$20,000 (received 2025)", "TBD", "$100,000+") into a typed struct (min/max/avg/received/tbd/equity), never a bare number
+- [x] **DATA-03**: A deadline normalizer parses messy deadline strings (e.g. "2026-06-30 (decision by Oct 31)", "Rolling (monthly)", "Invitation only", "2025-12-30 (passed)") into a typed struct (date/cadence/note/passed)
 - [ ] **DATA-04**: Status is normalized to a fixed enum and the 501(c)(3) column to a tri-state (yes / no / unknown)
 - [ ] **DATA-05**: A data validator (schema/enum/URL/date) fails the build when a grant row is malformed
 - [ ] **DATA-06**: A QR-code generation tool produces codes for two site URLs from a single config module at build time (absolute external URLs)
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DPLY-02 | Phase 1 | Complete |
 | DPLY-03 | Phase 1 | Complete |
 | DATA-01 | Phase 2 | Pending |
-| DATA-02 | Phase 2 | Pending |
-| DATA-03 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Complete |
+| DATA-03 | Phase 2 | Complete |
 | DATA-04 | Phase 2 | Pending |
 | DATA-05 | Phase 2 | Pending |
 | DATA-06 | Phase 2 | Pending |
