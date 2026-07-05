@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import tempfile
 from datetime import date
 from datetime import time as dtime
 from zoneinfo import ZoneInfo
@@ -25,7 +27,7 @@ from telegram.ext import (
     filters,
 )
 
-from did_agent import outbound, reminders
+from did_agent import outbound, reminders, voice
 from did_agent.clients import feeds
 from did_agent.config import load_settings
 from did_agent.llm.client import Agent, ToolRegistry
@@ -100,14 +102,7 @@ def main() -> None:
             f"(Your chat id is {chat_id}.)"
         )
 
-    async def on_message(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        if not _allowed(update, settings.telegram_allowed_chat_ids, settings.telegram_allow_all):
-            log.warning("Ignoring message from unauthorized chat %s", getattr(update.effective_chat, "id", "?"))
-            return
-        if not update.message or not update.message.text:
-            return
-        chat_id = update.effective_chat.id
-        text = update.message.text
+    async def _reply_with_agent(update: Update, chat_id: int, text: str) -> None:
         history = _HISTORY.get(chat_id, [])
         await update.message.chat.send_action("typing")
         try:
@@ -116,15 +111,53 @@ def main() -> None:
             log.exception("agent.respond failed")
             await update.message.reply_text("Something went wrong handling that — try again in a moment.")
             return
-        history = (
+        _HISTORY[chat_id] = (
             history + [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
         )[-_HISTORY_TURNS:]
-        _HISTORY[chat_id] = history
         await update.message.reply_text(reply or "(no reply)")
+
+    async def on_message(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _allowed(update, settings.telegram_allowed_chat_ids, settings.telegram_allow_all):
+            log.warning("Ignoring message from unauthorized chat %s", getattr(update.effective_chat, "id", "?"))
+            return
+        if not update.message or not update.message.text:
+            return
+        await _reply_with_agent(update, update.effective_chat.id, update.message.text)
+
+    async def on_voice(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _allowed(update, settings.telegram_allowed_chat_ids, settings.telegram_allow_all):
+            return
+        if not update.message or not update.message.voice:
+            return
+        chat_id = update.effective_chat.id
+        await update.message.chat.send_action("typing")
+        path = None
+        try:
+            tg_file = await update.message.voice.get_file()
+            fd, path = tempfile.mkstemp(suffix=".ogg")
+            os.close(fd)
+            await tg_file.download_to_drive(path)
+            text = await asyncio.to_thread(voice.transcribe, path, settings.whisper_model)
+        except Exception:
+            log.exception("voice transcription failed")
+            await update.message.reply_text("Couldn't transcribe that voice note — try again, or send text.")
+            return
+        finally:
+            if path and os.path.exists(path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+        if not text:
+            await update.message.reply_text("I couldn't make out any words — try again?")
+            return
+        await update.message.reply_text(f'🎤 heard: "{text}"')
+        await _reply_with_agent(update, chat_id, text)
 
     app = ApplicationBuilder().token(settings.telegram_bot_token).post_init(_post_init).build()
     app.add_handler(CommandHandler("start", on_start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
+    app.add_handler(MessageHandler(filters.VOICE, on_voice))
 
     log.info(
         "DID grant agent starting (long-polling). Tools: %s",

@@ -128,6 +128,13 @@ launchctl load ~/Library/LaunchAgents/com.did.grantagent.plist
 
 ---
 
+## Voice messages (send the bot a voice note)
+
+Speech-to-text runs **locally too** (free/private) via `faster-whisper` — already in `requirements.txt`.
+The first voice note auto-downloads the Whisper model (`WHISPER_MODEL=base` in `.env`; use `small`/`medium`
+for more accuracy). If OGG decoding ever fails, `brew install ffmpeg`. Just record a voice note to
+@Emandidbot — the bot transcribes it, echoes what it heard, and answers as if you'd typed it.
+
 ## Troubleshooting
 
 | Symptom | Fix |

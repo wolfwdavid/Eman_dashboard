@@ -11,3 +11,4 @@ python-dotenv>=1.0         # .env loading
 APScheduler>=3.10          # scheduling fallback / cron-in-process
 pydantic>=2.7              # config + data models
 tzdata>=2024.1             # zoneinfo tz db on Windows (Monday 9AM digest scheduling)
+faster-whisper>=1.0        # local speech-to-text for Telegram voice notes (free, offline)

@@ -42,6 +42,7 @@ class Settings:
     # Behavior
     timezone: str = "America/New_York"
     reminder_lead_days: int = 7
+    whisper_model: str = "base"  # local speech-to-text for voice notes (faster-whisper)
 
     @property
     def telegram_allow_all(self) -> bool:
@@ -73,4 +74,5 @@ def load_settings() -> Settings:
         google_output_folder_id=os.getenv("GOOGLE_OUTPUT_FOLDER_ID", ""),
         timezone=os.getenv("TIMEZONE", "America/New_York"),
         reminder_lead_days=int(os.getenv("REMINDER_LEAD_DAYS", "7")),
+        whisper_model=os.getenv("WHISPER_MODEL", "base"),
     )
