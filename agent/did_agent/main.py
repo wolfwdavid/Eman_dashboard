@@ -126,7 +126,10 @@ def main() -> None:
     app.add_handler(CommandHandler("start", on_start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
 
-    log.info("DID grant agent starting (long-polling). Tools: %s", [t["name"] for t in registry.specs()])
+    log.info(
+        "DID grant agent starting (long-polling). Tools: %s",
+        [t["function"]["name"] for t in registry.specs()],
+    )
     app.run_polling(stop_signals=None)
 
 
