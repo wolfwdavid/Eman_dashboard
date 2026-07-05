@@ -3,12 +3,12 @@
 Agentic chatbot for **Diversity Includes Disability** (Eman Rimawi) — finds, organizes, scores,
 and helps fill out grants, and reminds Eman via Telegram before deadlines.
 
-- **Brain:** Claude Opus 4.8 (reasoning/scoring/drafting) + Haiku 4.5 (intent routing), via the
-  Anthropic Python SDK with a self-hosted agentic tool-use loop.
+- **Brain:** a **free, local LLM via Ollama** (OpenAI-compatible) — private, nothing leaves the machine.
+  Swappable to Groq/Gemini free tiers by editing three `.env` lines. **Mac setup: see `OLLAMA-MAC-SETUP.md`.**
 - **Interface:** Telegram bot.
 - **Data:** Notion (source of truth).
-- **Runtime:** local Windows machine, kept alive by Task Scheduler; deadline reminders (T-7 daily)
-  + Monday 9AM grants/news digest.
+- **Runtime:** local machine (Windows Task Scheduler `supervisor.bat`, or macOS launchd `supervisor.sh`);
+  deadline reminders (T-7 daily) + Monday 9AM grants/news digest.
 
 > ⚠️ Runs only while the host machine is on and online. Host is a swappable config for a later VPS move.
 
@@ -46,7 +46,7 @@ python -m did_agent.main
 
 | Key | From |
 |---|---|
-| `ANTHROPIC_API_KEY` | console.anthropic.com |
+| `LLM_BASE_URL` / `LLM_MODEL_*` | local Ollama (defaults) — no key needed; or a cloud free tier |
 | `TELEGRAM_BOT_TOKEN` | @BotFather on Telegram |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | Eman's chat id(s), comma-separated |
 | `NOTION_TOKEN` | Notion internal integration (`ntn_...`) |

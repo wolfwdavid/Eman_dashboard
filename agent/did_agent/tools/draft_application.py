@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import anthropic
+from openai import OpenAI
 
 from did_agent.clients import google_docs
-from did_agent.config import MODEL_REASONING, Settings
-from did_agent.llm.client import SimpleTool
+from did_agent.config import Settings
+from did_agent.llm.client import SimpleTool, make_client
 from did_agent.models import Grant
 from did_agent.notion_store import NotionStore
 from did_agent.scoring import DID_ORG_PROFILE
@@ -30,7 +30,7 @@ def _clean_name(funder: str) -> str:
     return funder.replace("[grants.gov]", "").strip()
 
 
-def _draft_narrative(client: anthropic.Anthropic, grant: Grant, notes: str) -> str:
+def _draft_narrative(client: OpenAI, model: str, grant: Grant, notes: str) -> str:
     prompt = (
         f"ORG:\n{DID_ORG_PROFILE}\n\nGRANT: {grant.funder}\n"
         f"Amount: {grant.amount_note or grant.amount}\nFit notes: {grant.fit_notes or 'n/a'}\n"
@@ -38,17 +38,19 @@ def _draft_narrative(client: anthropic.Anthropic, grant: Grant, notes: str) -> s
         "Write a 150-200 word project summary for DID's application to THIS funder — concrete, mission-aligned, "
         "and tailored to what this funder cares about. Plain prose, no headers, first person plural."
     )
-    resp = client.messages.create(
-        model=MODEL_REASONING,
-        max_tokens=1200,
-        system="You draft concise, fundable grant-application narratives for a small disability-equity nonprofit.",
-        messages=[{"role": "user", "content": prompt}],
+    resp = client.chat.completions.create(
+        model=model,
+        temperature=0.4,
+        messages=[
+            {"role": "system", "content": "You draft concise, fundable grant-application narratives for a small disability-equity nonprofit."},
+            {"role": "user", "content": prompt},
+        ],
     )
-    return next((b.text for b in resp.content if b.type == "text"), "").strip()
+    return (resp.choices[0].message.content or "").strip()
 
 
 def build(settings: Settings) -> SimpleTool:
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
+    client = make_client(settings)
     store = NotionStore(settings)
 
     def run(tool_input: dict) -> str:
@@ -64,7 +66,7 @@ def build(settings: Settings) -> SimpleTool:
         if grant is None:
             return f"No grant named '{funder}' in Notion."
 
-        narrative = _draft_narrative(client, grant, tool_input.get("notes", ""))
+        narrative = _draft_narrative(client, settings.llm_model_reasoning, grant, tool_input.get("notes", ""))
         fields = {
             "org_legal_name": "Diversity Includes Disability",
             "ein": "EIN pending (501(c)(3) application in progress)",

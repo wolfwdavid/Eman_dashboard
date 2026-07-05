@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import anthropic
-
 from did_agent.config import Settings
-from did_agent.llm.client import SimpleTool
+from did_agent.llm.client import SimpleTool, make_client
 from did_agent.notion_store import NotionStore
 from did_agent.scoring import score_grant as run_score
 
@@ -19,8 +17,7 @@ _SCHEMA = {
 
 
 def build(settings: Settings) -> SimpleTool:
-    # api_key or None -> SDK resolves ambient creds (env / ant profile) when .env is empty.
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
+    client = make_client(settings)  # OpenAI-compatible (local Ollama by default)
     store = NotionStore(settings)
 
     def run(tool_input: dict) -> str:
@@ -30,7 +27,7 @@ def build(settings: Settings) -> SimpleTool:
         grant = store.get_grant(funder)
         if grant is None:
             return f"No grant named '{funder}' in Notion — scrape or add it first."
-        result = run_score(client, grant)
+        result = run_score(client, grant, settings.llm_model_reasoning)
         grant.score = float(result["score"])
         factors = "; ".join(result.get("key_factors", []))
         grant.rationale = f"{result['rationale']}"

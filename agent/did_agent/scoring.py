@@ -1,17 +1,16 @@
-"""Award-likelihood scoring (Phase 4) — Opus 4.8 with structured output.
+"""Award-likelihood scoring (Phase 4) — OpenAI-compatible LLM with JSON output.
 
 Estimates a 0-100 chance DID would be awarded a grant IF it submitted a strong application, tempered
-hard by eligibility under the 501(c)(3)-PENDING constraint. Uses structured outputs (json_schema) so
-the result is always valid JSON — no fragile parsing.
+hard by eligibility under the 501(c)(3)-PENDING constraint. Uses JSON mode + a required-key contract,
+then clamps/validates in code so a small local model can't return an out-of-range score.
 """
 
 from __future__ import annotations
 
 import json
 
-import anthropic
+from openai import OpenAI
 
-from did_agent.config import MODEL_REASONING
 from did_agent.models import Grant
 
 # Non-secret org facts (no EIN / address / creds — those never leave Notion).
@@ -62,19 +61,46 @@ def _prompt(grant: Grant, has_fiscal_sponsor: bool) -> str:
     )
 
 
+_JSON_CONTRACT = (
+    "Return ONLY a JSON object with exactly these keys: "
+    '"score" (integer 0-100), "likelihood" ("Low"|"Medium"|"High"), '
+    '"actionable_now" (boolean), "rationale" (string, 2-3 sentences), '
+    '"key_factors" (array of short strings). No prose outside the JSON.'
+)
+
+
+def _coerce(data: dict) -> dict:
+    try:
+        score = int(float(data.get("score", 0)))
+    except (TypeError, ValueError):
+        score = 0
+    return {
+        "score": max(0, min(100, score)),
+        "likelihood": data.get("likelihood") if data.get("likelihood") in ("Low", "Medium", "High") else "Low",
+        "actionable_now": bool(data.get("actionable_now", False)),
+        "rationale": str(data.get("rationale", "")).strip(),
+        "key_factors": [str(x) for x in (data.get("key_factors") or [])][:8],
+    }
+
+
 def score_grant(
-    client: anthropic.Anthropic,
+    client: OpenAI,
     grant: Grant,
+    model: str,
     has_fiscal_sponsor: bool = DID_HAS_FISCAL_SPONSOR,
 ) -> dict:
-    resp = client.messages.create(
-        model=MODEL_REASONING,
-        max_tokens=1500,
-        system=_SYSTEM,
-        messages=[{"role": "user", "content": _prompt(grant, has_fiscal_sponsor)}],
-        output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
+    resp = client.chat.completions.create(
+        model=model,
+        temperature=0,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": _SYSTEM + "\n\n" + _JSON_CONTRACT},
+            {"role": "user", "content": _prompt(grant, has_fiscal_sponsor)},
+        ],
     )
-    text = next((b.text for b in resp.content if b.type == "text"), "{}")
-    data = json.loads(text)
-    data["score"] = max(0, min(100, int(data.get("score", 0))))
-    return data
+    text = resp.choices[0].message.content or "{}"
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = {}
+    return _coerce(data)

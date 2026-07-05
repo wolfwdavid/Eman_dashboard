@@ -1,7 +1,12 @@
 # Tasks — DID Grant Automation Agent (Milestone 2)
 
-Plan approved decisions: local Windows + Task Scheduler · Telegram only · Claude Opus 4.8 + Haiku 4.5 ·
+Plan approved decisions: local machine (Windows Task Scheduler OR macOS launchd) · Telegram only ·
 Notion REST source of truth · full spec one milestone. See `.planning/MILESTONE-2-agent-BRIEF.md`.
+
+**LLM backend (updated):** switched from Claude to a **free, local LLM via Ollama** (OpenAI-compatible;
+default llama3.1:8b reasoning + llama3.2:3b router), private — data never leaves the machine. Swappable to
+Groq/Gemini free tiers via `.env`. Mac setup guide: `agent/OLLAMA-MAC-SETUP.md`. Refactor verified with a
+stubbed client (tool loop, scoring clamp, no anthropic import).
 
 ## Phase 1 — Foundation + Telegram loop
 - [x] Python project scaffold (venv, Windows), repo layout, `.gitignore` for `.env`/secrets

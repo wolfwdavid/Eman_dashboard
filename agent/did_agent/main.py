@@ -28,7 +28,7 @@ from telegram.ext import (
 from did_agent import outbound, reminders
 from did_agent.clients import feeds
 from did_agent.config import load_settings
-from did_agent.llm.client import ClaudeAgent, ToolRegistry
+from did_agent.llm.client import Agent, ToolRegistry
 from did_agent.notion_store import NotionStore
 from did_agent.tools import register_all
 
@@ -54,7 +54,7 @@ def main() -> None:
 
     registry = ToolRegistry()
     register_all(registry, settings)
-    agent = ClaudeAgent(settings, registry)
+    agent = Agent(settings, registry)
     store = NotionStore(settings)
     tz = ZoneInfo(settings.timezone)
 
