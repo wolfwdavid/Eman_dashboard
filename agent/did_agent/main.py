@@ -27,12 +27,13 @@ from telegram.ext import (
     filters,
 )
 
-from did_agent import outbound, reminders, voice
+from did_agent import outbound, publish, reminders, voice
 from did_agent.clients import feeds
 from did_agent.config import load_settings
 from did_agent.llm.client import Agent, ToolRegistry
 from did_agent.notion_store import NotionStore
 from did_agent.tools import register_all
+from did_agent.tools.scrape_grants import build as build_scrape
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("did_agent")
@@ -58,6 +59,7 @@ def main() -> None:
     register_all(registry, settings)
     agent = Agent(settings, registry)
     store = NotionStore(settings)
+    scrape_tool = build_scrape(settings)
     tz = ZoneInfo(settings.timezone)
 
     # --- scheduled jobs (proactive sends) ---
@@ -75,16 +77,32 @@ def main() -> None:
         text = reminders.format_digest(grants, news, date.today(), settings.reminder_lead_days)
         await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text, parse_mode="Markdown")
 
+    async def daily_scrape(_ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        # Midnight ET, silent: find new grants, save to Notion, refresh the dashboard.
+        log.info("Daily midnight scrape starting…")
+        for q in ("disability", "accessibility", "assistive technology"):
+            try:
+                await asyncio.to_thread(scrape_tool.run, {"query": q, "sources": ["grants_gov"], "max_results": 8})
+            except Exception:
+                log.exception("daily scrape failed for query %r", q)
+        try:
+            await asyncio.to_thread(publish.publish, None, True, None)
+        except Exception:
+            log.exception("dashboard refresh failed")
+        log.info("Daily midnight scrape done.")
+
     async def _post_init(app) -> None:
         outbound.register(app, asyncio.get_running_loop())
+        jq = app.job_queue  # requires python-telegram-bot[job-queue]
+        if not settings.notion_grants_data_source_id:
+            log.warning("No NOTION_GRANTS_DATA_SOURCE_ID — scheduler idle until bootstrap.")
+            return
+        jq.run_daily(daily_scrape, time=dtime(0, 0, tzinfo=tz), name="daily-scrape")
+        log.info("Scheduled daily midnight (%s) grant scrape.", settings.timezone)
         targets = settings.telegram_allowed_chat_ids
         if not targets:
             log.warning("No TELEGRAM_ALLOWED_CHAT_IDS — proactive reminders/digest disabled until set.")
             return
-        if not settings.notion_grants_data_source_id:
-            log.warning("No NOTION_GRANTS_DATA_SOURCE_ID — scheduler idle until Notion is set up (bootstrap).")
-            return
-        jq = app.job_queue  # requires python-telegram-bot[job-queue]
         for cid in targets:
             jq.run_daily(deadline_sweep, time=dtime(9, 0, tzinfo=tz), chat_id=cid, name=f"reminders-{cid}")
             jq.run_daily(weekly_digest, time=dtime(9, 0, tzinfo=tz), days=(0,), chat_id=cid, name=f"digest-{cid}")
