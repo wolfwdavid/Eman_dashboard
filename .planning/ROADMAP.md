@@ -49,7 +49,7 @@ Plans:
 
 Plans:
 - [x] 02-01-deps-schema-amount-deadline-PLAN.md — deps (papaparse/zod4/qrcode) + `vitest.config.ts` + canonical `types.ts` + `schema.mjs` (zod) + `amount`/`deadline` normalizers with vitest tests over all 18/20 literal strings + bad-CSV fixture [wave 1] (DATA-02, DATA-03)
-- [ ] 02-02-status-ingest-aggregates-PLAN.md — `status`/`501c3`/`slug` normalizers + `ingest-grants.mjs` (CSV → `grants.generated.json` + `index.ts` barrel) + `aggregates.mjs` selectors (secured=$20k, potential=$296.5k) [wave 2] (DATA-01, DATA-04)
+- [x] 02-02-status-ingest-aggregates-PLAN.md — `status`/`501c3`/`slug` normalizers + `ingest-grants.mjs` (CSV → `grants.generated.json` + `index.ts` barrel) + `aggregates.mjs` selectors (secured=$20k, potential=$296.5k) [wave 2] (DATA-01, DATA-04)
 - [x] 02-03-qr-generator-PLAN.md — `config/sites.js` (two swappable absolute URLs, never base-prefixed) + `generate-qr.mjs` emitting inline-SVG `qr.generated.js` + tests [wave 2] (DATA-06)
 - [ ] 02-04-build-gate-wiring-PLAN.md — `validate.test.mjs` (schema unit rejections + bad-CSV spawn → exit 1) + explicit `package.json` build chain (`build:data && build:qr && vite build`, no pnpm prebuild) proving bad data fails the build [wave 3] (DATA-05)
 
