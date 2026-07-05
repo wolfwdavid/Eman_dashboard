@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from openai import OpenAI
 
 from did_agent.clients import google_docs
@@ -30,19 +32,39 @@ def _clean_name(funder: str) -> str:
     return funder.replace("[grants.gov]", "").strip()
 
 
+_INTAKE_PATH = Path(__file__).resolve().parents[2] / "eman-voice-intake.md"
+
+
+def _load_intake() -> str:
+    """Eman's own answers (voice/text). Primary source of truth for drafts when present."""
+    try:
+        return _INTAKE_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def _draft_narrative(client: OpenAI, model: str, grant: Grant, notes: str) -> str:
+    intake = _load_intake()
+    intake_block = (
+        f"EMAN'S INTAKE (her own words — use these facts and voice; do NOT invent details not here or "
+        f"in the org profile; ignore any unanswered prompts):\n{intake}\n\n"
+        if intake
+        else ""
+    )
     prompt = (
-        f"ORG:\n{DID_ORG_PROFILE}\n\nGRANT: {grant.funder}\n"
+        f"ORG:\n{DID_ORG_PROFILE}\n\n{intake_block}GRANT: {grant.funder}\n"
         f"Amount: {grant.amount_note or grant.amount}\nFit notes: {grant.fit_notes or 'n/a'}\n"
         f"Extra guidance from the applicant: {notes or 'none'}\n\n"
         "Write a 150-200 word project summary for DID's application to THIS funder — concrete, mission-aligned, "
-        "and tailored to what this funder cares about. Plain prose, no headers, first person plural."
+        "tailored to what this funder cares about, and in Eman's voice. Only state facts grounded in the org "
+        "profile or intake above — never fabricate programs, numbers, or partners. Plain prose, no headers, "
+        "first person plural."
     )
     resp = client.chat.completions.create(
         model=model,
         temperature=0.4,
         messages=[
-            {"role": "system", "content": "You draft concise, fundable grant-application narratives for a small disability-equity nonprofit."},
+            {"role": "system", "content": "You draft concise, fundable grant-application narratives for a small disability-equity nonprofit, grounded strictly in the facts provided."},
             {"role": "user", "content": prompt},
         ],
     )
