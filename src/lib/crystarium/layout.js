@@ -18,6 +18,7 @@
 /** @typedef {import('../data/types').Grant} Grant */
 
 // ── Locked constants (world units — tunable in Phase 5 polish; ship these) ──────────
+/** @type {Record<string, number>} */
 const RING_RADIUS = { active: 0, applied: 6, 'in-progress': 11, 'to-research': 17, recurring: 9, dim: 20 };
 const DOME_CURVE = 0.35; // elevation gain per unit radius
 const SPREAD = 0.12; // deterministic angular fan step (radians, index-derived — NOT random)
@@ -36,34 +37,51 @@ const DIM_STATUSES = new Set(['declined', 'not-eligible', 'not-eligible-yet']);
 //   'no'      → "open now" front arc   (θ base 270°, span 200–340°)
 //   'yes'     → "gated" rear-left arc  (θ base  80°, span  20–140°)
 //   'unknown' → "unknown" side arc     (θ base 170°, span 140–200°)
+/** @param {number} d */
 const deg = (d) => (d * Math.PI) / 180;
 const SECTOR_BASE = { no: deg(270), yes: deg(80), unknown: deg(170) };
 // Deterministic cluster order when concatenating a ring's sectors for spine wiring.
 const SECTOR_ORDER = ['no', 'yes', 'unknown'];
 
-/** Bucket a grant status onto its layout ring. */
+/**
+ * Bucket a grant status onto its layout ring.
+ * @param {string} status
+ */
 function ringOf(status) {
 	if (DIM_STATUSES.has(status)) return 'dim';
 	return status; // active | applied | in-progress | to-research | recurring
 }
 
-/** Representative amount for scale/order (explicit avg, else max, else min). */
+/**
+ * Representative amount for scale/order (explicit avg, else max, else min).
+ * @param {Grant} g
+ */
 const rep = (g) => g.amount.avg ?? g.amount.max ?? g.amount.min;
 
-/** Log-scaled node size (CRYS-04). TBD → fixed minimal; quantified → log-lerp in [0.6, 2.4]. */
+/**
+ * Log-scaled node size (CRYS-04). TBD → fixed minimal; quantified → log-lerp in [0.6, 2.4].
+ * @param {Grant} g
+ */
 function scaleFor(g) {
 	if (g.amount.isTBD) return TBD_SCALE;
-	const a = Math.max(AMT_FLOOR, Math.min(AMT_CEIL, rep(g)));
+	// rep(g) is non-null for quantified (non-TBD) grants; the ?? floor keeps TS
+	// happy and clamps defensively (the clamp floors to AMT_FLOOR regardless).
+	const a = Math.max(AMT_FLOOR, Math.min(AMT_CEIL, rep(g) ?? AMT_FLOOR));
 	const t = (Math.log(a) - Math.log(AMT_FLOOR)) / (Math.log(AMT_CEIL) - Math.log(AMT_FLOOR));
 	return SCALE_MIN + t * (SCALE_MAX - SCALE_MIN);
 }
 
-/** Larger crystals lift slightly so they read as "taller." */
+/**
+ * Larger crystals lift slightly so they read as "taller."
+ * @param {number} scale
+ */
 const amountBump = (scale) => (scale - SCALE_MIN) * 0.5;
 
 /**
  * Deterministic comparator within a (ring, sector) bucket:
  * representative amount desc, tie-break deadline.date asc (nulls last), final tie-break id asc.
+ * @param {{ g: Grant }} a
+ * @param {{ g: Grant }} b
  */
 function bucketCompare(a, b) {
 	const ra = rep(a.g) ?? -Infinity;
@@ -93,12 +111,15 @@ function buildNodes(grants) {
 	});
 
 	// Group by (ring, sector), sort each bucket, assign a within-bucket index for the fan.
+	/** @type {Map<string, any[]>} */
 	const buckets = new Map();
 	for (const e of enriched) {
 		const key = `${e.ring}|${e.sector}`;
-		if (!buckets.has(key)) buckets.set(key, []);
-		buckets.get(key).push(e);
+		let bucket = buckets.get(key);
+		if (!bucket) buckets.set(key, (bucket = []));
+		bucket.push(e);
 	}
+	/** @type {Map<string, { i: number, n: number }>} */
 	const themeIndex = new Map(); // grant id → { i, n }
 	for (const list of buckets.values()) {
 		list.sort(bucketCompare);
@@ -110,7 +131,7 @@ function buildNodes(grants) {
 	const nodeById = new Map();
 	for (const e of enriched) {
 		const { g, ring, sector, scale, radius } = e;
-		const { i, n } = themeIndex.get(g.id);
+		const { i, n } = themeIndex.get(g.id) ?? { i: 0, n: 1 };
 		const theta = SECTOR_BASE[sector] + (i - (n - 1) / 2) * SPREAD;
 		const bump = amountBump(scale);
 
@@ -154,12 +175,14 @@ function buildNodes(grants) {
 	}
 
 	// Deterministic per-ring cluster order (sectors concatenated in SECTOR_ORDER, each sorted).
+	/** @type {Record<string, Record<string, string[]>>} */
 	const ringOrder = {};
 	for (const [key, list] of buckets) {
 		const [ring, sector] = key.split('|');
 		if (!ringOrder[ring]) ringOrder[ring] = {};
 		ringOrder[ring][sector] = list.map((e) => e.g.id);
 	}
+	/** @type {Record<string, string[]>} */
 	const flatRingOrder = {};
 	for (const ring of Object.keys(ringOrder)) {
 		flatRingOrder[ring] = SECTOR_ORDER.flatMap((s) => ringOrder[ring][s] ?? []);
@@ -177,6 +200,7 @@ function buildNodes(grants) {
  * Uses the RAW string, NOT the tri-state: `requires501c3 === 'yes'` wrongly yields 8
  * (it folds in "Likely yes" + "Yes (required)"). Only the raw value is the sponsor path.
  */
+/** @param {Grant} g */
 const isBeamTarget = (g) => g.requires501c3Raw === 'Yes - or fiscal sponsor';
 
 /**
@@ -186,6 +210,7 @@ const isBeamTarget = (g) => g.requires501c3Raw === 'Yes - or fiscal sponsor';
  * / not-eligible / not-eligible-yet never pulse.
  */
 const NEVER_PULSE = new Set(['declined', 'not-eligible', 'not-eligible-yet']);
+/** @param {Grant} g */
 const isPulse = (g) =>
 	g.deadline.cadence === 'one-time' && !g.deadline.isPassed && !NEVER_PULSE.has(g.status);
 
@@ -196,6 +221,7 @@ const isPulse = (g) =>
  * @param {Grant[]} grants
  */
 const FAMILY_PARENTS = ['Ford Foundation', 'Bank of America'];
+/** @param {Grant[]} grants */
 function deriveFamilies(grants) {
 	const groups = new Map();
 	for (const p of FAMILY_PARENTS) groups.set(p, []);

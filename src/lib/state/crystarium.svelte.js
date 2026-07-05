@@ -7,14 +7,26 @@
 // conditionally mounted behind `{#if browser && mounted}`, and a plain module
 // import survives mount/unmount cleanly where context would be re-created.
 
+/**
+ * @typedef {Object} CrystariumUI
+ * @property {string | null} selected   id under primary focus (one at a time)
+ * @property {string | null} hovered    id under the pointer (secondary)
+ * @property {string}        filter     Phase-4 status filter (reserved)
+ * @property {string | null} cameraFocus id the camera should frame
+ */
+
+/** @type {CrystariumUI} */
 export const ui = $state({
-	selected: null, // id of the node under primary focus (one at a time)
-	hovered: null, // id of the node under the pointer (secondary)
-	filter: 'all', // Phase-4 status filter (reserved; scene does not read it)
-	cameraFocus: null // id the camera should frame; mirrors `selected` on select
+	selected: null,
+	hovered: null,
+	filter: 'all',
+	cameraFocus: null
 });
 
-/** Primary focus: select a node and ask the camera to frame it. */
+/**
+ * Primary focus: select a node and ask the camera to frame it.
+ * @param {string | null} id
+ */
 export function select(id) {
 	ui.selected = id;
 	ui.cameraFocus = id;
@@ -26,7 +38,10 @@ export function deselect() {
 	ui.cameraFocus = null;
 }
 
-/** Secondary focus: hover (pass null on pointerleave). */
+/**
+ * Secondary focus: hover (pass null on pointerleave).
+ * @param {string | null} id
+ */
 export function hover(id) {
 	ui.hovered = id;
 }
