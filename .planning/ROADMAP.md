@@ -62,12 +62,13 @@ Plans:
   2. A node's ring/color reads its status, its scale reads its funding amount, and its glow/pulse reads deadline urgency — passed/rolling/declined nodes deliberately do NOT glow urgent.
   3. Connecting paths render the progression spine, funder-family bridges, and the NY Community Trust fiscal-sponsor beam to the 501(c)(3)-gated funders.
   4. The camera orbits the grid in overview and eases to focus on a node when selected; hover and selection states are visually distinct, enhanced by bloom postprocessing.
-**Plans**: TBD (~3-4 plans)
+**Plans**: 4 plans (waves 1 -> 2 -> 3 -> 4)
 
 Plans:
-- [ ] 03-01: Pure `layout.js` (status-sectored radial dome, deterministic, no Three import) + browser-gated Threlte `<Canvas>` rendering all 28 `CrystalNode`s
-- [ ] 03-02: Status/amount/deadline visual encodings on `CrystalNode` (ring, log-scaled size, urgency glow) + 501c3 halo
-- [ ] 03-03: `CrystalPath` edges (spine, families, fiscal-sponsor beam), `CameraRig` orbit + focus-on-node, bloom/SelectiveBloom postprocessing + hover/select states
+- [ ] 03-01-foundation-deps-config-tokens-PLAN.md — Install pinned 3D deps (three@0.185.1, @threlte/core@8, @threlte/extras, postprocessing, gsap), apply the noExternal/vitest gotchas + typed pointer events, and the tokens.ts colour/activation contract [wave 1]
+- [ ] 03-02-pure-layout-module-PLAN.md — PURE deterministic `computeLayout` (ring-by-status, sector-by-501c3, log-scale, TBD->minimal) + derived beam(4)/pulse(3)/family edges + FULL vitest suite (CRYS-02/04/05/06) [wave 2]
+- [ ] 03-03-scene-canvas-nodes-hud-PLAN.md — Runes state bridge + prerendered glass HUD + browser-gated Threlte `<Canvas>` rendering all 28 status-coloured/amount-scaled `CrystalNode`s (build stays SSR-safe) [wave 3]
+- [ ] 03-04-paths-camera-bloom-interactions-PLAN.md — `CrystalPath` spine/family/fiscal-sponsor beam + `CameraRig` orbit+GSAP focus + SelectiveBloom composer + deadline pulse + hover/select distinction [wave 4]
 
 ### Phase 4: HUD / Overlay UI + Fallback
 **Goal**: The 2D dashboard layered over the canvas lets the user drill into any grant and read the entire pipeline at a glance — driven by scene selection through one shared runes state module — plus a 2D fallback so WebGL-less clients never see a black screen.
@@ -109,6 +110,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Deploy Skeleton + Toolchain | 0/3 | Not started | - |
 | 2. Data Pipeline + Custom Tools | 0/4 | Not started | - |
-| 3. 3D Crystarium Scene | 0/3 | Not started | - |
+| 3. 3D Crystarium Scene | 0/4 | Not started | - |
 | 4. HUD / Overlay UI + Fallback | 0/3 | Not started | - |
 | 5. Premium Polish / Animation / Perf | 0/2 | Not started | - |
