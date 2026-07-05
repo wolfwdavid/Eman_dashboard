@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-07-05T01:50:45.101Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-07-05T02:03:58.452Z"
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -52,6 +52,7 @@ Plan: 4 of 4
 | Phase 02 P01 | 9 | 3 tasks | 10 files |
 | Phase 02 P03 | 4 | 2 tasks | 4 files |
 | Phase 02 P02 | 11min | 3 tasks | 8 files |
+| Phase 02 P04 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 02]: 02-03: sites.js is the single swap point; second URL is an explicit REPLACE-ME placeholder; re-run generate-qr.mjs after swap (no component change)
 - [Phase 02]: by501c3 = 12 no / 8 yes / 8 unknown — parser is source of truth (asserted sum=28, not a hardcoded count); 02-RESEARCH's 11-no hand-count omitted 37 Angels
 - [Phase 02]: Grant id = slug of full 'Funder / Program' cell; potentialTotal basis = avg ?? max ?? min over 9 rows = 296500; securedTotal=20000 hard-locked
+- [Phase 02]: 02-04: build gate wired as explicit pnpm build:data && build:qr && vite build chain (pnpm skips prebuild) — bad CSV fails the build; validate.test.mjs proves it (unit + spawnSync integration)
+- [Phase 02]: 02-04: qrCodes re-exported from $lib/data barrel (deferred cross-plan wiring closed) — Phase 4 QR panel import ready
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-05T01:50:20.858Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-07-05T02:03:36.676Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None
