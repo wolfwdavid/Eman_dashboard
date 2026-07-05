@@ -7,12 +7,15 @@
 		"node": ">=22"
 	},
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
+		"build:data": "node tools/ingest-grants.mjs",
+		"build:qr": "node tools/generate-qr.mjs",
+		"dev": "pnpm build:data && pnpm build:qr && vite dev",
+		"build": "pnpm build:data && pnpm build:qr && vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test:unit": "vitest run",
 		"verify:build": "node tools/verify-build.mjs",
 		"test:smoke": "playwright test",
 		"verify:live": "curl -fsSL https://wolfwdavid.github.io/Eman_dashboard/ | grep -q Eman_dashboard"
