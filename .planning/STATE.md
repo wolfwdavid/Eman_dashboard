@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-07-06T11:21:42.751Z"
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-07-06T11:40:40.842Z"
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-07-04)
 ## Current Position
 
 Phase: 04 (HUD / Overlay UI + Fallback) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: 4 of 5
 | Phase 04 P01 | 13 | 3 tasks | 14 files |
 | Phase 04-hud-overlay-ui-fallback P02 | 9 | 2 tasks | 1 files |
 | Phase 04 P03 | 20 | 3 tasks | 7 files |
+| Phase 04 P04 | 8 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Recent decisions affecting current work:
 - [Phase 04-hud-overlay-ui-fallback]: 04-02: DetailPanel consumes real format.ts API (tone/sponsorHint), not the plan prose's token/hint; sponsorHint→gold 'NY Community Trust may sponsor' line
 - [Phase 04-hud-overlay-ui-fallback]: 04-02: color-mix(var(--node-hue) N%) for pill/badge/link tints keeps token discipline (no new hex/alpha tokens); single --node-hue prop echoes selected crystal across header/pill/CTA/link
 - [Phase 04]: Chart C uses deterministic urgency-bucket colouring (cDomain/cRange) instead of a bespoke overlay to meet the <30d-urgent/passed-ash contract
+- [Phase 04]: Background-click deselect wired via onpointermissed on the geometry-less scene Group (never in initialHits → fires on every click, before dispatch); no DOM/3D catch layer, canvas raycast intact
+- [Phase 04]: Shipped optional WebGL-probe 2D fallback (RESL-01) — client-only probe swaps FallbackList for Canvas; reuses DetailPanel + format helpers; never blocks the build gate
 
 ### Pending Todos
 
@@ -115,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-06T11:21:03.879Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-07-06T11:40:14.025Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None
