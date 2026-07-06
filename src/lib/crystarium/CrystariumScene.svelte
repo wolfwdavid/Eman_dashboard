@@ -8,10 +8,12 @@
 	// pointer handlers raycast correctly (03-RESEARCH Code Example 2).
 	import { T, useThrelte } from '@threlte/core';
 	import { interactivity } from '@threlte/extras';
+	import { onMount, onDestroy } from 'svelte';
 	import { computeLayout } from './layout.js';
 	import { grants } from '$lib/data';
 	import { matchesFilter } from '$lib/data/filter';
 	import { ui, deselect } from '$lib/state/crystarium.svelte.js';
+	import { startIntro, skipIntro } from './intro.svelte.js';
 	import * as tokens from './tokens';
 	import CrystalNode from './CrystalNode.svelte';
 	import CrystalPath from './CrystalPath.svelte';
@@ -26,11 +28,36 @@
 	const grantById = new Map(grants.map((g) => [g.id, g]));
 	const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
+	// Per-node AWAKENING rank (AEST-01): rim→center reveal order, deterministic and
+	// pure (no clock, no per-frame work). Sort by radial distance from the origin
+	// DESCENDING so rank 0 = farthest rim (ignites first) and rank 1 = the gold master
+	// crystal at the origin (lands LAST). Nodes read this against intro.revealProgress.
+	const rankById = (() => {
+		const ordered = [...nodes].sort(
+			(a, b) => (b.x * b.x + b.z * b.z) - (a.x * a.x + a.z * a.z)
+		);
+		const n = ordered.length;
+		const m = new Map();
+		ordered.forEach((node, i) => m.set(node.id, n > 1 ? i / (n - 1) : 0));
+		return m;
+	})();
+
 	const { renderer } = useThrelte();
 
 	// Near-black indigo void (03-UI-SPEC --bg). Set the WebGL clear colour.
 	$effect(() => {
 		renderer.setClearColor(tokens.bg, 1);
+	});
+
+	// Kick off the awakening on mount; ANY pointer input anywhere snaps the scene to
+	// its settled steady state (interruptible, one-shot). The listener is removed on
+	// destroy in case it never fired.
+	onMount(() => {
+		startIntro();
+		window.addEventListener('pointerdown', skipIntro, { once: true });
+	});
+	onDestroy(() => {
+		if (typeof window !== 'undefined') window.removeEventListener('pointerdown', skipIntro);
 	});
 </script>
 
@@ -82,7 +109,7 @@
 	{#each nodes as node (node.id)}
 		{@const grant = grantById.get(node.id)}
 		{#if grant}
-			<CrystalNode {grant} {node} />
+			<CrystalNode {grant} {node} revealRank={rankById.get(node.id) ?? 0} />
 		{/if}
 	{/each}
 </T.Group>
