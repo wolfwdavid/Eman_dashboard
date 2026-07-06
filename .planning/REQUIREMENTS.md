@@ -37,14 +37,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **PIPE-01**: An overview shows totals by status (count of funders per status)
 - [x] **PIPE-02**: An overview shows funding secured vs. potential, excluding declined, not-eligible, and equity (37 Angels) rows from "potential"
-- [ ] **PIPE-03**: An overview surfaces upcoming deadlines on a timeline ordered by urgency
+- [x] **PIPE-03**: An overview surfaces upcoming deadlines on a timeline ordered by urgency
 - [x] **PIPE-04**: An overview shows the 501(c)(3)-gated vs. open funder split
 - [x] **PIPE-05**: The user can filter/segment the grid by status, by 501(c)(3) requirement, and by type
 
 ### QR Panel
 
-- [ ] **QRUI-01**: A QR panel displays scannable QR codes for the two configured website URLs
-- [ ] **QRUI-02**: The two target URLs are swappable via a single config module without touching component code
+- [x] **QRUI-01**: A QR panel displays scannable QR codes for the two configured website URLs
+- [x] **QRUI-02**: The two target URLs are swappable via a single config module without touching component code
 
 ### Deployment
 
@@ -116,11 +116,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DETL-03 | Phase 4 | Complete |
 | PIPE-01 | Phase 4 | Complete |
 | PIPE-02 | Phase 4 | Complete |
-| PIPE-03 | Phase 4 | Pending |
+| PIPE-03 | Phase 4 | Complete |
 | PIPE-04 | Phase 4 | Complete |
 | PIPE-05 | Phase 4 | Complete |
-| QRUI-01 | Phase 4 | Pending |
-| QRUI-02 | Phase 4 | Pending |
+| QRUI-01 | Phase 4 | Complete |
+| QRUI-02 | Phase 4 | Complete |
 | AEST-01 | Phase 5 | Pending |
 | AEST-02 | Phase 5 | Pending |
 

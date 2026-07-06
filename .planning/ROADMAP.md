@@ -85,7 +85,7 @@ Plans:
 Plans:
 - [x] 04-01-foundation-deps-pure-state-scenedim-PLAN.md — `layerchart@2.0.1` dep + PURE `aggregates.ts`/`filter.ts`/`format.ts` (+ vitest) + widen `ui.filter` to `{status,gate,type}` + gate/chart CSS tokens + scene filter-dim/raycast-guard in `CrystalNode`/`CrystalPath` [wave 1] (DETL-02, PIPE-01, PIPE-02, PIPE-04, PIPE-05)
 - [x] 04-02-detail-panel-PLAN.md — `DetailPanel.svelte` right-edge rail: all 9 fields, Amount/Deadline human-readable + raw subtext, status pill, gate badge, Next Action CTA banner, external "Open funder site ↗" link, fly-in/out motion [wave 2] (DETL-01, DETL-02, DETL-03)
-- [ ] 04-03-pipeline-charts-filters-qr-PLAN.md — 4 LayerChart charts (status/secured-vs-potential/deadline-timeline/501c3-split) + `FilterBar` (3 axes → `setFilter`) + collapsible `PipelineDrawer` + `QrPanel` ({@html} tiles + config-swap note) [wave 2] (PIPE-01..05, QRUI-01, QRUI-02)
+- [x] 04-03-pipeline-charts-filters-qr-PLAN.md — 4 LayerChart charts (status/secured-vs-potential/deadline-timeline/501c3-split) + `FilterBar` (3 axes → `setFilter`) + collapsible `PipelineDrawer` + `QrPanel` ({@html} tiles + config-swap note) [wave 2] (PIPE-01..05, QRUI-01, QRUI-02)
 - [ ] 04-04-integration-mount-build-gate-PLAN.md — mount overlay in `+page.svelte` via the pointer-events layer model (no catch layer), selector-driven readout, OPTIONAL WebGL-probe fallback, phase build gate (base-path build + verify-build 6/6, chart-SVG-grep trap avoided) [wave 3] (DETL-01, PIPE-05, QRUI-01, QRUI-02)
 - [ ] 04-05-interactive-uat-PLAN.md — human-verify checkpoint: drill-down, filter-dims-scene, charts + tooltips, QR toggle, raycast-intact [wave 4, checkpoint] (DETL-01..03, PIPE-01..05, QRUI-01)
 
