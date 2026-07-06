@@ -90,18 +90,18 @@ Plans:
 - [ ] 04-05-interactive-uat-PLAN.md — human-verify checkpoint: drill-down, filter-dims-scene, charts + tooltips, QR toggle, raycast-intact [wave 4, checkpoint] (DETL-01..03, PIPE-01..05, QRUI-01)
 
 ### Phase 5: Premium Polish / Animation / Perf
-**Goal**: The dashboard gains its premium RPG game-UI feel — activation/intro animations, a dark glassmorphism HUD, tuned glow, and a performance pass that keeps it smooth on mid-range mobile.
+**Goal**: The dashboard gains its premium RPG game-UI feel — a Crystarium "awakening" intro + activation animations (GSAP), the three carried HUD-collision fixes, glassmorphism HUD tightening, and a performance pass that keeps it smooth on mid-range mobile.
 **Depends on**: Phase 4
 **Requirements**: AEST-01, AEST-02
 **Success Criteria** (what must be TRUE):
   1. An intro/activation animation plays on load (and on status-advance) via GSAP, giving the grid a Crystarium-unlock game-UI feel.
   2. The overlay reads as a dark premium glassmorphism HUD/legend — an RPG-styled interface, not a plain dashboard.
   3. The scene holds a smooth frame rate on a mid-range phone (pixel ratio capped ≤2, selective/half-res bloom, render-on-demand) with no black-screen or GPU meltdown, and the Crystarium layout constants are visually tuned.
-**Plans**: TBD (~2-3 plans)
+**Plans**: 2 plans (wave 1 — parallel, zero file overlap)
 
 Plans:
-- [ ] 05-01: GSAP intro/activation animation (AEST-01) + glassmorphism RPG HUD/legend styling (AEST-02) + layout-constant visual tuning (R0/TIER_STEP/DOME_CURVE/SPREAD)
-- [ ] 05-02: Deadline-urgency pulse tuning, glow/bloom tuning, render-on-demand, mobile GPU perf pass + reduced-effects fallback path
+- [ ] 05-01-scene-intro-activation-PLAN.md — GSAP staggered node materialization + path draw-in + camera reveal→settle (client-only intro controller, ≤2.5s, interruptible) + activation-burst polish + perf pass (dpr/bloom/no-per-frame-alloc verify) [wave 1] (AEST-01)
+- [ ] 05-02-hud-fixes-tightening-PLAN.md — the 3 carried UAT fixes (readout auto-hide while rail open, deadline no-duplicate subtext, drawer ≤60vh cap) + HUD hover/press tightening within existing tokens [wave 1] (AEST-02)
 
 ## Progress
 
