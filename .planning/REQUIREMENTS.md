@@ -30,16 +30,16 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Grant Detail
 
 - [ ] **DETL-01**: Selecting a node opens a detail view showing all of that funder's fields
-- [ ] **DETL-02**: Normalized Amount and Deadline are shown human-readable alongside the original raw value
+- [x] **DETL-02**: Normalized Amount and Deadline are shown human-readable alongside the original raw value
 - [ ] **DETL-03**: The Next Action is presented as a call-to-action and the external Link opens the funder site in a new tab
 
 ### Pipeline Overview
 
-- [ ] **PIPE-01**: An overview shows totals by status (count of funders per status)
-- [ ] **PIPE-02**: An overview shows funding secured vs. potential, excluding declined, not-eligible, and equity (37 Angels) rows from "potential"
+- [x] **PIPE-01**: An overview shows totals by status (count of funders per status)
+- [x] **PIPE-02**: An overview shows funding secured vs. potential, excluding declined, not-eligible, and equity (37 Angels) rows from "potential"
 - [ ] **PIPE-03**: An overview surfaces upcoming deadlines on a timeline ordered by urgency
-- [ ] **PIPE-04**: An overview shows the 501(c)(3)-gated vs. open funder split
-- [ ] **PIPE-05**: The user can filter/segment the grid by status, by 501(c)(3) requirement, and by type
+- [x] **PIPE-04**: An overview shows the 501(c)(3)-gated vs. open funder split
+- [x] **PIPE-05**: The user can filter/segment the grid by status, by 501(c)(3) requirement, and by type
 
 ### QR Panel
 
@@ -112,13 +112,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CRYS-07 | Phase 3 | Complete |
 | CRYS-08 | Phase 3 | Complete |
 | DETL-01 | Phase 4 | Pending |
-| DETL-02 | Phase 4 | Pending |
+| DETL-02 | Phase 4 | Complete |
 | DETL-03 | Phase 4 | Pending |
-| PIPE-01 | Phase 4 | Pending |
-| PIPE-02 | Phase 4 | Pending |
+| PIPE-01 | Phase 4 | Complete |
+| PIPE-02 | Phase 4 | Complete |
 | PIPE-03 | Phase 4 | Pending |
-| PIPE-04 | Phase 4 | Pending |
-| PIPE-05 | Phase 4 | Pending |
+| PIPE-04 | Phase 4 | Complete |
+| PIPE-05 | Phase 4 | Complete |
 | QRUI-01 | Phase 4 | Pending |
 | QRUI-02 | Phase 4 | Pending |
 | AEST-01 | Phase 5 | Pending |
