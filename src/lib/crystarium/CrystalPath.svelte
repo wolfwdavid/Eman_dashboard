@@ -12,7 +12,7 @@
 	// geometry is built ONCE in a closure `build()` — props are captured there, keeping
 	// the component-instance scope free of non-reactive prop reads.
 	import { T, useTask } from '@threlte/core';
-	import { LineCurve3, Vector3, TubeGeometry, BufferAttribute, Color, AdditiveBlending } from 'three';
+	import { QuadraticBezierCurve3, Vector3, TubeGeometry, BufferAttribute, Color, AdditiveBlending } from 'three';
 	import { intro } from './intro.svelte.js';
 	import * as tokens from './tokens';
 
@@ -24,20 +24,29 @@
 	}: { edge: { kind: string }; from: any; to: any; dim?: boolean } = $props();
 
 	function build() {
-		// Straight conduit between the two node centres.
-		const curve = new LineCurve3(
-			new Vector3(from.x, from.y, from.z),
-			new Vector3(to.x, to.y, to.z)
-		);
+		// VIS-03: a gently-ARCED filament of light (not a straight conduit) — the midpoint
+		// is lifted along the dome normal (up + a touch outward) so links bow over the dome.
+		const fromV = new Vector3(from.x, from.y, from.z);
+		const toV = new Vector3(to.x, to.y, to.z);
+		const mid = fromV.clone().add(toV).multiplyScalar(0.5);
+		const dist = fromV.distanceTo(toV);
+		mid.y += 0.35 + dist * 0.14; // lift up along the dome normal
+		const outward = Math.hypot(mid.x, mid.z);
+		if (outward > 1e-4) {
+			const k = (dist * 0.06) / outward; // bow slightly outward from the origin too
+			mid.x += mid.x * k;
+			mid.z += mid.z * k;
+		}
+		const curve = new QuadraticBezierCurve3(fromV, mid, toV);
 		const kind = edge.kind;
 		const isBeam = kind === 'beam';
 		const isFamily = kind === 'family';
 
-		// Dimensions by kind — beam thickest, family thinnest/faintest.
-		const radius = isBeam ? 0.15 : isFamily ? 0.04 : 0.07;
-		const tubularSegments = isBeam ? 48 : 24;
+		// VIS-03 dimensions — VERY thin filaments (beam a hair thicker/brighter = signature).
+		const radius = isBeam ? 0.045 : isFamily ? 0.022 : 0.03;
+		const tubularSegments = isBeam ? 64 : 32; // arcs need more segments for a smooth bow
 		const radialSegments = isBeam ? 8 : 6;
-		const opacity = isBeam ? 0.9 : isFamily ? 0.28 : 0.5;
+		const opacity = isBeam ? 0.4 : isFamily ? 0.15 : 0.22;
 
 		// Beam only: build a gold→cyan vertex-coloured tube (gradient core→tip).
 		let beamGeometry: any = undefined;
@@ -75,7 +84,8 @@
 			hasFlow,
 			flowSpeed: isBeam ? 0.4 : 0.16,
 			flowColor: isBeam ? tokens.beamTip : tokens.path,
-			flowRadius: isBeam ? radius * 2.0 : radius * 1.6
+			// Thin tubes → boost the travelling-pulse multiplier so the flow stays visible.
+			flowRadius: isBeam ? radius * 2.6 : radius * 2.4
 		};
 	}
 	const cfg = build();
@@ -91,7 +101,7 @@
 	// Phase-4 filter-dim: an edge fades when EITHER endpoint is filtered out
 	// (uniform/opacity only — geometry is untouched, so the layout never shifts).
 	const tubeOpacity = $derived((dim ? cfg.opacity * 0.25 : cfg.opacity) * pathReveal);
-	const flowOpacity = $derived((cfg.isBeam ? 0.95 : 0.5) * (dim ? 0.25 : 1) * pathReveal);
+	const flowOpacity = $derived((cfg.isBeam ? 0.85 : 0.45) * (dim ? 0.25 : 1) * pathReveal);
 
 	let flowMesh: any = $state();
 	let t = 0;

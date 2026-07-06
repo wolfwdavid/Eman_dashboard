@@ -20,11 +20,13 @@
 	const { nodes } = computeLayout(grants);
 	const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
-	const DEFAULT_POS = { x: 0, y: 14, z: 34 };
+	// VIS-05 composition: pulled back slightly with a gentle downward angle so the grid
+	// reads as a floating constellation against the void (fog softens the rim nodes).
+	const DEFAULT_POS = { x: 0, y: 16, z: 38 };
 	const DEFAULT_TARGET = { x: 0, y: 0, z: 0 };
 	// AEST-01 awakening vantage: higher/farther than the idle overview — the camera
 	// starts here (no auto-orbit) and eases in to DEFAULT_POS as the crystals ignite.
-	const INTRO_POS = { x: 0, y: 24, z: 52 };
+	const INTRO_POS = { x: 0, y: 28, z: 58 };
 
 	let controls: any = $state();
 	let tween: gsap.core.Timeline | undefined;
@@ -133,7 +135,7 @@
 
 <!-- Starts pulled back at INTRO_POS with auto-orbit OFF; the reveal tween eases it in
      to the overview and hands off to auto-orbit on complete (or on a skip). -->
-<T.PerspectiveCamera makeDefault position={[0, 24, 52]} fov={45}>
+<T.PerspectiveCamera makeDefault position={[0, 28, 58]} fov={45}>
 	<OrbitControls
 		bind:ref={controls}
 		enableDamping

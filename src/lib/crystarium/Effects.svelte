@@ -22,12 +22,12 @@
 			new EffectPass(
 				cam,
 				new BloomEffect({
-					intensity: 1.0, // UI-SPEC 0.8–1.2 — glow without haze
-					luminanceThreshold: 0.6, // UI-SPEC 0.55–0.65 — only bright cores/rims/beam bloom
-					luminanceSmoothing: 0.2,
-					radius: 0.5, // UI-SPEC 0.4–0.6 soft crystalline halo
+					intensity: 1.35, // VIS-04 1.2–1.5 — cores carry the composition
+					luminanceThreshold: 0.38, // VIS-04 0.32–0.42 — node cores bloom hard; stars/nebula/HUD stay under
+					luminanceSmoothing: 0.25,
+					radius: 0.65, // VIS-04 0.6–0.7 — soft, wide crystalline halo
 					mipmapBlur: true, // half-res — mobile-GPU budget
-					kernelSize: KernelSize.MEDIUM
+					kernelSize: KernelSize.LARGE
 				})
 			)
 		);
