@@ -11,7 +11,7 @@
 	import { computeLayout } from './layout.js';
 	import { grants } from '$lib/data';
 	import { matchesFilter } from '$lib/data/filter';
-	import { ui } from '$lib/state/crystarium.svelte.js';
+	import { ui, deselect } from '$lib/state/crystarium.svelte.js';
 	import * as tokens from './tokens';
 	import CrystalNode from './CrystalNode.svelte';
 	import CrystalPath from './CrystalPath.svelte';
@@ -46,7 +46,16 @@
 <!-- Inner core glow near the secured master crystal at the origin. -->
 <T.PointLight position={[0, 1.5, 0]} intensity={6} distance={14} color={tokens.secured} />
 
-<T.Group>
+<!--
+	Background-click deselect (04-04, DETL close affordance). This top-level Group
+	has NO geometry, so the raycaster never intersects it — it is therefore never in
+	`initialHits`, and @threlte/extras interactivity (9.21.0) fires `pointermissed`
+	on it for EVERY click. `pointermissed` runs BEFORE the click dispatch loop, so an
+	empty-space click → deselect() (nothing re-selects), while a crystal click →
+	transient deselect() then the node's onclick select() in the same event (net
+	select). No DOM catch layer — the canvas raycast stays fully live.
+-->
+<T.Group onpointermissed={() => deselect()}>
 	<!-- Connecting paths: spine + Ford/BofA family bridges + fiscal-sponsor beam. -->
 	{#each edges as edge (edge.from + '->' + edge.to + ':' + edge.kind)}
 		{@const from = nodeById.get(edge.from)}

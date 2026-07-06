@@ -1,13 +1,31 @@
 <script lang="ts">
-	// The Crystarium landing surface (CRYS-01). The glassmorphic HUD prerenders as
-	// real DOM (keeps first paint + verify-build check #6 alive); the Threlte
-	// <Canvas> mounts ONLY in the browser, behind `{#if browser && mounted}` via a
-	// dynamic import — so `three`/WebGL never run during prerender. NEVER ssr=false.
+	// The Crystarium landing surface (CRYS-01) + the Phase-4 overlay mount.
+	//
+	// LAYER MODEL (04-UI-SPEC §Layout & Layer): the Threlte <Canvas> is a fixed,
+	// full-viewport, INTERACTIVE hero at z-0 (raycast). Every overlay piece is a
+	// DISCRETE `position: fixed` element that owns its own z-index + pointer-events
+	// — there is NO full-viewport catch layer (a full-screen div would eat the canvas
+	// raycast and kill orbit/hover/select — 04-RESEARCH Pitfall 2). Ambient HUD
+	// (SceneTitle/PipelineReadout/Legend) stays pointer-events:none; interactive
+	// panels set pointer-events:auto on THEMSELVES only. Empty overlay space passes
+	// clicks straight through to the scene.
+	//
+	// The glassmorphic HUD prerenders as real DOM (keeps first paint + verify-build
+	// check #6 alive); the Threlte <Canvas> mounts ONLY in the browser, behind
+	// `{#if browser && mounted}` via a dynamic import — so `three`/WebGL never run
+	// during prerender. NEVER ssr=false.
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import SceneTitle from '$lib/hud/SceneTitle.svelte';
 	import PipelineReadout from '$lib/hud/PipelineReadout.svelte';
 	import Legend from '$lib/hud/Legend.svelte';
+	// Phase-4 overlay panels (each is a self-positioned fixed element).
+	import DetailPanel from '$lib/hud/DetailPanel.svelte';
+	import PipelineDrawer from '$lib/hud/PipelineDrawer.svelte';
+	import QrPanel from '$lib/hud/QrPanel.svelte';
+	// Single source of truth for the readout figures (computed, not literals).
+	import { grants } from '$lib/data';
+	import { securedTotal, potentialTotal } from '$lib/data/aggregates';
 
 	let mounted = $state(false);
 	onMount(() => (mounted = true));
@@ -20,8 +38,15 @@
 
 <!-- Prerendered glass HUD (SSR-safe, real content around the guarded Canvas). -->
 <SceneTitle />
-<PipelineReadout secured={20000} potential={296500} />
+<PipelineReadout secured={securedTotal(grants)} potential={potentialTotal(grants)} />
 <Legend />
+
+<!-- Phase-4 overlay: discrete fixed panels (NO catch layer). Each owns its own
+     z-index + pointer-events. DetailPanel opens on ui.selected; background-click
+     deselect is wired inside the scene (CrystariumScene onpointermissed). -->
+<DetailPanel />
+<PipelineDrawer />
+<QrPanel />
 
 <!-- WebGL scene: client-only, dynamically imported so three code-splits out of SSR. -->
 {#if browser && mounted}
