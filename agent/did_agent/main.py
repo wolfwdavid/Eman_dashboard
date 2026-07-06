@@ -44,7 +44,17 @@ _HISTORY_TURNS = 12
 
 def _allowed(update: Update, allowed_ids: list[int], allow_all: bool) -> bool:
     chat = update.effective_chat
-    return allow_all or (chat is not None and chat.id in allowed_ids)
+    if allow_all or (chat is not None and chat.id in allowed_ids):
+        return True
+    # Log rejected ids so a new user (e.g. Eman's first /start) can be added to the allowlist.
+    user = update.effective_user
+    log.info(
+        "Unauthorized message from chat_id=%s (%s @%s) — add to TELEGRAM_ALLOWED_CHAT_IDS to authorize.",
+        chat.id if chat else "?",
+        (user.full_name if user else "?"),
+        (user.username if user else "?"),
+    )
+    return False
 
 
 def main() -> None:
@@ -111,6 +121,12 @@ def main() -> None:
     # --- handlers ---
     async def on_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not _allowed(update, settings.telegram_allowed_chat_ids, settings.telegram_allow_all):
+            # Not silent on /start: tell the person their id so David can authorize them.
+            if update.message:
+                await update.message.reply_text(
+                    f"Hi! I'm the DID grant assistant, but I don't know you yet. "
+                    f"Your chat id is {update.effective_chat.id} — send it to David so he can add you."
+                )
             return
         chat_id = update.effective_chat.id if update.effective_chat else "?"
         log.info("Authorized /start from chat_id=%s", chat_id)
