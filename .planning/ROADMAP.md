@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Grant Crystarium MVP** — Phases 1-5 (shipped 2026-07-06) — [archive](milestones/v1.0-ROADMAP.md)
+- 🚧 **v1.1 FFXIII Fidelity** — Phases 6-7 (in progress)
 
 ## Phases
 
@@ -19,6 +20,11 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 
 </details>
 
+### 🚧 v1.1 FFXIII Fidelity (In Progress)
+
+- [ ] **Phase 6: FFXIII Visual Fidelity Overhaul** — The Crystarium reads as the real FFXIII Crystarium: luminous crystal orbs in a nebula void, thin curved light-filaments, tight bloom — all v1.0 data encodings preserved. (VIS-01..05)
+- [ ] **Phase 7: Immersion & Analytics** — Sound cues, ambient particles, node leveling vocabulary, expanded analytics. (IMM-01..03, ANLY-01)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -28,6 +34,8 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 | 3. 3D Crystarium Scene | v1.0 | 4/4 | Complete | 2026-07-05 |
 | 4. HUD / Overlay UI + Fallback | v1.0 | 5/5 | Complete | 2026-07-06 |
 | 5. Premium Polish / Animation / Perf | v1.0 | 2/2 | Complete | 2026-07-06 |
+| 6. FFXIII Visual Fidelity Overhaul | v1.1 | 0/1 | Not started | - |
+| 7. Immersion & Analytics | v1.1 | 0/2 | Not started | - |
 
 ---
 
