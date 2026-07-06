@@ -22,8 +22,12 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 - ✓ Pipeline overview: 4 charts (status totals, secured $20,000 vs potential $296,500, deadline timeline, 501c3 split) + status/gate/type filters that dim the grid — Phase 4
 - ✓ QR code panel: two swappable-config QR tiles (SHARE widget) — Phase 4
 - ✓ Minimal WebGL-less fallback list (optional RESL-01, shipped early) — Phase 4
+- ✓ GSAP Crystarium "awakening" intro (staggered rim→center, gold master lands last, interruptible) + activation polish — Phase 5 (live-verified)
+- ✓ Glassmorphism RPG HUD polish: rail/readout collision fixed, duplicate deadline subtext fixed, drawer height capped, press states — Phase 5
 
 ### Active
+
+(v1.0 milestone complete — all requirements validated)
 
 ### Out of Scope
 
@@ -54,7 +58,7 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Faithful FFXIII Crystarium as nav surface (not a subtle motif) | User chose "Faithful Crystarium homage" — high visual investment is the point | — Pending |
+| Faithful FFXIII Crystarium as nav surface (not a subtle motif) | User chose "Faithful Crystarium homage" — high visual investment is the point | ✓ Good |
 | No accessibility layer this build | User explicitly waived a11y for this version to maximize 3D/visual investment | — Pending |
 | SvelteKit + Threlte for 3D | Svelte requested; Threlte is the idiomatic Svelte wrapper over Three.js | — Pending |
 | Build-time CSV ingest via custom tool | Data is static, 28 rows, messy strings needing normalization; no backend | — Pending |
@@ -79,4 +83,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-06 after Phase 4 (HUD / Overlay UI) — live on GitHub Pages*
+*Last updated: 2026-07-06 after Phase 5 — v1.0 milestone complete, live on GitHub Pages*
