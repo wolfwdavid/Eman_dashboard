@@ -13,6 +13,7 @@
 	// the component-instance scope free of non-reactive prop reads.
 	import { T, useTask } from '@threlte/core';
 	import { LineCurve3, Vector3, TubeGeometry, BufferAttribute, Color, AdditiveBlending } from 'three';
+	import { intro } from './intro.svelte.js';
 	import * as tokens from './tokens';
 
 	let {
@@ -79,10 +80,18 @@
 	}
 	const cfg = build();
 
+	// AEST-01 draw-in: paths trace in AFTER the nodes — gate opacity on the TAIL of the
+	// wavefront (p 0.6→1) so tubes/flow fade in once most crystals are lit. Once settled
+	// (intro.done) this is a hard 1 → the steady scene is identical to today. Uniform/
+	// opacity only — geometry, kinds and flow-pulse math are untouched.
+	const pathReveal = $derived(
+		intro.done ? 1 : Math.max(0, Math.min(1, (intro.revealProgress - 0.6) / 0.4))
+	);
+
 	// Phase-4 filter-dim: an edge fades when EITHER endpoint is filtered out
 	// (uniform/opacity only — geometry is untouched, so the layout never shifts).
-	const tubeOpacity = $derived(dim ? cfg.opacity * 0.25 : cfg.opacity);
-	const flowOpacity = $derived((cfg.isBeam ? 0.95 : 0.5) * (dim ? 0.25 : 1));
+	const tubeOpacity = $derived((dim ? cfg.opacity * 0.25 : cfg.opacity) * pathReveal);
+	const flowOpacity = $derived((cfg.isBeam ? 0.95 : 0.5) * (dim ? 0.25 : 1) * pathReveal);
 
 	let flowMesh: any = $state();
 	let t = 0;

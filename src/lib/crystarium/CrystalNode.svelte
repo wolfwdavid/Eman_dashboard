@@ -13,10 +13,14 @@
 	import { Color } from 'three';
 	import { statusHue, activation, urgent } from './tokens';
 	import { select, hover, ui } from '$lib/state/crystarium.svelte.js';
+	import { intro } from './intro.svelte.js';
 	import { matchesFilter } from '$lib/data/filter';
 	import type { Grant } from '$lib/data/types';
 
-	let { grant, node }: { grant: Grant; node: any } = $props();
+	// `revealRank` ∈ [0,1] (0 = rim, ignites first; 1 = origin master, lands last) —
+	// this node's slot in the AEST-01 awakening wavefront (computed once in the Scene).
+	let { grant, node, revealRank = 0 }: { grant: Grant; node: any; revealRank?: number } =
+		$props();
 
 	// Status → emissive hue + base activation (immutable per node; the numeric-hex SoT).
 	const hue = $derived(statusHue[grant.status]);
@@ -78,11 +82,26 @@
 		elapsed += delta;
 		burstT += delta;
 
+		// AEST-01 awakening: a windowed ramp keyed to this node's rank turns the shared
+		// wavefront into a rim→center stagger — rank 0 (rim) fully lit at p≈0.35, rank 1
+		// (the gold origin master) not lit until p≈0.65 and landing LAST exactly at p=1.
+		// Once settled (intro.done) reveal is a hard 1 → the steady scene is unchanged.
+		// Scalar-only, no allocation (Pitfall F).
+		const REVEAL_WINDOW = 0.35;
+		let reveal = 1;
+		if (!intro.done) {
+			reveal = (intro.revealProgress - revealRank * (1 - REVEAL_WINDOW)) / REVEAL_WINDOW;
+			reveal = reveal < 0 ? 0 : reveal > 1 ? 1 : reveal;
+		}
+
 		const isSelected = ui.selected === grant.id;
 		const isHovered = ui.hovered === grant.id;
 		const someoneSelected = ui.selected !== null;
 		const dimmed = someoneSelected && !isSelected;
-		const burst = burstT < 0.3 ? 1 - burstT / 0.3 : 0; // linear decay over ~300ms
+		// Activation burst (AEST-01): eased snap-and-settle over ~300ms — (1-u)² spends
+		// less time high than a linear decay, so the flash reads as a crystal igniting.
+		const bu = burstT / 0.3;
+		const burst = bu < 1 ? (1 - bu) * (1 - bu) : 0;
 
 		// Filter-dim (Phase-4): a node excluded by ui.filter fades out — emissive
 		// ×0.15 and opacity →0.3 — but is NEVER removed (layout/funnel stays stable).
@@ -92,16 +111,17 @@
 		let stateTarget = baseIntensity;
 		if (dimmed) stateTarget *= 0.35;
 		if (isHovered) stateTarget += 0.2;
-		if (isSelected) stateTarget += 0.9 * burst; // activation flash spike
+		if (isSelected) stateTarget += 1.0 * burst; // activation flash spike (bloom core)
 		if (filteredOut) stateTarget *= 0.15; // filter fade dominates
 		const k = Math.min(1, delta * 10);
 		curIntensity += (stateTarget - curIntensity) * k;
 
-		// Smooth mesh opacity toward the filter target (~200ms via the same k).
+		// Smooth mesh opacity toward the filter target (~200ms via the same k), then
+		// gate on the awakening reveal so the crystal fades in with its ignition.
 		const targetOpacity = filteredOut ? 0.3 : 1;
 		curOpacity += (targetOpacity - curOpacity) * k;
 		material.transparent = true;
-		material.opacity = curOpacity;
+		material.opacity = curOpacity * reveal;
 
 		// Instantaneous deadline pulse on top — ONLY the clock-free pulse set, and
 		// never on a filtered-out node (a dimmed crystal should read as inert).
@@ -114,17 +134,19 @@
 			material.emissive.copy(baseColor);
 			if (dimmed) material.emissive.lerp(dimColor, 0.3); // slight desaturate of siblings
 		}
-		material.emissiveIntensity = finalIntensity;
+		// Emissive gated by the awakening reveal — a dark crystal ramps up to its glow.
+		material.emissiveIntensity = finalIntensity * reveal;
 
-		// Hover lift + scale pop (transform-only), smoothed.
+		// Hover lift + activation scale pop (transform-only), smoothed.
 		let scaleTarget = node.scale;
 		if (isHovered) scaleTarget *= 1.08;
-		if (isSelected) scaleTarget *= 1 + 0.15 * burst;
+		if (isSelected) scaleTarget *= 1 + 0.18 * burst; // activation pop
 		const liftTarget = isHovered ? 0.4 : 0;
 		curScale += (scaleTarget - curScale) * k;
 		curLift += (liftTarget - curLift) * k;
 		if (mesh) {
-			mesh.scale.setScalar(curScale);
+			// Reveal scales the crystal up from nothing as its wavefront slot ignites.
+			mesh.scale.setScalar(curScale * reveal);
 			mesh.position.set(node.x, node.y + curLift, node.z);
 		}
 	});
