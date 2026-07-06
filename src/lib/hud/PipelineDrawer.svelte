@@ -72,6 +72,11 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 32px;
 		padding-bottom: 8px;
+		/* Cap the expanded charts so the drawer never eclipses the SceneTitle /
+		   scene behind it (04-05 note 3). Scroll inside the cap; the slide stays
+		   on the outer .charts (overflow:hidden) so the reveal is untouched. */
+		max-height: 60vh;
+		overflow-y: auto;
 	}
 
 	.head {

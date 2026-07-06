@@ -164,12 +164,13 @@
 		line-height: 1.5;
 		color: var(--text-lo);
 		font-variant-numeric: tabular-nums;
-		/* Motion discipline: colour/opacity only, 120ms (no transform). */
+		/* Motion discipline: colour/opacity + a slight press transform, 120ms. */
 		transition:
 			background-color 120ms ease,
 			border-color 120ms ease,
 			color 120ms ease,
-			opacity 120ms ease;
+			opacity 120ms ease,
+			transform 120ms ease;
 	}
 
 	.chip .swatch {
@@ -188,6 +189,12 @@
 
 	.chip:hover {
 		color: var(--text-hi);
+	}
+
+	/* Press: subtle settle within the 120ms token motion (no new tokens). */
+	.chip:active {
+		transform: translateY(1px);
+		background: color-mix(in srgb, var(--text-hi) 10%, transparent);
 	}
 
 	/* Active: filled with the status hue tint + hue border + high-contrast text. */
@@ -227,7 +234,8 @@
 		color: var(--text-lo);
 		transition:
 			background-color 120ms ease,
-			color 120ms ease;
+			color 120ms ease,
+			transform 120ms ease;
 	}
 
 	.seg:last-child {
@@ -236,6 +244,11 @@
 
 	.seg:hover {
 		color: var(--text-hi);
+	}
+
+	.seg:active {
+		transform: translateY(1px);
+		background: color-mix(in srgb, var(--path) 16%, transparent);
 	}
 
 	.seg.active {
@@ -257,12 +270,17 @@
 		color: var(--text-lo);
 		transition:
 			color 120ms ease,
-			border-color 120ms ease;
+			border-color 120ms ease,
+			transform 120ms ease;
 	}
 
 	.reset:hover {
 		color: var(--text-hi);
 		border-color: var(--text-hi);
+	}
+
+	.reset:active {
+		transform: translateY(1px);
 	}
 
 	.empty {
