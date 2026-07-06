@@ -27,7 +27,7 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 
 ### Active
 
-(v1.0 milestone complete — all requirements validated)
+(None — v1.0 shipped. Define next-milestone scope via `/gsd:new-milestone`.)
 
 ### Out of Scope
 
@@ -35,6 +35,18 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 - Live CRUD editing of grant data in-app — data is build-time ingested from CSV; edits happen in the CSV source, not the UI.
 - Backend / database / auth — static site, no server. Data is baked at build time.
 - Multiple theme variants — single premium 3D version only.
+
+## Current State (v1.0 — shipped 2026-07-06)
+
+- **Live:** https://wolfwdavid.github.io/Eman_dashboard/ (GitHub Pages, Actions deploy on push to main)
+- **Codebase:** ~5,400 LOC (SvelteKit 2 / Svelte 5 runes / Threlte 8 / three@0.185.1 pinned / postprocessing / GSAP / LayerChart / Tailwind v4; pnpm, Node 22); 162 unit tests; custom tools in `tools/` (ingest, QR, verify-build, UAT drivers)
+- **Milestone record:** `.planning/MILESTONES.md`, archives in `.planning/milestones/`, retrospective in `.planning/RETROSPECTIVE.md`
+- **Known deferred (v2 candidates):** sound cues, ambient particles, node leveling arcs, expanded analytics, robust WebGL fallback, REAL QR target URLs (placeholders in `src/lib/config/sites.js`), verify-build in CI
+- **Ops notes:** GH Pages wedge remedy = `gh api DELETE /pages` + `POST build_type=workflow` + re-run; local base-path builds need `MSYS_NO_PATHCONV=1`
+
+## Next Milestone Goals
+
+Not yet defined — candidates: the DID grant-automation agent (separate brief), v2 immersion/analytics backlog, or handoff polish for Eman. Start with `/gsd:new-milestone`.
 
 ## Context
 
@@ -59,11 +71,11 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Faithful FFXIII Crystarium as nav surface (not a subtle motif) | User chose "Faithful Crystarium homage" — high visual investment is the point | ✓ Good |
-| No accessibility layer this build | User explicitly waived a11y for this version to maximize 3D/visual investment | — Pending |
-| SvelteKit + Threlte for 3D | Svelte requested; Threlte is the idiomatic Svelte wrapper over Three.js | — Pending |
-| Build-time CSV ingest via custom tool | Data is static, 28 rows, messy strings needing normalization; no backend | — Pending |
-| GitHub Pages static deploy | User specified gh-pages; no server needed | — Pending |
-| QR targets as swappable config | Two URLs not finalized; decouple content from code | — Pending |
+| No accessibility layer this build | User explicitly waived a11y for this version to maximize 3D/visual investment | ✓ Good |
+| SvelteKit + Threlte for 3D | Svelte requested; Threlte is the idiomatic Svelte wrapper over Three.js | ✓ Good |
+| Build-time CSV ingest via custom tool | Data is static, 28 rows, messy strings needing normalization; no backend | ✓ Good |
+| GitHub Pages static deploy | User specified gh-pages; no server needed | ✓ Good (one Pages wedge; remedy documented) |
+| QR targets as swappable config | Two URLs not finalized; decouple content from code | ✓ Good (real URLs still pending) |
 
 ## Evolution
 
@@ -83,4 +95,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-06 after Phase 5 — v1.0 milestone complete, live on GitHub Pages*
+*Last updated: 2026-07-06 after v1.0 milestone*
