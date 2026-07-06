@@ -15,10 +15,10 @@
 
 ### Mobile Friendly (Phase 6.1 — INSERTED)
 
-- [ ] **MOB-01**: On viewports ≤768px the HUD re-lays out cleanly: compact stacked title+readout, legend hidden behind a toggle, slim collapsed drawer, full-width bottom-sheet detail panel, centered QR modal — zero overlapping/ghosting panels, no horizontal scroll
-- [ ] **MOB-02**: One primary surface at a time on mobile — opening the detail sheet hides/dims the drawer, legend toggle, and SHARE; closing restores them
-- [ ] **MOB-03**: Touch ergonomics — all interactive chips/buttons ≥44px, native one-finger orbit + pinch zoom work, node tap-picking works (hit-proxy)
-- [ ] **MOB-04**: Portrait camera framing — aspect-aware default/intro camera so the constellation fits a phone screen; mobile dpr capped ≤1.5 for GPU headroom; all regression gates stay green
+- [x] **MOB-01**: On viewports ≤768px the HUD re-lays out cleanly: compact stacked title+readout, legend hidden behind a toggle, slim collapsed drawer, full-width bottom-sheet detail panel, centered QR modal — zero overlapping/ghosting panels, no horizontal scroll
+- [x] **MOB-02**: One primary surface at a time on mobile — opening the detail sheet hides/dims the drawer, legend toggle, and SHARE; closing restores them
+- [x] **MOB-03**: Touch ergonomics — all interactive chips/buttons ≥44px, native one-finger orbit + pinch zoom work, node tap-picking works (hit-proxy)
+- [x] **MOB-04**: Portrait camera framing — aspect-aware default/intro camera so the constellation fits a phone screen; mobile dpr capped ≤1.5 for GPU headroom; all regression gates stay green
 
 ### Immersion & Analytics (Phase 7 — deferred to next session)
 
@@ -44,10 +44,10 @@
 | VIS-03 | Phase 6 | Complete |
 | VIS-04 | Phase 6 | Complete |
 | VIS-05 | Phase 6 | Complete |
-| MOB-01 | Phase 6.1 | Pending |
-| MOB-02 | Phase 6.1 | Pending |
-| MOB-03 | Phase 6.1 | Pending |
-| MOB-04 | Phase 6.1 | Pending |
+| MOB-01 | Phase 6.1 | Complete |
+| MOB-02 | Phase 6.1 | Complete |
+| MOB-03 | Phase 6.1 | Complete |
+| MOB-04 | Phase 6.1 | Complete |
 | IMM-01 | Phase 7 | Pending |
 | IMM-02 | Phase 7 | Pending |
 | IMM-03 | Phase 7 | Pending |
