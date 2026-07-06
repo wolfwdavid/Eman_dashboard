@@ -10,6 +10,8 @@
 	import { interactivity } from '@threlte/extras';
 	import { computeLayout } from './layout.js';
 	import { grants } from '$lib/data';
+	import { matchesFilter } from '$lib/data/filter';
+	import { ui } from '$lib/state/crystarium.svelte.js';
 	import * as tokens from './tokens';
 	import CrystalNode from './CrystalNode.svelte';
 	import CrystalPath from './CrystalPath.svelte';
@@ -49,8 +51,21 @@
 	{#each edges as edge (edge.from + '->' + edge.to + ':' + edge.kind)}
 		{@const from = nodeById.get(edge.from)}
 		{@const to = nodeById.get(edge.to)}
+		{@const fromGrant = grantById.get(edge.from)}
+		{@const toGrant = grantById.get(edge.to)}
 		{#if from && to}
-			<CrystalPath {edge} {from} {to} />
+			<!-- An edge dims (Phase-4) when EITHER endpoint is filtered out. -->
+			<CrystalPath
+				{edge}
+				{from}
+				{to}
+				dim={!(
+					fromGrant &&
+					toGrant &&
+					matchesFilter(fromGrant, ui.filter) &&
+					matchesFilter(toGrant, ui.filter)
+				)}
+			/>
 		{/if}
 	{/each}
 

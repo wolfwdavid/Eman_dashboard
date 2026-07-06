@@ -8,7 +8,10 @@
 // import survives mount/unmount cleanly where context would be re-created.
 
 /**
- * @typedef {{ status: string, gate: 'all'|'open'|'gated'|'unknown', type: 'all'|'Grant'|'Fellowship'|'Investment' }} FilterState
+ * Three-axis filter shape. Fields are plain strings (values come from the DOM
+ * filter chips); allowed values: gate ∈ all|open|gated|unknown, type ∈
+ * all|Grant|Fellowship|Investment, status ∈ GrantStatus|all.
+ * @typedef {{ status: string, gate: string, type: string }} FilterState
  */
 
 /**

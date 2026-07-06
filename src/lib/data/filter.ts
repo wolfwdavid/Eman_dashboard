@@ -3,11 +3,15 @@
 // scene-dim logic and chart logic agree by construction. Pure, no side effects.
 import type { Grant } from './types';
 
-/** The three-axis filter shape carried by `ui.filter`. */
+/**
+ * The three-axis filter shape carried by `ui.filter`. Fields are plain strings
+ * because filter values originate as strings from the DOM filter chips; the
+ * comments document the allowed values each axis accepts.
+ */
 export type FilterState = {
-	status: string;
-	gate: 'all' | 'open' | 'gated' | 'unknown';
-	type: 'all' | 'Grant' | 'Fellowship' | 'Investment';
+	status: string; // GrantStatus | 'all'
+	gate: string; // 'all' | 'open' | 'gated' | 'unknown'
+	type: string; // 'all' | 'Grant' | 'Fellowship' | 'Investment'
 };
 
 /** Map the 501(c)(3) tri-state to a filter gate bucket. */

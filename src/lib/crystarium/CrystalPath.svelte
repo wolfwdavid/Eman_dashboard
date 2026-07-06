@@ -15,7 +15,12 @@
 	import { LineCurve3, Vector3, TubeGeometry, BufferAttribute, Color, AdditiveBlending } from 'three';
 	import * as tokens from './tokens';
 
-	let { edge, from, to }: { edge: { kind: string }; from: any; to: any } = $props();
+	let {
+		edge,
+		from,
+		to,
+		dim = false
+	}: { edge: { kind: string }; from: any; to: any; dim?: boolean } = $props();
 
 	function build() {
 		// Straight conduit between the two node centres.
@@ -74,6 +79,11 @@
 	}
 	const cfg = build();
 
+	// Phase-4 filter-dim: an edge fades when EITHER endpoint is filtered out
+	// (uniform/opacity only — geometry is untouched, so the layout never shifts).
+	const tubeOpacity = $derived(dim ? cfg.opacity * 0.25 : cfg.opacity);
+	const flowOpacity = $derived((cfg.isBeam ? 0.95 : 0.5) * (dim ? 0.25 : 1));
+
 	let flowMesh: any = $state();
 	let t = 0;
 	if (cfg.hasFlow) {
@@ -92,7 +102,7 @@
 		<T.MeshBasicMaterial
 			vertexColors
 			transparent
-			opacity={cfg.opacity}
+			opacity={tubeOpacity}
 			blending={AdditiveBlending}
 			depthWrite={false}
 			toneMapped={false}
@@ -104,7 +114,7 @@
 		<T.MeshBasicMaterial
 			color={tokens.path}
 			transparent
-			opacity={cfg.opacity}
+			opacity={tubeOpacity}
 			blending={AdditiveBlending}
 			depthWrite={false}
 			toneMapped={false}
@@ -118,7 +128,7 @@
 		<T.MeshBasicMaterial
 			color={cfg.flowColor}
 			transparent
-			opacity={cfg.isBeam ? 0.95 : 0.5}
+			opacity={flowOpacity}
 			blending={AdditiveBlending}
 			depthWrite={false}
 			toneMapped={false}

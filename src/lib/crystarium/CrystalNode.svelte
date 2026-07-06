@@ -13,6 +13,7 @@
 	import { Color } from 'three';
 	import { statusHue, activation, urgent } from './tokens';
 	import { select, hover, ui } from '$lib/state/crystarium.svelte.js';
+	import { matchesFilter } from '$lib/data/filter';
 	import type { Grant } from '$lib/data/types';
 
 	let { grant, node }: { grant: Grant; node: any } = $props();
@@ -24,6 +25,9 @@
 	const roughness = $derived(grant.amount.isTBD ? 0.5 : 0.25);
 	// The active master crystal gets a denser multi-shard facet cluster.
 	const detail = $derived(grant.status === 'active' ? 1 : 0);
+	// Phase-4 three-axis filter (status/gate/type). Reactive: non-matching nodes
+	// DIM (emissive ×0.15 + opacity →0.3) and are raycast-guarded in the handlers.
+	const matches = $derived(matchesFilter(grant, ui.filter));
 
 	// Cosmetic deadline-proximity band (a live Date read is allowed HERE for amplitude
 	// ONLY — never for pulse membership, which is the clock-free `node.pulse` set).
@@ -54,6 +58,7 @@
 	let curIntensity = 0;
 	let curScale = 1;
 	let curLift = 0;
+	let curOpacity = 1; // smoothed toward 1 (matching) or 0.3 (filtered-out)
 
 	const TAU = Math.PI * 2;
 
@@ -79,17 +84,29 @@
 		const dimmed = someoneSelected && !isSelected;
 		const burst = burstT < 0.3 ? 1 - burstT / 0.3 : 0; // linear decay over ~300ms
 
-		// Smoothed "state" intensity (base + dim + hover + select burst).
+		// Filter-dim (Phase-4): a node excluded by ui.filter fades out — emissive
+		// ×0.15 and opacity →0.3 — but is NEVER removed (layout/funnel stays stable).
+		const filteredOut = !matches;
+
+		// Smoothed "state" intensity (base + dim + hover + select burst + filter-dim).
 		let stateTarget = baseIntensity;
 		if (dimmed) stateTarget *= 0.35;
 		if (isHovered) stateTarget += 0.2;
 		if (isSelected) stateTarget += 0.9 * burst; // activation flash spike
+		if (filteredOut) stateTarget *= 0.15; // filter fade dominates
 		const k = Math.min(1, delta * 10);
 		curIntensity += (stateTarget - curIntensity) * k;
 
-		// Instantaneous deadline pulse on top — ONLY the clock-free pulse set.
+		// Smooth mesh opacity toward the filter target (~200ms via the same k).
+		const targetOpacity = filteredOut ? 0.3 : 1;
+		curOpacity += (targetOpacity - curOpacity) * k;
+		material.transparent = true;
+		material.opacity = curOpacity;
+
+		// Instantaneous deadline pulse on top — ONLY the clock-free pulse set, and
+		// never on a filtered-out node (a dimmed crystal should read as inert).
 		let finalIntensity = curIntensity;
-		if (node.pulse && !dimmed) {
+		if (node.pulse && !dimmed && matches) {
 			const osc = band.amp * (0.5 + 0.5 * Math.sin(elapsed * band.freq * TAU));
 			finalIntensity += osc;
 			material.emissive.copy(baseColor).lerp(urgentColor, 0.2 + 0.6 * (osc / band.amp));
@@ -118,11 +135,13 @@
 	position={[node.x, node.y, node.z]}
 	scale={node.scale}
 	onpointerenter={(e) => {
+		if (!matches) return; // raycast-guard: filtered-out nodes are inert
 		e.stopPropagation();
 		hover(grant.id);
 	}}
-	onpointerleave={() => hover(null)}
+	onpointerleave={() => matches && hover(null)}
 	onclick={(e) => {
+		if (!matches) return; // raycast-guard: filtered-out nodes cannot be selected
 		e.stopPropagation();
 		select(grant.id);
 	}}
@@ -135,6 +154,7 @@
 		emissiveIntensity={baseIntensity}
 		{roughness}
 		metalness={0}
+		transparent
 		flatShading
 	/>
 </T.Mesh>
