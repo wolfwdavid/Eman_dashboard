@@ -13,8 +13,9 @@
 	//   3. HALO   — soft additive radial sprite (~3.5× node scale), status-hued, very soft.
 	// A parent group applies a global NODE_SCALE compression so the crystals read as orbs
 	// floating in the void. One useTask drives everything via material properties + scalars
-	// (NO per-frame allocation, Pitfall F). Raycast stays on the shell only (core/halo are
-	// raycast-disabled) so pointer behaviour is byte-identical to before.
+	// (NO per-frame allocation, Pitfall F). Pointer/raycast lives on a generous INVISIBLE
+	// hit-proxy sphere (~halo-sized) — core/shell/halo are all raycast-disabled — so the
+	// tiny visual shell stays easy to pick; handler semantics are byte-identical to before.
 	import { T, useTask } from '@threlte/core';
 	import { Color, BackSide, AdditiveBlending } from 'three';
 	import { statusHue, activation, urgent } from './tokens';
@@ -50,6 +51,10 @@
 	const SHELL_RADIUS = 0.55; // tight crystal skin ≈ 1.3× the core (was 1.0 — read as a plate)
 	const SHELL_OPACITY = 0.11; // barely-there additive rim (was 0.26 — too plate-like)
 	const HALO_SCALE = 3.45; // soft halo (≈+15% vs iteration 0 to compensate the smaller shell)
+	// Invisible hit-proxy radius — roughly halo-sized, so clicking anywhere in the glow
+	// picks the node (iteration 2: the 0.55 shell alone was too small a raycast target
+	// from the pulled-back camera — the UAT grid-sweep couldn't open the detail rail).
+	const HIT_RADIUS = 2.4;
 	// TBD grains read as unformed ore: near-no halo (dimmest presence).
 	const haloBase = $derived(
 		(grant.amount.isTBD ? 0.28 : 1) * Math.min(0.7, baseIntensity * 0.7 + 0.08)
@@ -84,7 +89,7 @@
 		stopMid: 0.4,
 		outer: 'rgba(255,255,255,0)'
 	});
-	const noRaycast = () => {}; // core/halo never intercept pointer events (shell is the target)
+	const noRaycast = () => {}; // core/shell/halo never intercept pointers (the hit-proxy is the target)
 
 	let coreMaterial: any = $state();
 	let shellMaterial: any = $state();
@@ -211,10 +216,12 @@
 </script>
 
 <T.Group bind:ref={group} position={[node.x, node.y, node.z]} scale={node.scale * NODE_SCALE}>
-	<!-- SHELL — the hit target: a tight faceted crystal skin ~1.3× the core, exactly
-	     centered on it (both sit at this group's origin). Additive backside blending
-	     gives a fresnel-ish rim AND guarantees the rim is tinted by the status hue
-	     (plain transparent blending washed toward pale over the void). -->
+	<!-- HIT-PROXY — the ONLY pointer/raycast target: an invisible, generous sphere
+	     roughly the halo footprint, so clicking anywhere in a node's glow picks it
+	     (the 0.55 visual shell was too small a target from the pulled-back camera).
+	     `visible` stays true so the raycaster sees it; opacity 0 + depthWrite:false +
+	     colorWrite:false make it contribute NOTHING to the framebuffer. The same
+	     matchesFilter raycast-guard keeps filtered-out nodes inert. -->
 	<T.Mesh
 		onpointerenter={(e: any) => {
 			if (!matches) return; // raycast-guard: filtered-out nodes are inert
@@ -228,6 +235,15 @@
 			select(grant.id);
 		}}
 	>
+		<T.SphereGeometry args={[HIT_RADIUS, 8, 8]} />
+		<T.MeshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+	</T.Mesh>
+
+	<!-- SHELL — purely visual (non-interactive): a tight faceted crystal skin ~1.3× the
+	     core, exactly centered on it (both sit at this group's origin). Additive backside
+	     blending gives a fresnel-ish rim AND guarantees the rim is tinted by the status
+	     hue (plain transparent blending washed toward pale over the void). -->
+	<T.Mesh raycast={noRaycast}>
 		<T.IcosahedronGeometry args={[SHELL_RADIUS, detail]} />
 		<T.MeshBasicMaterial
 			bind:ref={shellMaterial}
