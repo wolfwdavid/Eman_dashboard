@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { grants } from '$lib/data';
 import type { GrantAmount } from './types';
-import { formatAmount, formatDeadline, gateBadge } from './format';
+import { formatAmount, formatDeadline, gateBadge, rawRedundant } from './format';
 
 const g = (id: string) => grants.find((x) => x.id === id)!;
 const amt = (over: Partial<GrantAmount>): GrantAmount => ({
@@ -109,6 +109,18 @@ describe('formatDeadline — clock-injected day count + cadence branches', () =>
 	it('unknown without note → "Timing TBD"', () => {
 		const d = g('tgr-foundation').deadline;
 		expect(formatDeadline(d, 0).text).toBe('Timing TBD');
+	});
+});
+
+describe('rawRedundant — subtext duplicate guard (DETL-02)', () => {
+	it('identical strings → true (raw carries nothing new)', () => {
+		expect(rawRedundant('Rolling', 'Rolling')).toBe(true);
+	});
+	it('differing strings → false (raw is a distinct source string)', () => {
+		expect(rawRedundant('in 24 days', '2026-06-30 (decision by Oct 31)')).toBe(false);
+	});
+	it('whitespace-only difference → true (trim-insensitive)', () => {
+		expect(rawRedundant('  Amount TBD ', 'Amount TBD')).toBe(true);
 	});
 });
 

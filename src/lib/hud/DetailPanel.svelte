@@ -8,7 +8,7 @@
 	import { cubicOut, cubicIn } from 'svelte/easing';
 	import { ui, deselect } from '$lib/state/crystarium.svelte.js';
 	import { grants } from '$lib/data';
-	import { formatAmount, formatDeadline, gateBadge } from '$lib/data/format';
+	import { formatAmount, formatDeadline, gateBadge, rawRedundant } from '$lib/data/format';
 
 	// The selected record (null → panel closed). Derived so it tracks ui.selected.
 	const grant = $derived(ui.selected ? (grants.find((g) => g.id === ui.selected) ?? null) : null);
@@ -91,14 +91,18 @@
 		<section class="row">
 			<span class="eyebrow">AMOUNT</span>
 			<span class="amount-value" style:color={amountColor[amount!.tone]}>{amount!.text}</span>
-			<span class="subtext">{amount!.raw}</span>
+			{#if !rawRedundant(amount!.text, amount!.raw)}
+				<span class="subtext">{amount!.raw}</span>
+			{/if}
 		</section>
 
 		<!-- Row 4 · DEADLINE (human-readable + raw subtext, DETL-02) -->
 		<section class="row">
 			<span class="eyebrow">DEADLINE</span>
 			<span class="deadline-chip" style:color={deadlineColor[deadline!.tone]}>{deadline!.text}</span>
-			<span class="subtext">{deadline!.raw}</span>
+			{#if !rawRedundant(deadline!.text, deadline!.raw)}
+				<span class="subtext">{deadline!.raw}</span>
+			{/if}
 		</section>
 
 		<!-- Row 5 · 501(C)(3) gate badge (+ fiscal-sponsor gold hint) -->

@@ -6,6 +6,15 @@ import type { GrantAmount, GrantDeadline, Requires501c3 } from './types';
 
 const usd = (n: number): string => '$' + n.toLocaleString('en-US');
 
+/**
+ * True when a formatted value's preserved `.raw` string carries no extra
+ * information over the human-readable `.text` (they are identical modulo
+ * surrounding whitespace). Lets the Detail Panel drop a duplicate subtext line
+ * (DETL-02) instead of rendering the same string twice. Pure, no side effects —
+ * generic over deadline and amount subtext.
+ */
+export const rawRedundant = (text: string, raw: string): boolean => text.trim() === raw.trim();
+
 /** Human-readable amount + tone + preserved raw. Branch order is significant. */
 export function formatAmount(a: GrantAmount): { text: string; tone: 'gold' | 'muted' | 'hi'; raw: string } {
 	const raw = a.raw;
