@@ -1,5 +1,9 @@
 # Running the DID Grant Agent on a Mac — with a free, local LLM (Ollama)
 
+> **Migrating the already-working setup from David's Windows machine?** Use **`MAC-DEPLOY.md`**
+> instead — it reuses the existing bot/Notion/`.env` and has verify steps. This file is the
+> from-scratch reference (model choices, troubleshooting, cloud fallback).
+
 This runs the whole agent for **$0** and keeps every bit of grant/funder data **on your Mac** — nothing
 is sent to a cloud LLM. The "brain" is [Ollama](https://ollama.com), a free local model server.
 

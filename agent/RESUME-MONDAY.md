@@ -34,8 +34,9 @@ cloud AI, no API bill.
 1. **Eman** opens Telegram → @Emandidbot → **Start**. Then tell me → I read her chat id from the log,
    set `TELEGRAM_ALLOWED_CHAT_IDS=793244510,<Eman's id>`, restart → locked to 2 people + reminders/digest on.
 2. **Eman fills `eman-voice-intake.md`** (voice or text) → drafts sound like her.
-3. **Deploy on the Mac** per `OLLAMA-MAC-SETUP.md`: `brew install ollama` → `ollama pull llama3.1:8b llama3.2:3b`
-   → venv → `pip install -r requirements.txt` (gets Whisper) → copy the same `.env` → run → launchd keep-alive.
+3. **Deploy on the Mac** per **`MAC-DEPLOY.md`** (step-by-step migration runbook with verify
+   checks; reuses the existing `.env` — transfer it out of band, it's git-ignored). Background
+   reference: `OLLAMA-MAC-SETUP.md`.
 
 ## Config / secrets
 - `agent/.env` (git-ignored, local only) holds the real Notion token, Telegram token, chat id, data-source id.
