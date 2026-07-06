@@ -19,6 +19,8 @@
 	import CrystalPath from './CrystalPath.svelte';
 	import CameraRig from './CameraRig.svelte';
 	import Effects from './Effects.svelte';
+	import Starfield from './Starfield.svelte';
+	import Nebula from './Nebula.svelte';
 
 	interactivity();
 
@@ -66,6 +68,13 @@
 
 <!-- SelectiveBloom composer — the single render authority (autoRender=false + renderStage). -->
 <Effects />
+
+<!-- VIS-01 cosmic backdrop: FogExp2 for depth falloff toward the rim (nodes/paths soften
+     into the indigo void), a fine starfield, and soft additive nebula clouds. The backdrop
+     layers are dim/additive and kept below the bloom threshold so only node cores bloom. -->
+<T.FogExp2 attach="fog" args={[tokens.bgGlow, 0.011]} />
+<Nebula />
+<Starfield />
 
 <!-- Emissive-driven scene: crystals are their own light; keep ambient/key low. -->
 <T.AmbientLight intensity={0.25} color={0x2a3a66} />
