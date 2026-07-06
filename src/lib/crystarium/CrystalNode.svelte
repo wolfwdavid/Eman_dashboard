@@ -1,20 +1,25 @@
 <script lang="ts">
-	// One funder crystal (CRYS-03/04/05/08). A faceted emissive shard whose HUE reads
-	// its status and whose SCALE reads its funding amount (both precomputed by the pure
-	// layout module + tokens.ts). One useTask modulates the material's emissiveIntensity
-	// (a property, NOT per-frame object churn — Pitfall F) for three overlaid signals:
-	//   • deadline pulse — ONLY on the 3 `node.pulse` nodes (clock-free set from 03-02);
-	//     additive `--urgent` coral, amplitude/frequency by deadline proximity band.
-	//   • hover (secondary) — +Y lift, scale ×1.08, emissive +0.2.
-	//   • select (primary, one at a time) — activation burst (flash + scale pop ~300ms)
-	//     and, for every OTHER node, dim emissiveIntensity ×0.35 + slight desaturate.
-	// Pointer handlers raise hover/select into the runes bridge.
+	// One funder crystal (CRYS-03/04/05/08), restyled for VIS-02 as a 3-layer luminous ORB
+	// (was a single matte icosahedron). Encodings are PRESERVED EXACTLY — hue = statusHue,
+	// scale ∝ amount ordering, the clock-free `node.pulse` deadline set, the activation
+	// ladder from tokens.ts, hover/select modulation, filter dim + raycast-guard, and the
+	// AEST-01 awakening reveal. Only the VISUAL surface changed:
+	//   1. CORE   — small emissive sphere, white-lifted status hue at HIGH intensity. This
+	//               is what the bloom pass catches (dim statuses → dim cores; TBD → dimmest).
+	//   2. SHELL  — translucent faceted icosahedron (additive backside → fresnel-ish rim),
+	//               the old hit target, now smaller. Carries a faint status-hued tint.
+	//   3. HALO   — soft additive radial sprite (~3× node scale), status-hued, very soft.
+	// A parent group applies a global NODE_SCALE compression so the crystals read as orbs
+	// floating in the void. One useTask drives everything via material properties + scalars
+	// (NO per-frame allocation, Pitfall F). Raycast stays on the shell only (core/halo are
+	// raycast-disabled) so pointer behaviour is byte-identical to before.
 	import { T, useTask } from '@threlte/core';
-	import { Color } from 'three';
+	import { Color, BackSide, AdditiveBlending } from 'three';
 	import { statusHue, activation, urgent } from './tokens';
 	import { select, hover, ui } from '$lib/state/crystarium.svelte.js';
 	import { intro } from './intro.svelte.js';
 	import { matchesFilter } from '$lib/data/filter';
+	import { radialSprite } from './gradients.js';
 	import type { Grant } from '$lib/data/types';
 
 	// `revealRank` ∈ [0,1] (0 = rim, ignites first; 1 = origin master, lands last) —
@@ -30,8 +35,20 @@
 	// The active master crystal gets a denser multi-shard facet cluster.
 	const detail = $derived(grant.status === 'active' ? 1 : 0);
 	// Phase-4 three-axis filter (status/gate/type). Reactive: non-matching nodes
-	// DIM (emissive ×0.15 + opacity →0.3) and are raycast-guarded in the handlers.
+	// DIM (emissive ×0.15 + opacity fade) and are raycast-guarded in the handlers.
 	const matches = $derived(matchesFilter(grant, ui.filter));
+
+	// ── VIS-02 tuning constants ─────────────────────────────────────────────────────
+	// Global compression so nodes read as small orbs in a vast space (~50% of v1.0).
+	const NODE_SCALE = 0.5;
+	const CORE_RADIUS = 0.42; // small emissive core inside the ~1.0 shell
+	const CORE_GAIN = 2.3; // lifts the ladder so bright cores bloom hard (post-threshold)
+	const SHELL_OPACITY = 0.26; // translucent crystal shell (additive backside rim)
+	const HALO_SCALE = 3.0; // soft halo ≈ 3× the shell
+	// TBD grains read as unformed ore: near-no halo (dimmest presence).
+	const haloBase = $derived(
+		(grant.amount.isTBD ? 0.28 : 1) * Math.min(0.7, baseIntensity * 0.7 + 0.08)
+	);
 
 	// Cosmetic deadline-proximity band (a live Date read is allowed HERE for amplitude
 	// ONLY — never for pulse membership, which is the clock-free `node.pulse` set).
@@ -46,14 +63,28 @@
 	}
 	const band = pulseBand();
 
-	// Colours that don't depend on props can be built up-front; the status base colour
-	// is seeded on the first task tick (inside the closure) with the rest of the state.
+	// Preallocated colours (no per-frame allocation). `baseColor` = status hue; `coreBase`
+	// = the white-lifted core hue (blooms white-hot but tinted); both seeded on first tick.
 	const urgentColor = new Color(urgent);
 	const dimColor = new Color(0x565d75); // ash — sibling desaturate target
+	const whiteColor = new Color(0xffffff);
 	const baseColor = new Color();
+	const coreBase = new Color();
 
-	let material: any = $state();
-	let mesh: any = $state();
+	// Soft round halo texture (white → transparent; tinted per node via material.color).
+	const haloTex = radialSprite({
+		size: 128,
+		inner: 'rgba(255,255,255,0.9)',
+		mid: 'rgba(255,255,255,0.32)',
+		stopMid: 0.4,
+		outer: 'rgba(255,255,255,0)'
+	});
+	const noRaycast = () => {}; // core/halo never intercept pointer events (shell is the target)
+
+	let coreMaterial: any = $state();
+	let shellMaterial: any = $state();
+	let halo: any = $state();
+	let group: any = $state();
 
 	// Animation state (seeded on first tick, then smoothed toward per-frame targets).
 	let seeded = false;
@@ -72,9 +103,11 @@
 	});
 
 	useTask((delta) => {
-		if (!material) return;
+		if (!coreMaterial) return;
 		if (!seeded) {
 			baseColor.set(statusHue[grant.status]);
+			coreBase.copy(baseColor).lerp(whiteColor, 0.5); // white-lifted core hue
+			if (coreMaterial) coreMaterial.color.copy(coreBase);
 			curIntensity = baseIntensity;
 			curScale = node.scale;
 			seeded = true;
@@ -104,7 +137,7 @@
 		const burst = bu < 1 ? (1 - bu) * (1 - bu) : 0;
 
 		// Filter-dim (Phase-4): a node excluded by ui.filter fades out — emissive
-		// ×0.15 and opacity →0.3 — but is NEVER removed (layout/funnel stays stable).
+		// ×0.15 and opacity fade — but is NEVER removed (layout/funnel stays stable).
 		const filteredOut = !matches;
 
 		// Smoothed "state" intensity (base + dim + hover + select burst + filter-dim).
@@ -116,67 +149,115 @@
 		const k = Math.min(1, delta * 10);
 		curIntensity += (stateTarget - curIntensity) * k;
 
-		// Smooth mesh opacity toward the filter target (~200ms via the same k), then
-		// gate on the awakening reveal so the crystal fades in with its ignition.
+		// Smooth opacity toward the filter target (~200ms via the same k), gated on the
+		// awakening reveal so the crystal fades in with its ignition.
 		const targetOpacity = filteredOut ? 0.3 : 1;
 		curOpacity += (targetOpacity - curOpacity) * k;
-		material.transparent = true;
-		material.opacity = curOpacity * reveal;
 
-		// Instantaneous deadline pulse on top — ONLY the clock-free pulse set, and
-		// never on a filtered-out node (a dimmed crystal should read as inert).
+		// Instantaneous deadline pulse on top — ONLY the clock-free pulse set, and never on
+		// a filtered-out node (a dimmed crystal should read as inert). Drives BOTH the core
+		// intensity AND (below) the halo scale — the two visible pulse channels.
 		let finalIntensity = curIntensity;
+		let pulseOsc = 0;
 		if (node.pulse && !dimmed && matches) {
-			const osc = band.amp * (0.5 + 0.5 * Math.sin(elapsed * band.freq * TAU));
-			finalIntensity += osc;
-			material.emissive.copy(baseColor).lerp(urgentColor, 0.2 + 0.6 * (osc / band.amp));
+			pulseOsc = 0.5 + 0.5 * Math.sin(elapsed * band.freq * TAU);
+			finalIntensity += band.amp * pulseOsc;
+			coreMaterial.emissive.copy(coreBase).lerp(urgentColor, 0.2 + 0.6 * pulseOsc);
 		} else {
-			material.emissive.copy(baseColor);
-			if (dimmed) material.emissive.lerp(dimColor, 0.3); // slight desaturate of siblings
+			coreMaterial.emissive.copy(coreBase);
+			if (dimmed) coreMaterial.emissive.lerp(dimColor, 0.3); // slight desaturate of siblings
 		}
-		// Emissive gated by the awakening reveal — a dark crystal ramps up to its glow.
-		material.emissiveIntensity = finalIntensity * reveal;
+		// Core emissive gated by the awakening reveal, then lifted by CORE_GAIN so the
+		// bright cores bloom hard while dim/TBD cores stay under the threshold.
+		coreMaterial.emissiveIntensity = finalIntensity * reveal * CORE_GAIN;
 
-		// Hover lift + activation scale pop (transform-only), smoothed.
+		// Shell: translucent status-hued crystal — opacity tracks filter fade + reveal.
+		if (shellMaterial) {
+			shellMaterial.opacity = SHELL_OPACITY * curOpacity * reveal;
+		}
+
+		// Halo: soft additive glow — opacity tracks status strength × state, scale breathes
+		// on pulse nodes and swells slightly on hover/select.
+		if (halo) {
+			let haloOpacity = haloBase * curOpacity * reveal;
+			if (dimmed) haloOpacity *= 0.4;
+			if (isHovered) haloOpacity *= 1.25;
+			if (isSelected) haloOpacity *= 1 + 0.6 * burst;
+			halo.material.opacity = haloOpacity;
+			let haloScale = HALO_SCALE;
+			if (node.pulse && !dimmed && matches) haloScale *= 1 + 0.18 * pulseOsc;
+			if (isSelected) haloScale *= 1 + 0.25 * burst;
+			halo.scale.set(haloScale, haloScale, 1);
+		}
+
+		// Hover lift + activation scale pop (transform-only), smoothed. Applied to the whole
+		// orb group, then compressed by NODE_SCALE and gated by the awakening reveal.
 		let scaleTarget = node.scale;
 		if (isHovered) scaleTarget *= 1.08;
 		if (isSelected) scaleTarget *= 1 + 0.18 * burst; // activation pop
 		const liftTarget = isHovered ? 0.4 : 0;
 		curScale += (scaleTarget - curScale) * k;
 		curLift += (liftTarget - curLift) * k;
-		if (mesh) {
-			// Reveal scales the crystal up from nothing as its wavefront slot ignites.
-			mesh.scale.setScalar(curScale * reveal);
-			mesh.position.set(node.x, node.y + curLift, node.z);
+		if (group) {
+			group.scale.setScalar(curScale * NODE_SCALE * reveal);
+			group.position.set(node.x, node.y + curLift, node.z);
 		}
 	});
 </script>
 
-<T.Mesh
-	bind:ref={mesh}
-	position={[node.x, node.y, node.z]}
-	scale={node.scale}
-	onpointerenter={(e) => {
-		if (!matches) return; // raycast-guard: filtered-out nodes are inert
-		e.stopPropagation();
-		hover(grant.id);
-	}}
-	onpointerleave={() => matches && hover(null)}
-	onclick={(e) => {
-		if (!matches) return; // raycast-guard: filtered-out nodes cannot be selected
-		e.stopPropagation();
-		select(grant.id);
-	}}
->
-	<T.IcosahedronGeometry args={[1, detail]} />
-	<T.MeshStandardMaterial
-		bind:ref={material}
-		color={hue}
-		emissive={hue}
-		emissiveIntensity={baseIntensity}
-		{roughness}
-		metalness={0}
-		transparent
-		flatShading
-	/>
-</T.Mesh>
+<T.Group bind:ref={group} position={[node.x, node.y, node.z]} scale={node.scale * NODE_SCALE}>
+	<!-- SHELL — the hit target (same icosahedron geometry as v1.0, now smaller). Additive
+	     backside gives a fresnel-ish rim; a faint status tint reads through the glass. -->
+	<T.Mesh
+		onpointerenter={(e: any) => {
+			if (!matches) return; // raycast-guard: filtered-out nodes are inert
+			e.stopPropagation();
+			hover(grant.id);
+		}}
+		onpointerleave={() => matches && hover(null)}
+		onclick={(e: any) => {
+			if (!matches) return; // raycast-guard: filtered-out nodes cannot be selected
+			e.stopPropagation();
+			select(grant.id);
+		}}
+	>
+		<T.IcosahedronGeometry args={[1, detail]} />
+		<T.MeshBasicMaterial
+			bind:ref={shellMaterial}
+			color={hue}
+			transparent
+			opacity={SHELL_OPACITY}
+			side={BackSide}
+			depthWrite={false}
+			toneMapped={false}
+		/>
+	</T.Mesh>
+
+	<!-- CORE — small white-hot emissive sphere; the layer the bloom pass catches. -->
+	<T.Mesh raycast={noRaycast}>
+		<T.SphereGeometry args={[CORE_RADIUS, 20, 20]} />
+		<T.MeshStandardMaterial
+			bind:ref={coreMaterial}
+			color={hue}
+			emissive={hue}
+			emissiveIntensity={baseIntensity * CORE_GAIN}
+			{roughness}
+			metalness={0}
+			toneMapped={false}
+		/>
+	</T.Mesh>
+
+	<!-- HALO — soft additive status-hued glow, ~3× the shell (breathes on pulse nodes). -->
+	<T.Sprite bind:ref={halo} raycast={noRaycast} scale={[HALO_SCALE, HALO_SCALE, 1]}>
+		<T.SpriteMaterial
+			map={haloTex}
+			color={hue}
+			transparent
+			opacity={haloBase}
+			blending={AdditiveBlending}
+			depthWrite={false}
+			toneMapped={false}
+			fog={false}
+		/>
+	</T.Sprite>
+</T.Group>
