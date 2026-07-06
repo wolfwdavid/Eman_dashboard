@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: unknown
 stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-07-06T13:17:20.898Z"
+last_updated: "2026-07-06T13:19:58.705Z"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -106,6 +106,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Background-click deselect wired via onpointermissed on the geometry-less scene Group (never in initialHits → fires on every click, before dispatch); no DOM/3D catch layer, canvas raycast intact
 - [Phase 04]: Shipped optional WebGL-probe 2D fallback (RESL-01) — client-only probe swaps FallbackList for Canvas; reuses DetailPanel + format helpers; never blocks the build gate
 - [Phase 05]: 05-02: rawRedundant(text,raw) pure trim-equal predicate guards both AMOUNT+DEADLINE subtext; PipelineReadout auto-hides via class:hidden (opacity/translateX, SSR-visible); drawer capped on inner .grid (60vh) so .charts slide stays intact
+- [Phase 05]: 05-01: AEST-01 awakening driven by ONE gsap-tweened revealProgress scalar (intro.svelte.js runes singleton); nodes read it against a pure rim->center revealRank so the gold origin master lands last; steady state (intro.done) byte-identical to pre-intro, zero per-frame allocations
+- [Phase 05]: 05-01: camera intro runs from an $effect waiting on intro.active (not onMount) because Threlte children mount before the parent Scene calls startIntro; cameraFocus effect early-returns during intro; any pointerdown skips to settled
 
 ### Pending Todos
 
