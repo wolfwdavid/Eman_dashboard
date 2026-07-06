@@ -28,7 +28,15 @@
 	import { securedTotal, potentialTotal } from '$lib/data/aggregates';
 
 	let mounted = $state(false);
-	onMount(() => (mounted = true));
+	// WebGL support probe (RESL-01). Defaults true so SSR/first paint assume the 3D
+	// path; the real check runs client-side in onMount and only ever flips to false.
+	// When false we render the 2D FallbackList in place of <Canvas> — no black screen.
+	let webgl = $state(true);
+	onMount(() => {
+		mounted = true;
+		const c = document.createElement('canvas');
+		webgl = !!(c.getContext('webgl2') || c.getContext('webgl'));
+	});
 </script>
 
 <svelte:head>
@@ -48,9 +56,15 @@
 <PipelineDrawer />
 <QrPanel />
 
-<!-- WebGL scene: client-only, dynamically imported so three code-splits out of SSR. -->
-{#if browser && mounted}
+<!-- WebGL scene: client-only, dynamically imported so three code-splits out of SSR.
+     If the WebGL probe fails, the 2D FallbackList renders instead (RESL-01) — its
+     rows reuse the same helpers and call select(id) into the SAME DetailPanel. -->
+{#if browser && mounted && webgl}
 	{#await import('$lib/crystarium/CrystariumCanvas.svelte') then { default: Canvas }}
 		<Canvas />
+	{/await}
+{:else if browser && mounted}
+	{#await import('$lib/hud/FallbackList.svelte') then { default: FallbackList }}
+		<FallbackList />
 	{/await}
 {/if}
