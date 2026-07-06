@@ -8,10 +8,14 @@
 // import survives mount/unmount cleanly where context would be re-created.
 
 /**
+ * @typedef {{ status: string, gate: 'all'|'open'|'gated'|'unknown', type: 'all'|'Grant'|'Fellowship'|'Investment' }} FilterState
+ */
+
+/**
  * @typedef {Object} CrystariumUI
  * @property {string | null} selected   id under primary focus (one at a time)
  * @property {string | null} hovered    id under the pointer (secondary)
- * @property {string}        filter     Phase-4 status filter (reserved)
+ * @property {{status:string,gate:string,type:string}} filter  Phase-4 three-axis filter (status / 501c3 gate / type)
  * @property {string | null} cameraFocus id the camera should frame
  */
 
@@ -19,9 +23,23 @@
 export const ui = $state({
 	selected: null,
 	hovered: null,
-	filter: 'all',
-	cameraFocus: null
+	cameraFocus: null,
+	filter: { status: 'all', gate: 'all', type: 'all' }
 });
+
+/**
+ * Set one filter axis (status | gate | type). Additive to the Phase-3 bridge.
+ * @param {'status'|'gate'|'type'} axis
+ * @param {string} value
+ */
+export function setFilter(axis, value) {
+	ui.filter[axis] = value;
+}
+
+/** Reset all three filter axes back to 'all'. */
+export function resetFilters() {
+	ui.filter = { status: 'all', gate: 'all', type: 'all' };
+}
 
 /**
  * Primary focus: select a node and ask the camera to frame it.

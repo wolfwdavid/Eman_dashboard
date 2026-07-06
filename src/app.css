@@ -43,6 +43,15 @@
 	--secured-gold: #ffc24b; /* secured node + SECURED $20,000 figure ONLY */
 	--urgent: #ff5a3c; /* deadline-pulse additive ONLY */
 	--path: #6fa8ff; /* progression spine + funder-family links */
+
+	/* ── Phase-4 gate / chart display aliases (04-UI-SPEC §Color + 04-RESEARCH) ──
+	   Pure ALIASES of existing hues — no new palette beyond the UI-SPEC. Charts +
+	   the 501c3 filter reference these so tokens stay the single source of truth. */
+	--gate-open: #6fa8ff; /* = --path — Chart D "Open now" + filter Open */
+	--gate-gated: #b0894e; /* = --status-not-eligible-yet — Chart D "Gated" + filter Gated */
+	--gate-unknown: #565d75; /* = --status-not-eligible — Chart D "Unknown" + filter Unknown */
+	--chart-potential: #eaf1ff; /* = --text-hi — Chart B potential bar */
+	--grid-line: rgba(140, 180, 255, 0.18); /* = --surface-glass-border — chart gridlines */
 }
 
 /* Base premium dark background so the deployed URL visibly proves CSS loaded.
