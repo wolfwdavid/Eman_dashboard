@@ -10,6 +10,7 @@
 	import { onDestroy } from 'svelte';
 	import gsap from 'gsap';
 	import { ui } from '$lib/state/crystarium.svelte.js';
+	import { intro } from './intro.svelte.js';
 	import { computeLayout } from './layout.js';
 	import { grants } from '$lib/data';
 
@@ -21,9 +22,18 @@
 
 	const DEFAULT_POS = { x: 0, y: 14, z: 34 };
 	const DEFAULT_TARGET = { x: 0, y: 0, z: 0 };
+	// AEST-01 awakening vantage: higher/farther than the idle overview — the camera
+	// starts here (no auto-orbit) and eases in to DEFAULT_POS as the crystals ignite.
+	const INTRO_POS = { x: 0, y: 24, z: 52 };
 
 	let controls: any = $state();
 	let tween: gsap.core.Timeline | undefined;
+
+	// Awakening bookkeeping: `introStarted` latches once the reveal tween begins;
+	// `introSettled` latches once the camera has reached the idle overview (via the
+	// tween completing OR a mid-intro skip snapping it there).
+	let introStarted = false;
+	let introSettled = false;
 
 	// Ease in to frame a node: dolly to an offset vantage + look-at the node (~600ms).
 	function focus(nodeId: string) {
@@ -52,8 +62,65 @@
 			.to(controls.target, { ...DEFAULT_TARGET, duration: 0.25, ease: 'power3.out' }, 0);
 	}
 
-	// React to the runes bridge: a selection frames it, a deselect returns to overview.
+	// AEST-01 camera reveal: ease from the pulled-back INTRO_POS into the idle overview
+	// (~1.6s), then hand off to auto-orbit. Shares the `tween` handle so onDestroy and
+	// the skip path both cover it. Scalar tween only — no per-frame allocation.
+	function runIntroCamera() {
+		if (!controls) return;
+		tween?.kill();
+		controls.autoRotate = false;
+		controls.object.position.set(INTRO_POS.x, INTRO_POS.y, INTRO_POS.z);
+		controls.target.set(DEFAULT_TARGET.x, DEFAULT_TARGET.y, DEFAULT_TARGET.z);
+		tween = gsap
+			.timeline({
+				onUpdate: invalidate,
+				onComplete: () => {
+					introSettled = true;
+					if (controls) controls.autoRotate = true; // hand off to idle orbit
+				}
+			})
+			.to(controls.object.position, { ...DEFAULT_POS, duration: 1.6, ease: 'power2.out' }, 0)
+			.to(controls.target, { ...DEFAULT_TARGET, duration: 1.6, ease: 'power2.out' }, 0);
+	}
+
+	// Snap straight to the idle overview (skip path / already-settled remount).
+	function settleCamera() {
+		tween?.kill();
+		tween = undefined;
+		if (controls) {
+			controls.object.position.set(DEFAULT_POS.x, DEFAULT_POS.y, DEFAULT_POS.z);
+			controls.target.set(DEFAULT_TARGET.x, DEFAULT_TARGET.y, DEFAULT_TARGET.z);
+			controls.autoRotate = true;
+		}
+		introSettled = true;
+		invalidate();
+	}
+
+	// Drive the intro camera off the shared intro state. Children mount before parents,
+	// so on first run intro.active may still be false (the Scene's onMount hasn't called
+	// startIntro yet) — we simply wait for it to flip. A remount where the intro already
+	// ran (intro.done) skips straight to the overview so the camera never sticks at INTRO_POS.
 	$effect(() => {
+		if (!controls || introStarted || introSettled) return;
+		if (intro.active) {
+			introStarted = true;
+			runIntroCamera();
+		} else if (intro.done) {
+			settleCamera();
+		}
+	});
+
+	// Interrupt: a mid-intro pointerdown fires skipIntro() (intro.active → false). If the
+	// camera reveal was running but hasn't settled, snap it to the idle overview now.
+	$effect(() => {
+		if (!controls) return;
+		if (introStarted && !intro.active && !introSettled) settleCamera();
+	});
+
+	// React to the runes bridge: a selection frames it, a deselect returns to overview.
+	// GUARDED during the intro so resetView() doesn't fight the reveal tween on mount.
+	$effect(() => {
+		if (intro.active) return;
 		if (ui.cameraFocus) focus(ui.cameraFocus);
 		else resetView();
 	});
@@ -64,11 +131,13 @@
 	onDestroy(() => tween?.kill());
 </script>
 
-<T.PerspectiveCamera makeDefault position={[0, 14, 34]} fov={45}>
+<!-- Starts pulled back at INTRO_POS with auto-orbit OFF; the reveal tween eases it in
+     to the overview and hands off to auto-orbit on complete (or on a skip). -->
+<T.PerspectiveCamera makeDefault position={[0, 24, 52]} fov={45}>
 	<OrbitControls
 		bind:ref={controls}
 		enableDamping
-		autoRotate
+		autoRotate={false}
 		autoRotateSpeed={0.4}
 		target={[0, 0, 0]}
 	/>
