@@ -18,10 +18,12 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 
 - ✓ Faithful FFXIII Crystarium sphere grid as the primary 3D navigation surface (Threlte 8, browser-guarded SSR-safe WebGL, selective bloom); node status/amount/deadline encodings + fiscal-sponsor beam; live-screenshot verified — Phase 3
 
+- ✓ Selecting a node opens a grant detail view (all fields, normalized+raw amount/deadline, Next Action CTA, external link; camera focus) — Phase 4 (live-UAT verified)
+- ✓ Pipeline overview: 4 charts (status totals, secured $20,000 vs potential $296,500, deadline timeline, 501c3 split) + status/gate/type filters that dim the grid — Phase 4
+- ✓ QR code panel: two swappable-config QR tiles (SHARE widget) — Phase 4
+- ✓ Minimal WebGL-less fallback list (optional RESL-01, shipped early) — Phase 4
+
 ### Active
-- [ ] Selecting a node opens a grant detail view (all CSV fields + Next Action + external Link)
-- [ ] Pipeline overview: totals by status, funding secured vs. potential, deadline timeline, 501(c)(3)-gated vs. open funders
-- [ ] QR code panel rendering codes for TWO configurable website URLs (swappable config) — *tool + data ready (Phase 2); panel UI is Phase 4*
 
 ### Out of Scope
 
@@ -77,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-05 after Phase 3 (3D Crystarium Scene) — live on GitHub Pages*
+*Last updated: 2026-07-06 after Phase 4 (HUD / Overlay UI) — live on GitHub Pages*
