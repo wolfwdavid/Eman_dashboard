@@ -4,6 +4,8 @@
 	// `ui.selected` is set, surfaces all 9 `Grant` fields, and closes (off-canvas)
 	// when null. ALL display logic lives in the tested `format.ts` — this component
 	// is composition + the inherited Phase-3 glass styling (blur 16px, tokens only).
+	import { fly } from 'svelte/transition';
+	import { cubicOut, cubicIn } from 'svelte/easing';
 	import { ui, deselect } from '$lib/state/crystarium.svelte.js';
 	import { grants } from '$lib/data';
 	import { formatAmount, formatDeadline, gateBadge } from '$lib/data/format';
@@ -45,8 +47,16 @@
 	);
 </script>
 
+<!-- Esc returns to overview (× also calls deselect; background-click handled in 04-04) -->
+<svelte:window onkeydown={(e) => e.key === 'Escape' && deselect()} />
+
 {#if grant}
-	<aside class="panel" style:--node-hue={`var(--status-${grant.status})`}>
+	<aside
+		class="panel"
+		style:--node-hue={`var(--status-${grant.status})`}
+		in:fly={{ x: 24, duration: 220, opacity: 0, easing: cubicOut }}
+		out:fly={{ x: 24, duration: 150, opacity: 0, easing: cubicIn }}
+	>
 		<!-- Header: node-hue accent + funder title + program + × deselect -->
 		<header class="header">
 			<span class="swatch" aria-hidden="true"></span>
@@ -107,6 +117,21 @@
 			<span class="eyebrow">FIT / ELIGIBILITY</span>
 			<p class="fit">{grant.fit}</p>
 		</section>
+
+		<!-- Row 7 · NEXT ACTION — the loudest element (primary CTA banner, DETL-03) -->
+		<section class="row next-action">
+			<span class="eyebrow">NEXT ACTION</span>
+			{#if grant.nextAction}
+				<p class="cta-banner">{grant.nextAction}</p>
+			{:else}
+				<p class="cta-empty">No action queued.</p>
+			{/if}
+		</section>
+
+		<!-- Row 8 · Link — opens the funder site in a new tab (DETL-03) -->
+		<a class="link" href={grant.link} target="_blank" rel="noopener noreferrer"
+			>Open funder site ↗</a
+		>
 	</aside>
 {/if}
 
@@ -300,6 +325,56 @@
 		font-weight: 400;
 		line-height: 1.5;
 		color: var(--text-hi);
+	}
+
+	/* Row 7 · Next Action CTA banner (the loudest element) */
+	.next-action {
+		margin-top: 48px; /* 2xl — banner stands apart */
+	}
+	.cta-banner {
+		margin: 0;
+		padding: 16px;
+		border-radius: 10px;
+		border-left: 2px solid var(--node-hue); /* hue hairline */
+		background: var(--surface);
+		font-family: var(--font-body);
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 1.5;
+		color: var(--text-hi);
+	}
+	.cta-empty {
+		margin: 0;
+		padding: 16px;
+		border-radius: 10px;
+		background: var(--surface);
+		font-family: var(--font-body);
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 1.5;
+		color: var(--text-lo);
+	}
+
+	/* Row 8 · Link — primary action affordance */
+	.link {
+		align-self: flex-start;
+		padding: 8px 14px;
+		border-radius: 8px;
+		border: 1px solid color-mix(in srgb, var(--node-hue) 55%, transparent);
+		background: color-mix(in srgb, var(--node-hue) 10%, transparent);
+		font-family: var(--font-body);
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 1.5;
+		text-decoration: none;
+		color: var(--text-hi);
+		transition:
+			background 150ms ease,
+			border-color 150ms ease;
+	}
+	.link:hover {
+		background: color-mix(in srgb, var(--node-hue) 22%, transparent);
+		border-color: var(--node-hue);
 	}
 
 	@media (max-width: 640px) {
