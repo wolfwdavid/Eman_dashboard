@@ -85,9 +85,17 @@
 	   open, the secondary surfaces (drawer, legend chip, SHARE/QR) step aside so
 	   they don't stack under the bottom sheet. Desktop (>768px) is unaffected. */
 	@media (max-width: 768px) {
+		/* Detail sheet open → hide the secondary bottom controls. */
 		.hud-root.detail-open :global(.drawer),
 		.hud-root.detail-open :global(.legend-root),
 		.hud-root.detail-open :global(.qr-widget) {
+			display: none;
+		}
+
+		/* Drawer expanded → its charts fill the lower screen, so the Legend chip and
+		   SHARE (which sit just above the collapsed bar) step aside until it closes. */
+		.hud-root:has(:global(.drawer.open)) :global(.legend-root),
+		.hud-root:has(:global(.drawer.open)) :global(.qr-widget) {
 			display: none;
 		}
 	}

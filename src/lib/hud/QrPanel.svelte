@@ -201,8 +201,9 @@
 	   bottom-right popover that would overflow a phone. Desktop (>768px) unchanged. */
 	@media (max-width: 768px) {
 		.qr-widget {
-			right: 16px;
-			bottom: 16px;
+			right: 12px;
+			/* Same tier as the Legend chip — above the slim drawer bar. */
+			bottom: 88px;
 		}
 
 		.toggle {

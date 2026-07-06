@@ -114,9 +114,10 @@
 	/* ── Mobile (MOB-01): collapse to a toggle chip + popover ─────────────── */
 	@media (max-width: 768px) {
 		.legend-root {
-			bottom: 16px;
-			left: 16px;
-			/* Chip sits at the bottom; popover expands above it. */
+			/* Sit in a tier just ABOVE the slim collapsed drawer bar (bottom control
+			   row) so the two never overlap. Popover expands above the chip. */
+			bottom: 88px;
+			left: 12px;
 			flex-direction: column-reverse;
 			align-items: flex-start;
 			gap: 8px;
