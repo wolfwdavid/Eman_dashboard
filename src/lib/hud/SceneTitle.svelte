@@ -46,13 +46,23 @@
 		color: var(--text-hi);
 	}
 
-	@media (max-width: 640px) {
+	/* Mobile re-flow (MOB-01): compact so the top-right readout never collides.
+	   Desktop (>768px) is untouched — this block only fires at ≤768px. */
+	@media (max-width: 768px) {
 		.panel {
-			top: 16px;
-			left: 16px;
+			top: 12px;
+			left: 12px;
+			padding: 10px 14px;
+			/* Leave the top-right corner free for the compact readout — no overlap. */
+			max-width: 56vw;
+		}
+		.eyebrow {
+			font-size: 10px;
+			letter-spacing: 0.1em;
+			margin-bottom: 3px;
 		}
 		.title {
-			font-size: 24px;
+			font-size: 20px;
 		}
 	}
 </style>

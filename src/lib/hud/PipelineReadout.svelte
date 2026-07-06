@@ -96,14 +96,26 @@
 		color: var(--text-lo);
 	}
 
-	@media (max-width: 640px) {
+	/* Mobile re-flow (MOB-01): a slim top-right strip that clears the compact
+	   title on the left — the two figures stay stacked but tighten, footnote drops.
+	   Desktop (>768px) is untouched. */
+	@media (max-width: 768px) {
 		.panel {
-			top: 16px;
-			right: 16px;
-			padding: 12px 14px;
+			top: 12px;
+			right: 12px;
+			padding: 8px 12px;
+			gap: 4px;
+			max-width: 36vw;
+		}
+		.caption {
+			font-size: 9px;
+			letter-spacing: 0.08em;
 		}
 		.value {
-			font-size: 24px;
+			font-size: 16px;
+		}
+		.footnote {
+			display: none;
 		}
 	}
 </style>

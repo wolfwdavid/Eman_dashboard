@@ -3,6 +3,10 @@
 	// funnel order. Swatch colours are driven from a status→CSS-var map (the DOM
 	// twin of tokens.statusHue) — NO raw hex in the template. Plain Svelte,
 	// prerenders, no Three import.
+	//
+	// MOB-01: on ≤768px the always-on panel is replaced by a "◆ Legend" toggle chip
+	// (bottom-left); tapping opens the same panel as a compact popover. Desktop
+	// (>768px) keeps the panel always-visible and pointer-events:none (pixel-identical).
 	const rows: { label: string; token: string }[] = [
 		{ label: 'Active', token: '--status-active' },
 		{ label: 'In progress', token: '--status-in-progress' },
@@ -13,33 +17,49 @@
 		{ label: 'Not eligible', token: '--status-not-eligible' },
 		{ label: 'Declined', token: '--status-declined' }
 	];
+
+	// Mobile popover open state (local UI — no runes-bridge coupling). Ignored on
+	// desktop where the toggle is display:none and the panel is always shown.
+	let open = $state(false);
 </script>
 
-<div class="panel">
-	<p class="caption">STATUS</p>
-	<ul class="rows">
-		{#each rows as row (row.token)}
-			<li class="row">
-				<span class="swatch" style="background: var({row.token});"></span>
-				<span class="label">{row.label}</span>
-			</li>
-		{/each}
-	</ul>
+<div class="legend-root" class:open>
+	<div class="panel">
+		<p class="caption">STATUS</p>
+		<ul class="rows">
+			{#each rows as row (row.token)}
+				<li class="row">
+					<span class="swatch" style="background: var({row.token});"></span>
+					<span class="label">{row.label}</span>
+				</li>
+			{/each}
+		</ul>
+	</div>
+
+	<!-- Mobile-only toggle chip (bottom-left). Hidden on desktop. -->
+	<button type="button" class="legend-toggle" onclick={() => (open = !open)} aria-expanded={open}>
+		<span class="diamond" aria-hidden="true">◆</span> Legend
+	</button>
 </div>
 
 <style>
-	.panel {
+	.legend-root {
 		position: fixed;
 		bottom: 24px;
 		left: 24px;
 		z-index: 10;
+		display: flex;
+		flex-direction: column;
+		pointer-events: none;
+	}
+
+	.panel {
 		padding: 16px 20px;
 		border-radius: 14px;
 		background: var(--surface-glass);
 		border: 1px solid var(--surface-glass-border);
 		backdrop-filter: blur(16px);
 		-webkit-backdrop-filter: blur(16px);
-		pointer-events: none;
 	}
 
 	.caption {
@@ -86,11 +106,64 @@
 		color: var(--text-hi);
 	}
 
-	@media (max-width: 640px) {
-		.panel {
+	/* Mobile toggle chip — hidden on desktop (panel is always-on there). */
+	.legend-toggle {
+		display: none;
+	}
+
+	/* ── Mobile (MOB-01): collapse to a toggle chip + popover ─────────────── */
+	@media (max-width: 768px) {
+		.legend-root {
 			bottom: 16px;
 			left: 16px;
+			/* Chip sits at the bottom; popover expands above it. */
+			flex-direction: column-reverse;
+			align-items: flex-start;
+			gap: 8px;
+		}
+
+		/* Panel becomes a popover — hidden until the chip is tapped. */
+		.panel {
+			display: none;
 			padding: 12px 14px;
+			pointer-events: auto;
+		}
+		.legend-root.open .panel {
+			display: block;
+		}
+
+		.legend-toggle {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			min-height: 44px;
+			padding: 0 16px;
+			border-radius: 999px;
+			background: var(--surface-glass);
+			border: 1px solid var(--surface-glass-border);
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+			pointer-events: auto;
+			cursor: pointer;
+			font-family: var(--font-display);
+			font-size: 14px;
+			font-weight: 600;
+			letter-spacing: 0.06em;
+			color: var(--text-hi);
+			transition:
+				color 120ms ease,
+				border-color 120ms ease;
+		}
+		.legend-root.open .legend-toggle {
+			color: var(--secured-gold);
+			border-color: var(--secured-gold);
+		}
+		.diamond {
+			color: var(--text-lo);
+			font-size: 12px;
+		}
+		.legend-root.open .diamond {
+			color: var(--secured-gold);
 		}
 	}
 </style>
