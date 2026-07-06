@@ -6,9 +6,11 @@
 	// AEST-01 awakening reveal. Only the VISUAL surface changed:
 	//   1. CORE   — small emissive sphere, white-lifted status hue at HIGH intensity. This
 	//               is what the bloom pass catches (dim statuses → dim cores; TBD → dimmest).
-	//   2. SHELL  — translucent faceted icosahedron (additive backside → fresnel-ish rim),
-	//               the old hit target, now smaller. Carries a faint status-hued tint.
-	//   3. HALO   — soft additive radial sprite (~3× node scale), status-hued, very soft.
+	//   2. SHELL  — a TIGHT translucent faceted crystal skin (~1.3× the core; additive
+	//               backside → fresnel-ish rim), the hit target, status-hue tinted. Detail
+	//               ≥2 so the silhouette stays ROUND — low-detail icosahedra at viewing
+	//               distance read as flat 2D hexagon plates (screenshot-gate iteration 1).
+	//   3. HALO   — soft additive radial sprite (~3.5× node scale), status-hued, very soft.
 	// A parent group applies a global NODE_SCALE compression so the crystals read as orbs
 	// floating in the void. One useTask drives everything via material properties + scalars
 	// (NO per-frame allocation, Pitfall F). Raycast stays on the shell only (core/halo are
@@ -32,8 +34,10 @@
 	const baseIntensity = $derived(activation[grant.status]);
 	// TBD "raw ore" crystals read rougher/less-formed; quantified crystals are glassy.
 	const roughness = $derived(grant.amount.isTBD ? 0.5 : 0.25);
-	// The active master crystal gets a denser multi-shard facet cluster.
-	const detail = $derived(grant.status === 'active' ? 1 : 0);
+	// Shell facet density — detail ≥2 keeps the crystal facets but rounds the SILHOUETTE
+	// (detail 0/1 read as flat hexagon plates from the constellation distance). The active
+	// master crystal gets the densest cluster.
+	const detail = $derived(grant.status === 'active' ? 3 : 2);
 	// Phase-4 three-axis filter (status/gate/type). Reactive: non-matching nodes
 	// DIM (emissive ×0.15 + opacity fade) and are raycast-guarded in the handlers.
 	const matches = $derived(matchesFilter(grant, ui.filter));
@@ -41,10 +45,11 @@
 	// ── VIS-02 tuning constants ─────────────────────────────────────────────────────
 	// Global compression so nodes read as small orbs in a vast space (~50% of v1.0).
 	const NODE_SCALE = 0.5;
-	const CORE_RADIUS = 0.42; // small emissive core inside the ~1.0 shell
+	const CORE_RADIUS = 0.42; // small emissive core
 	const CORE_GAIN = 2.3; // lifts the ladder so bright cores bloom hard (post-threshold)
-	const SHELL_OPACITY = 0.26; // translucent crystal shell (additive backside rim)
-	const HALO_SCALE = 3.0; // soft halo ≈ 3× the shell
+	const SHELL_RADIUS = 0.55; // tight crystal skin ≈ 1.3× the core (was 1.0 — read as a plate)
+	const SHELL_OPACITY = 0.11; // barely-there additive rim (was 0.26 — too plate-like)
+	const HALO_SCALE = 3.45; // soft halo (≈+15% vs iteration 0 to compensate the smaller shell)
 	// TBD grains read as unformed ore: near-no halo (dimmest presence).
 	const haloBase = $derived(
 		(grant.amount.isTBD ? 0.28 : 1) * Math.min(0.7, baseIntensity * 0.7 + 0.08)
@@ -206,8 +211,10 @@
 </script>
 
 <T.Group bind:ref={group} position={[node.x, node.y, node.z]} scale={node.scale * NODE_SCALE}>
-	<!-- SHELL — the hit target (same icosahedron geometry as v1.0, now smaller). Additive
-	     backside gives a fresnel-ish rim; a faint status tint reads through the glass. -->
+	<!-- SHELL — the hit target: a tight faceted crystal skin ~1.3× the core, exactly
+	     centered on it (both sit at this group's origin). Additive backside blending
+	     gives a fresnel-ish rim AND guarantees the rim is tinted by the status hue
+	     (plain transparent blending washed toward pale over the void). -->
 	<T.Mesh
 		onpointerenter={(e: any) => {
 			if (!matches) return; // raycast-guard: filtered-out nodes are inert
@@ -221,13 +228,14 @@
 			select(grant.id);
 		}}
 	>
-		<T.IcosahedronGeometry args={[1, detail]} />
+		<T.IcosahedronGeometry args={[SHELL_RADIUS, detail]} />
 		<T.MeshBasicMaterial
 			bind:ref={shellMaterial}
 			color={hue}
 			transparent
 			opacity={SHELL_OPACITY}
 			side={BackSide}
+			blending={AdditiveBlending}
 			depthWrite={false}
 			toneMapped={false}
 		/>
@@ -247,7 +255,7 @@
 		/>
 	</T.Mesh>
 
-	<!-- HALO — soft additive status-hued glow, ~3× the shell (breathes on pulse nodes). -->
+	<!-- HALO — soft additive status-hued glow, ~3.5× (breathes on pulse nodes). -->
 	<T.Sprite bind:ref={halo} raycast={noRaycast} scale={[HALO_SCALE, HALO_SCALE, 1]}>
 		<T.SpriteMaterial
 			map={haloTex}

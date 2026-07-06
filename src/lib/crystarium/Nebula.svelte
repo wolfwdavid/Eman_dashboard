@@ -12,11 +12,13 @@
 	type Cloud = { pos: [number, number, number]; scale: number; color: string; opacity: number };
 
 	// Deep, desaturated cosmic tints (kept dim so additive stacking stays sub-threshold).
+	// Iteration 1 (screenshot gate): violet/magenta/indigo lifted +0.02–0.03 for FFXIII's
+	// dreamy colour wash — still far below the bloom luminanceThreshold (0.38).
 	const CLOUDS: Cloud[] = [
-		{ pos: [-30, 8, -44], scale: 64, color: 'rgba(96,72,168,1)', opacity: 0.11 }, // violet
+		{ pos: [-30, 8, -44], scale: 64, color: 'rgba(96,72,168,1)', opacity: 0.13 }, // violet
 		{ pos: [34, -6, -38], scale: 58, color: 'rgba(46,120,150,1)', opacity: 0.09 }, // deep cyan
-		{ pos: [10, 20, -50], scale: 72, color: 'rgba(150,58,118,1)', opacity: 0.06 }, // magenta
-		{ pos: [-16, -14, -34], scale: 50, color: 'rgba(70,62,142,1)', opacity: 0.08 } // indigo
+		{ pos: [10, 20, -50], scale: 72, color: 'rgba(150,58,118,1)', opacity: 0.09 }, // magenta
+		{ pos: [-16, -14, -34], scale: 50, color: 'rgba(70,62,142,1)', opacity: 0.1 } // indigo
 	];
 
 	// One soft radial texture per cloud (center colour → transparent rim).
