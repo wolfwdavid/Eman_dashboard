@@ -7,11 +7,11 @@
 
 ### Visual Fidelity (Phase 6)
 
-- [ ] **VIS-01**: Deep-space backdrop — indigo-violet cosmic void with soft nebula glow and a fine starfield replaces the flat navy background; the grid reads as a floating constellation
-- [ ] **VIS-02**: Nodes are luminous crystal orbs/gems — bright emissive core, fresnel rim glow, translucent crystal body, soft halo — replacing the matte low-poly icosahedra; hue=status, scale=amount, pulse=deadline encodings preserved exactly
-- [ ] **VIS-03**: Paths are thin, gently curved luminous filaments with animated energy flow, replacing the thick straight lines; the fiscal-sponsor beam stays visually distinct (gold→cyan)
-- [ ] **VIS-04**: Bloom retuned for the new emissives — tight FFXIII-style glow without washout; dpr cap and smooth perf preserved; prerender/base-path invariants untouched
-- [ ] **VIS-05**: Composition polish — camera framing, subtle depth fog, and node-size ratios tuned so status/amount/urgency remain legible at a glance in the new style
+- [x] **VIS-01**: Deep-space backdrop — indigo-violet cosmic void with soft nebula glow and a fine starfield replaces the flat navy background; the grid reads as a floating constellation
+- [x] **VIS-02**: Nodes are luminous crystal orbs/gems — bright emissive core, fresnel rim glow, translucent crystal body, soft halo — replacing the matte low-poly icosahedra; hue=status, scale=amount, pulse=deadline encodings preserved exactly
+- [x] **VIS-03**: Paths are thin, gently curved luminous filaments with animated energy flow, replacing the thick straight lines; the fiscal-sponsor beam stays visually distinct (gold→cyan)
+- [x] **VIS-04**: Bloom retuned for the new emissives — tight FFXIII-style glow without washout; dpr cap and smooth perf preserved; prerender/base-path invariants untouched
+- [x] **VIS-05**: Composition polish — camera framing, subtle depth fog, and node-size ratios tuned so status/amount/urgency remain legible at a glance in the new style
 
 ### Immersion & Analytics (Phase 7 — deferred to next session)
 
@@ -32,11 +32,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VIS-01 | Phase 6 | Pending |
-| VIS-02 | Phase 6 | Pending |
-| VIS-03 | Phase 6 | Pending |
-| VIS-04 | Phase 6 | Pending |
-| VIS-05 | Phase 6 | Pending |
+| VIS-01 | Phase 6 | Complete |
+| VIS-02 | Phase 6 | Complete |
+| VIS-03 | Phase 6 | Complete |
+| VIS-04 | Phase 6 | Complete |
+| VIS-05 | Phase 6 | Complete |
 | IMM-01 | Phase 7 | Pending |
 | IMM-02 | Phase 7 | Pending |
 | IMM-03 | Phase 7 | Pending |
