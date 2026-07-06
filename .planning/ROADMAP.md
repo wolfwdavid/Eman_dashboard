@@ -100,8 +100,8 @@ Plans:
 **Plans**: 2 plans (wave 1 — parallel, zero file overlap)
 
 Plans:
-- [ ] 05-01-scene-intro-activation-PLAN.md — GSAP staggered node materialization + path draw-in + camera reveal→settle (client-only intro controller, ≤2.5s, interruptible) + activation-burst polish + perf pass (dpr/bloom/no-per-frame-alloc verify) [wave 1] (AEST-01)
-- [ ] 05-02-hud-fixes-tightening-PLAN.md — the 3 carried UAT fixes (readout auto-hide while rail open, deadline no-duplicate subtext, drawer ≤60vh cap) + HUD hover/press tightening within existing tokens [wave 1] (AEST-02)
+- [x] 05-01-scene-intro-activation-PLAN.md — GSAP staggered node materialization + path draw-in + camera reveal→settle (client-only intro controller, ≤2.5s, interruptible) + activation-burst polish + perf pass (dpr/bloom/no-per-frame-alloc verify) [wave 1] (AEST-01)
+- [x] 05-02-hud-fixes-tightening-PLAN.md — the 3 carried UAT fixes (readout auto-hide while rail open, deadline no-duplicate subtext, drawer ≤60vh cap) + HUD hover/press tightening within existing tokens [wave 1] (AEST-02)
 
 ## Progress
 

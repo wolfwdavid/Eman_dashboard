@@ -54,8 +54,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Premium Aesthetic
 
-- [ ] **AEST-01**: An intro/activation animation plays on load and on status-advance (GSAP), giving the grid a game-UI feel
-- [ ] **AEST-02**: A dark premium glassmorphism HUD/legend styles the overlay as an RPG interface
+- [x] **AEST-01**: An intro/activation animation plays on load and on status-advance (GSAP), giving the grid a game-UI feel
+- [x] **AEST-02**: A dark premium glassmorphism HUD/legend styles the overlay as an RPG interface
 
 ## v2 Requirements
 
@@ -121,8 +121,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-05 | Phase 4 | Complete |
 | QRUI-01 | Phase 4 | Complete |
 | QRUI-02 | Phase 4 | Complete |
-| AEST-01 | Phase 5 | Pending |
-| AEST-02 | Phase 5 | Pending |
+| AEST-01 | Phase 5 | Complete |
+| AEST-02 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 29 total

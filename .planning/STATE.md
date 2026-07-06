@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-07-06T12:24:52.922Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-07-06T13:17:20.898Z"
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
+  completed_phases: 5
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-04)
 
 **Core value:** The Crystarium sphere grid makes the entire grant pipeline legible and navigable at a glance — funder status, funding amount, and deadline urgency are all readable from the shape and glow of the grid before a single click.
-**Current focus:** Phase 04 — HUD / Overlay UI + Fallback
+**Current focus:** Phase 05 — Premium Polish / Animation / Perf
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (Premium Polish / Animation / Perf) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -61,6 +61,8 @@ Plan: Not started
 | Phase 04-hud-overlay-ui-fallback P02 | 9 | 2 tasks | 1 files |
 | Phase 04 P03 | 20 | 3 tasks | 7 files |
 | Phase 04 P04 | 8 | 3 tasks | 3 files |
+| Phase 05 P01 | 18 | 3 tasks | 5 files |
+| Phase 05 P02 | 16min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -103,6 +105,7 @@ Recent decisions affecting current work:
 - [Phase 04]: Chart C uses deterministic urgency-bucket colouring (cDomain/cRange) instead of a bespoke overlay to meet the <30d-urgent/passed-ash contract
 - [Phase 04]: Background-click deselect wired via onpointermissed on the geometry-less scene Group (never in initialHits → fires on every click, before dispatch); no DOM/3D catch layer, canvas raycast intact
 - [Phase 04]: Shipped optional WebGL-probe 2D fallback (RESL-01) — client-only probe swaps FallbackList for Canvas; reuses DetailPanel + format helpers; never blocks the build gate
+- [Phase 05]: 05-02: rawRedundant(text,raw) pure trim-equal predicate guards both AMOUNT+DEADLINE subtext; PipelineReadout auto-hides via class:hidden (opacity/translateX, SSR-visible); drawer capped on inner .grid (60vh) so .charts slide stays intact
 
 ### Pending Todos
 
@@ -118,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-06T11:40:14.025Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-07-06T13:14:39.863Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
