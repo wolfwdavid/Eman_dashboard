@@ -83,6 +83,7 @@ completed: 2026-07-06
 1. **Task 1: Cosmic backdrop** — `15c7f75` (feat)
 2. **Task 2: 3-layer luminous node orbs** — `51d6a60` (feat)
 3. **Task 3: Arced paths + retuned bloom + constellation framing** — `b65648e` (feat)
+4. **Iteration 1: round crystal shells + halo/nebula micro-tunes** — `b7c386a` (fix)
 
 ## Files Created/Modified
 - `src/lib/crystarium/gradients.js` — browser-only `radialSprite` CanvasTexture util (procedural glow, no image assets, no new deps)
@@ -105,6 +106,22 @@ completed: 2026-07-06
 - **Files modified:** `src/lib/crystarium/gradients.js`
 - **Commit:** `15c7f75`
 
+## Screenshot-Gate Iteration 1 (`b7c386a`)
+
+Coordinator's live-deploy judgment: overhaul reads FFXIII (void/starfield/cores/filaments/composition all pass); one primary issue + two micro-tunes, fixed in `fix(06): round crystal shells + halo/nebula micro-tunes`:
+
+**Primary — shells read as flat hexagonal plates.** Root causes and fixes in `CrystalNode.svelte`:
+- Silhouette: icosahedron detail 0/1 at constellation distance = hexagon outline → detail **2** (active master **3**) rounds the silhouette while keeping crystal facets.
+- Size: shell radius **1.0 → 0.55** (~1.3× the 0.42 core — a tight crystal skin, not a plate).
+- Opacity/tint: `SHELL_OPACITY` **0.26 → 0.11** and blending switched to **Additive** — plain transparent blending over the void washed every shell toward pale blue regardless of status hue; additive guarantees the rim is genuinely status-tinted.
+- Centering: core + shell are siblings at the same group origin — verified exactly centered (the "offset" read was the plate silhouette artifact).
+
+**Micro-tunes:**
+- Halo `HALO_SCALE` **3.0 → 3.45** (+15%) to preserve the orb-in-glow read with the smaller shell.
+- Nebula violet/magenta/indigo opacities **+0.02–0.03** (0.13/0.09/0.10; cyan unchanged) for the dreamy colour wash — still far under the 0.38 bloom threshold.
+
+Full regression gate re-run green after the fix commit.
+
 ## Regression Gate (green after every commit)
 - `pnpm exec vitest run` → **162 passed** (12 files)
 - `MSYS_NO_PATHCONV=1 BASE_PATH=/Eman_dashboard pnpm build` → **exit 0**
@@ -118,7 +135,8 @@ None — pure visual restyle; all data encodings and interactions are live and p
 ## Screenshot-pass tuning notes (for the orchestrator)
 - If cores look under-bloomed on the live GPU: raise `CORE_GAIN` (2.3→2.6) in `CrystalNode.svelte` or drop bloom `luminanceThreshold` (0.38→0.34) in `Effects.svelte`.
 - If stars/nebula start blooming (twinkle/haze): lower `Starfield` `opacity` (0.5) / `PointsMaterial` color, or `Nebula` cloud opacities (0.06–0.11).
-- Halo strength is `haloBase` (status-driven) × `HALO_SCALE` (3.0); nudge `HALO_SCALE` for a bigger glow footprint.
+- Halo strength is `haloBase` (status-driven) × `HALO_SCALE` (3.45); nudge `HALO_SCALE` for a bigger glow footprint.
+- Shell rim presence is `SHELL_OPACITY` (0.11, additive) × `SHELL_RADIUS` (0.55) — raise opacity toward 0.14 if the crystal skin disappears on the live GPU.
 - Path visibility is `opacity` per kind + `flowRadius` multipliers in `CrystalPath.build()`; beam is intentionally the brightest/thickest.
 - Void emptiness is `NODE_SCALE` (0.5) + camera `DEFAULT_POS` (0/16/38) + `FogExp2` density (0.011 in `CrystariumScene.svelte`).
 
