@@ -80,12 +80,14 @@ Plans:
   3. Filtering/segmenting by status, by 501(c)(3) requirement, and by type dims/highlights the grid nodes and recomputes the HUD totals live (partition logic stays in the transform, not the view).
   4. A QR panel displays scannable QR codes for the two configured website URLs.
   5. On a WebGL-less client the same generated JSON renders as a 2D fallback list instead of a black screen.
-**Plans**: TBD (~3 plans)
+**Plans**: 5 plans (waves 1 → 2 → 3 → 4)
 
 Plans:
-- [ ] 04-01: `crystarium.svelte.js` runes state bridge + `DetailPanel` (all fields, raw+normalized, Next Action CTA, external Link) + click→select→camera-focus wiring
-- [ ] 04-02: `PipelineOverview` (status totals, secured-vs-potential, deadline timeline, 501c3 split) + `Legend`/filters recomputing totals live
-- [ ] 04-03: `QrPanel` (two config URLs) + non-WebGL 2D fallback list reading the same JSON
+- [ ] 04-01-foundation-deps-pure-state-scenedim-PLAN.md — `layerchart@2.0.1` dep + PURE `aggregates.ts`/`filter.ts`/`format.ts` (+ vitest) + widen `ui.filter` to `{status,gate,type}` + gate/chart CSS tokens + scene filter-dim/raycast-guard in `CrystalNode`/`CrystalPath` [wave 1] (DETL-02, PIPE-01, PIPE-02, PIPE-04, PIPE-05)
+- [ ] 04-02-detail-panel-PLAN.md — `DetailPanel.svelte` right-edge rail: all 9 fields, Amount/Deadline human-readable + raw subtext, status pill, gate badge, Next Action CTA banner, external "Open funder site ↗" link, fly-in/out motion [wave 2] (DETL-01, DETL-02, DETL-03)
+- [ ] 04-03-pipeline-charts-filters-qr-PLAN.md — 4 LayerChart charts (status/secured-vs-potential/deadline-timeline/501c3-split) + `FilterBar` (3 axes → `setFilter`) + collapsible `PipelineDrawer` + `QrPanel` ({@html} tiles + config-swap note) [wave 2] (PIPE-01..05, QRUI-01, QRUI-02)
+- [ ] 04-04-integration-mount-build-gate-PLAN.md — mount overlay in `+page.svelte` via the pointer-events layer model (no catch layer), selector-driven readout, OPTIONAL WebGL-probe fallback, phase build gate (base-path build + verify-build 6/6, chart-SVG-grep trap avoided) [wave 3] (DETL-01, PIPE-05, QRUI-01, QRUI-02)
+- [ ] 04-05-interactive-uat-PLAN.md — human-verify checkpoint: drill-down, filter-dims-scene, charts + tooltips, QR toggle, raycast-intact [wave 4, checkpoint] (DETL-01..03, PIPE-01..05, QRUI-01)
 
 ### Phase 5: Premium Polish / Animation / Perf
 **Goal**: The dashboard gains its premium RPG game-UI feel — activation/intro animations, a dark glassmorphism HUD, tuned glow, and a performance pass that keeps it smooth on mid-range mobile.
@@ -111,5 +113,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Deploy Skeleton + Toolchain | 0/3 | Not started | - |
 | 2. Data Pipeline + Custom Tools | 0/4 | Not started | - |
 | 3. 3D Crystarium Scene | 0/4 | Not started | - |
-| 4. HUD / Overlay UI + Fallback | 0/3 | Not started | - |
+| 4. HUD / Overlay UI + Fallback | 0/5 | Not started | - |
 | 5. Premium Polish / Animation / Perf | 0/2 | Not started | - |
