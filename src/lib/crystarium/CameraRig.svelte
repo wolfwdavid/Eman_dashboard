@@ -7,7 +7,7 @@
 	// client-only (this component only ever mounts inside the browser-gated Canvas).
 	import { T, useThrelte, useTask } from '@threlte/core';
 	import { OrbitControls } from '@threlte/extras';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import gsap from 'gsap';
 	import { ui } from '$lib/state/crystarium.svelte.js';
 	import { intro } from './intro.svelte.js';
@@ -27,6 +27,20 @@
 	// AEST-01 awakening vantage: higher/farther than the idle overview — the camera
 	// starts here (no auto-orbit) and eases in to DEFAULT_POS as the crystals ignite.
 	const INTRO_POS = { x: 0, y: 28, z: 58 };
+
+	// MOB-04 portrait framing: on a tall/narrow viewport the constellation would
+	// overflow the sides, so pull the camera back proportionally to the aspect.
+	// 1 on landscape; ~1.48 on a 390×844 phone (capped at 1.6). Recomputed on resize
+	// / orientation change. `scaled()` applies it along the view vector (y+z).
+	let frame = $state(1);
+	function computeFrame(): number {
+		if (typeof window === 'undefined') return 1;
+		const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+		return aspect < 1 ? Math.min(1.6, 1 + (1 - aspect) * 0.9) : 1;
+	}
+	function scaled(p: { x: number; y: number; z: number }) {
+		return { x: p.x, y: p.y * frame, z: p.z * frame };
+	}
 
 	let controls: any = $state();
 	let tween: gsap.core.Timeline | undefined;
@@ -60,7 +74,7 @@
 					if (controls) controls.autoRotate = true;
 				}
 			})
-			.to(controls.object.position, { ...DEFAULT_POS, duration: 0.25, ease: 'power3.out' }, 0)
+			.to(controls.object.position, { ...scaled(DEFAULT_POS), duration: 0.25, ease: 'power3.out' }, 0)
 			.to(controls.target, { ...DEFAULT_TARGET, duration: 0.25, ease: 'power3.out' }, 0);
 	}
 
@@ -71,7 +85,9 @@
 		if (!controls) return;
 		tween?.kill();
 		controls.autoRotate = false;
-		controls.object.position.set(INTRO_POS.x, INTRO_POS.y, INTRO_POS.z);
+		const intro0 = scaled(INTRO_POS);
+		const def = scaled(DEFAULT_POS);
+		controls.object.position.set(intro0.x, intro0.y, intro0.z);
 		controls.target.set(DEFAULT_TARGET.x, DEFAULT_TARGET.y, DEFAULT_TARGET.z);
 		tween = gsap
 			.timeline({
@@ -81,7 +97,7 @@
 					if (controls) controls.autoRotate = true; // hand off to idle orbit
 				}
 			})
-			.to(controls.object.position, { ...DEFAULT_POS, duration: 1.6, ease: 'power2.out' }, 0)
+			.to(controls.object.position, { ...def, duration: 1.6, ease: 'power2.out' }, 0)
 			.to(controls.target, { ...DEFAULT_TARGET, duration: 1.6, ease: 'power2.out' }, 0);
 	}
 
@@ -90,7 +106,8 @@
 		tween?.kill();
 		tween = undefined;
 		if (controls) {
-			controls.object.position.set(DEFAULT_POS.x, DEFAULT_POS.y, DEFAULT_POS.z);
+			const def = scaled(DEFAULT_POS);
+			controls.object.position.set(def.x, def.y, def.z);
 			controls.target.set(DEFAULT_TARGET.x, DEFAULT_TARGET.y, DEFAULT_TARGET.z);
 			controls.autoRotate = true;
 		}
@@ -129,6 +146,31 @@
 
 	// OrbitControls damping + autoRotate need a per-frame update.
 	useTask(() => controls?.update());
+
+	// MOB-04: track viewport aspect. On resize/orientation change, recompute the
+	// pull-back factor; if the camera is idle (settled, no active focus/tween), gently
+	// re-dolly to the new framed overview so a rotate never leaves the grid clipped.
+	onMount(() => {
+		frame = computeFrame();
+		const onResize = () => {
+			const next = computeFrame();
+			if (next === frame) return;
+			frame = next;
+			const idle = introSettled && !ui.cameraFocus && !(tween && tween.isActive());
+			if (idle && controls) {
+				const def = scaled(DEFAULT_POS);
+				controls.object.position.set(def.x, def.y, def.z);
+				controls.update?.();
+				invalidate();
+			}
+		};
+		window.addEventListener('resize', onResize);
+		window.addEventListener('orientationchange', onResize);
+		return () => {
+			window.removeEventListener('resize', onResize);
+			window.removeEventListener('orientationchange', onResize);
+		};
+	});
 
 	onDestroy(() => tween?.kill());
 </script>

@@ -26,6 +26,9 @@
 	// Single source of truth for the readout figures (computed, not literals).
 	import { grants } from '$lib/data';
 	import { securedTotal, potentialTotal } from '$lib/data/aggregates';
+	// MOB-02: on phones, only one primary surface at a time — when the detail sheet
+	// is open we hide the drawer/legend/SHARE (see the :global mobile rules below).
+	import { ui } from '$lib/state/crystarium.svelte.js';
 
 	let mounted = $state(false);
 	// WebGL support probe (RESL-01). Defaults true so SSR/first paint assume the 3D
@@ -44,17 +47,21 @@
 	<title>Eman_dashboard — DID Grant Crystarium</title>
 </svelte:head>
 
-<!-- Prerendered glass HUD (SSR-safe, real content around the guarded Canvas). -->
-<SceneTitle />
-<PipelineReadout secured={securedTotal(grants)} potential={potentialTotal(grants)} />
-<Legend />
+<!-- HUD wrapper: `display:contents` so it adds no box (all children stay fixed),
+     but carries a `detail-open` flag the mobile one-surface rules key off of. -->
+<div class="hud-root" class:detail-open={ui.selected !== null}>
+	<!-- Prerendered glass HUD (SSR-safe, real content around the guarded Canvas). -->
+	<SceneTitle />
+	<PipelineReadout secured={securedTotal(grants)} potential={potentialTotal(grants)} />
+	<Legend />
 
-<!-- Phase-4 overlay: discrete fixed panels (NO catch layer). Each owns its own
-     z-index + pointer-events. DetailPanel opens on ui.selected; background-click
-     deselect is wired inside the scene (CrystariumScene onpointermissed). -->
-<DetailPanel />
-<PipelineDrawer />
-<QrPanel />
+	<!-- Phase-4 overlay: discrete fixed panels (NO catch layer). Each owns its own
+	     z-index + pointer-events. DetailPanel opens on ui.selected; background-click
+	     deselect is wired inside the scene (CrystariumScene onpointermissed). -->
+	<DetailPanel />
+	<PipelineDrawer />
+	<QrPanel />
+</div>
 
 <!-- WebGL scene: client-only, dynamically imported so three code-splits out of SSR.
      If the WebGL probe fails, the 2D FallbackList renders instead (RESL-01) — its
@@ -68,3 +75,20 @@
 		<FallbackList />
 	{/await}
 {/if}
+
+<style>
+	.hud-root {
+		display: contents;
+	}
+
+	/* MOB-02 — one primary surface at a time on phones: while the detail sheet is
+	   open, the secondary surfaces (drawer, legend chip, SHARE/QR) step aside so
+	   they don't stack under the bottom sheet. Desktop (>768px) is unaffected. */
+	@media (max-width: 768px) {
+		.hud-root.detail-open :global(.drawer),
+		.hud-root.detail-open :global(.legend-root),
+		.hud-root.detail-open :global(.qr-widget) {
+			display: none;
+		}
+	}
+</style>

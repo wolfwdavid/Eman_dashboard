@@ -381,16 +381,35 @@
 		border-color: var(--node-hue);
 	}
 
-	@media (max-width: 640px) {
+	/* Mobile (MOB-01/02): full-width bottom sheet with an OPAQUE background so no
+	   drawer/legend/scene ghosts through the glass. Desktop (>768px) unchanged. */
+	@media (max-width: 768px) {
 		.panel {
 			top: auto;
 			bottom: 0;
+			left: 0;
 			width: 100vw;
 			height: auto;
-			max-height: 80vh;
-			padding: 16px; /* md edge inset below 640 */
-			border-radius: 14px 14px 0 0;
+			max-height: 85dvh;
+			padding: 16px 16px 24px;
+			border-radius: 16px 16px 0 0;
 			border-left: none;
+			border-top: 2px solid var(--node-hue);
+			/* Opaque base (not the 0.55 glass) — kills the ghosting on a phone. */
+			background: var(--surface);
+		}
+		/* CTA no longer needs the big desktop gap in a scrolling sheet. */
+		.next-action {
+			margin-top: 24px;
+		}
+		/* Comfortable tap size for the close control. */
+		.close {
+			min-width: 44px;
+			min-height: 44px;
+			font-size: 26px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 		}
 	}
 </style>

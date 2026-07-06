@@ -39,7 +39,11 @@
 			<span class="chev">{open ? '▼' : '▲'}</span>
 			PIPELINE OVERVIEW
 		</button>
-		<FilterBar />
+		<!-- MOB-01: on mobile the FilterBar is hidden while collapsed (slim handle
+		     bar) and revealed on expand; on desktop it is always shown (unchanged). -->
+		<div class="filters">
+			<FilterBar />
+		</div>
 	</header>
 </section>
 
@@ -112,16 +116,31 @@
 		color: var(--text-lo);
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 768px) {
 		.drawer {
 			bottom: 16px;
-			width: calc(100vw - 32px);
-			padding: 12px 14px;
+			width: calc(100vw - 24px);
+			padding: 10px 14px;
 		}
 
+		/* Collapsed = slim handle bar only. The filters live inside the expandable
+		   region on mobile so the resting drawer doesn't eat half the screen. */
+		.drawer:not(.open) .filters {
+			display: none;
+		}
+
+		.handle {
+			font-size: 16px;
+			min-height: 44px;
+			align-items: center;
+		}
+
+		/* Expanded drawer stays within ~70dvh (charts scroll internally); dvh so
+		   the mobile URL bar doesn't clip it. */
 		.grid {
 			grid-template-columns: 1fr;
-			gap: 24px;
+			gap: 20px;
+			max-height: 56dvh;
 		}
 	}
 </style>

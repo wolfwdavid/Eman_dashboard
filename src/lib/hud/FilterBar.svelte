@@ -305,4 +305,21 @@
 	.reset.inline:hover {
 		color: var(--text-hi);
 	}
+
+	/* MOB-03: ≥44px tap targets on phones (padding bumps only — no layout rewrite). */
+	@media (max-width: 768px) {
+		.chip {
+			min-height: 44px;
+			padding: 6px 14px;
+		}
+		.seg {
+			min-height: 44px;
+			padding: 8px 16px;
+			display: inline-flex;
+			align-items: center;
+		}
+		.reset {
+			min-height: 44px;
+		}
+	}
 </style>

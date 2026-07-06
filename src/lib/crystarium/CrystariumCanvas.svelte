@@ -10,10 +10,22 @@
 	//   renderMode="always"— the grid idle-orbits continuously.
 	import { Canvas } from '@threlte/core';
 	import CrystariumScene from './CrystariumScene.svelte';
+
+	// MOB-04: cap the device pixel ratio lower on phones/tablets (coarse pointer or
+	// ≤768px) — bloom + postprocessing cost scales with pixels, so ≤1.5 keeps
+	// mid-range mobile GPUs smooth. Desktop keeps the ≤2 clamp. This component is
+	// browser-only (dynamic-imported behind browser&&mounted), so window is safe.
+	const isMobile =
+		typeof window !== 'undefined' &&
+		!!(
+			window.matchMedia?.('(max-width: 768px)').matches ||
+			window.matchMedia?.('(pointer: coarse)').matches
+		);
+	const dpr: [number, number] = isMobile ? [1, 1.5] : [1, 2];
 </script>
 
 <div class="canvas-layer">
-	<Canvas autoRender={false} dpr={[1, 2]} renderMode="always">
+	<Canvas autoRender={false} {dpr} renderMode="always">
 		<CrystariumScene />
 	</Canvas>
 </div>
@@ -24,5 +36,11 @@
 		position: fixed;
 		inset: 0;
 		z-index: 0;
+	}
+
+	/* MOB-03: let one-finger drag / pinch drive OrbitControls instead of the browser
+	   treating it as a page scroll/zoom gesture. Scoped to the canvas only. */
+	.canvas-layer :global(canvas) {
+		touch-action: none;
 	}
 </style>

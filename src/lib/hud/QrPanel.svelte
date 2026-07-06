@@ -14,8 +14,15 @@
 	let open = $state(false);
 </script>
 
-<div class="qr-widget">
+<div class="qr-widget" class:open>
 	{#if open}
+		<!-- Mobile-only scrim: taps close the modal (display:none on desktop). -->
+		<button
+			type="button"
+			class="scrim"
+			aria-label="Close share panel"
+			onclick={() => (open = false)}
+		></button>
 		<div
 			class="panel"
 			in:scale={{ duration: 200, start: 0.85, opacity: 0, easing: cubicOut }}
@@ -87,6 +94,11 @@
 
 	.glyph {
 		color: var(--text-lo);
+	}
+
+	/* Scrim only exists on mobile (centered-modal mode). */
+	.scrim {
+		display: none;
 	}
 
 	.panel {
@@ -185,14 +197,63 @@
 		color: var(--text-hi);
 	}
 
-	@media (max-width: 640px) {
+	/* Mobile (MOB-01): open as a CENTERED modal over a dark scrim instead of a
+	   bottom-right popover that would overflow a phone. Desktop (>768px) unchanged. */
+	@media (max-width: 768px) {
 		.qr-widget {
 			right: 16px;
 			bottom: 16px;
 		}
 
+		.toggle {
+			min-height: 44px;
+			display: inline-flex;
+			align-items: center;
+		}
+
+		.scrim {
+			display: block;
+			position: fixed;
+			inset: 0;
+			z-index: 39;
+			border: none;
+			padding: 0;
+			background: rgba(3, 5, 12, 0.62);
+			-webkit-backdrop-filter: blur(2px);
+			backdrop-filter: blur(2px);
+			cursor: pointer;
+		}
+
+		.panel {
+			position: fixed;
+			z-index: 40;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			transform-origin: center;
+			width: min(92vw, 360px);
+			max-height: 82dvh;
+			overflow-y: auto;
+			/* Opaque so the scene doesn't muddy the codes. */
+			background: var(--surface);
+		}
+
 		.tiles {
-			gap: 24px;
+			gap: 20px;
+			justify-content: center;
+		}
+
+		.qr-tile {
+			align-items: center;
+		}
+
+		.url {
+			max-width: 40vw;
+		}
+
+		/* Developer swap-note is desktop-only clutter on a phone modal. */
+		.swap-note {
+			display: none;
 		}
 	}
 </style>
