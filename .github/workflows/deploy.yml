@@ -45,6 +45,11 @@ jobs:
           BASE_PATH: /${{ github.event.repository.name }}
         run: pnpm run build
 
+      - name: Verify deploy invariants
+        # Custom gate: base-prefixed assets, zero root-absolute /_app/, .nojekyll,
+        # 404.html, index.html, title text. Fails the run before a broken deploy.
+        run: node tools/verify-build.mjs
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

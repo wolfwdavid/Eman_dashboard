@@ -13,6 +13,5 @@
 // and the emitted codes are asserted to contain no `/Eman_dashboard/` prefix.
 export const sites = [
 	{ id: 'main', label: 'Visit DID', url: 'https://diversityincludesdisability.org' },
-	// PLACEHOLDER — replace with the second real site URL when finalized:
-	{ id: 'support', label: 'Support / Tracker', url: 'https://example.org/second-site-REPLACE-ME' }
+	{ id: 'support', label: 'DID — Accessible Site', url: 'https://wolfwdavid.github.io/diversityincludesdisability_three/' }
 ];
