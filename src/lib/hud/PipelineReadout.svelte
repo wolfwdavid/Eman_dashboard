@@ -6,10 +6,16 @@
 	//
 	// Figures are passed in from +page.svelte (secured=20000 / potential=296500,
 	// both verified against grants.generated.json in Phase 2).
+	//
+	// `ui` is the plain runes bridge (no Three import) — safe to read in this
+	// prerendered chip. While a node is selected the right-edge DetailPanel (z-30)
+	// slides in over this z-10 readout, so we fade/slide it out of the collision
+	// (SSR sees selected:null → readout renders visible for first paint).
+	import { ui } from '$lib/state/crystarium.svelte.js';
 	let { secured = 20000, potential = 296500 }: { secured?: number; potential?: number } = $props();
 </script>
 
-<div class="panel">
+<div class="panel" class:hidden={ui.selected !== null}>
 	<div class="figure">
 		<span class="caption">SECURED</span>
 		<span class="value gold">${secured.toLocaleString()}</span>
@@ -37,6 +43,17 @@
 		border: 1px solid var(--surface-glass-border);
 		backdrop-filter: blur(16px);
 		-webkit-backdrop-filter: blur(16px);
+		pointer-events: none;
+		/* Motion discipline: opacity/transform only (~180ms) so the readout slides
+		   toward its edge + fades while the detail rail owns the right column. */
+		transition:
+			opacity 180ms ease,
+			transform 180ms ease;
+	}
+
+	.panel.hidden {
+		opacity: 0;
+		transform: translateX(12px);
 		pointer-events: none;
 	}
 
