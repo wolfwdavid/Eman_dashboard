@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-07-06T10:44:27.097Z"
+stopped_at: Completed 04-02-PLAN.md (DetailPanel)
+last_updated: "2026-07-06T11:01:55.145Z"
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-07-04)
 ## Current Position
 
 Phase: 04 (HUD / Overlay UI + Fallback) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: 2 of 5
 | Phase 03 P03 | 30 | 2 tasks | 10 files |
 | Phase 03 P04 | 25min | 2 tasks | 5 files |
 | Phase 04 P01 | 13 | 3 tasks | 14 files |
+| Phase 04-hud-overlay-ui-fallback P02 | 9 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-01: FilterState axes typed as plain string (DOM-origin values) — resolves setFilter/svelte-check union friction; allowed values documented
 - [Phase 04]: 04-01: added $lib resolve alias to vitest.config.ts so data tests import the barrel as the app does (bare vitest has no SvelteKit plugin)
 - [Phase 04]: 04-01: filter-dim folded into CrystalNode useTask (opacity+emissive x0.15) + handler-guard raycast; nodes dimmed never deleted so funnel layout stays stable
+- [Phase 04-hud-overlay-ui-fallback]: 04-02: DetailPanel consumes real format.ts API (tone/sponsorHint), not the plan prose's token/hint; sponsorHint→gold 'NY Community Trust may sponsor' line
+- [Phase 04-hud-overlay-ui-fallback]: 04-02: color-mix(var(--node-hue) N%) for pill/badge/link tints keeps token discipline (no new hex/alpha tokens); single --node-hue prop echoes selected crystal across header/pill/CTA/link
 
 ### Pending Todos
 
@@ -110,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-06T10:43:27.132Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-07-06T11:01:38.530Z
+Stopped at: Completed 04-02-PLAN.md (DetailPanel)
 Resume file: None

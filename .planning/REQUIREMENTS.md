@@ -29,9 +29,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Grant Detail
 
-- [ ] **DETL-01**: Selecting a node opens a detail view showing all of that funder's fields
+- [x] **DETL-01**: Selecting a node opens a detail view showing all of that funder's fields
 - [x] **DETL-02**: Normalized Amount and Deadline are shown human-readable alongside the original raw value
-- [ ] **DETL-03**: The Next Action is presented as a call-to-action and the external Link opens the funder site in a new tab
+- [x] **DETL-03**: The Next Action is presented as a call-to-action and the external Link opens the funder site in a new tab
 
 ### Pipeline Overview
 
@@ -111,9 +111,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CRYS-06 | Phase 3 | Complete |
 | CRYS-07 | Phase 3 | Complete |
 | CRYS-08 | Phase 3 | Complete |
-| DETL-01 | Phase 4 | Pending |
+| DETL-01 | Phase 4 | Complete |
 | DETL-02 | Phase 4 | Complete |
-| DETL-03 | Phase 4 | Pending |
+| DETL-03 | Phase 4 | Complete |
 | PIPE-01 | Phase 4 | Complete |
 | PIPE-02 | Phase 4 | Complete |
 | PIPE-03 | Phase 4 | Pending |
