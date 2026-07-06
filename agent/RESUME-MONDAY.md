@@ -4,6 +4,37 @@ An agentic chatbot that **finds, organizes, scores, and helps fill out grants** 
 Disability (Eman Rimawi), and reminds Eman via Telegram. **Free & private** — local LLM, nothing to a
 cloud AI, no API bill.
 
+---
+
+## ⏸️ PAUSED 2026-07-06 — Mac migration prep (read this first)
+
+**Decision:** Eman's Mac is taking over as the always-on host. The **Windows bot is stopped and stays
+stopped** (Telegram allows only one poller per token — never run both).
+
+**Done this session:**
+- **Locked the allowlist:** `agent/.env` → `TELEGRAM_ALLOWED_CHAT_IDS=793244510` (David only). This
+  armed the proactive jobs (daily 9AM reminders, Monday 9AM digest, midnight scrape).
+- **Fixed the lockdown blind spot** (commit `ec6485b`, pushed): once the allowlist is set, an unknown
+  `/start` used to be swallowed silently. Now a rejected chat is **logged** (id/name/username) and
+  `/start` **replies with the sender's chat id** — so Eman can be captured after lockdown. This is
+  how she gets added (runbook step 7).
+- **Wrote `agent/MAC-DEPLOY.md`** (commit `7ee9870`, pushed): step-by-step migration runbook with a
+  ✅ verify command per step. Reuses the existing bot/Notion/`.env` — **do NOT re-bootstrap**.
+- **Copied the live `.env` to the SD card** as `D:\did-agent.env` (holds the real Telegram + Notion
+  tokens in plaintext). ⚠️ **Delete it from the SD card once it's on the Mac.**
+
+**▶️ Resume on the Mac** = follow `MAC-DEPLOY.md` top to bottom (step 5 "stop Windows bot" is already
+done). Two Mac-specific notes baked into that runbook:
+- Copy the SD `.env` → `~/Eman_dashboard/agent/.env`, then set `LLM_MODEL_REASONING=llama3.1:8b`
+  (this Windows box ran both roles on `llama3.2:3b`; the Mac uses the 8b brain).
+- Eman presses **Start** on @Emandidbot → her chat id shows in the log + her chat → add it to
+  `TELEGRAM_ALLOWED_CHAT_IDS` → restart.
+
+**⚠️ Right now the bot is OFFLINE** (Windows stopped, Mac not yet live). Anyone messaging @Emandidbot
+gets silence until the Mac deploy reaches runbook step 6.
+
+---
+
 ## Architecture (all built + on GitHub `wolfwdavid/Eman_dashboard`, under `/agent`)
 - **Brain:** local **Ollama** (OpenAI-compatible). Reasoning `llama3.1:8b`, router `llama3.2:3b`.
   Swappable to Groq/Gemini free tiers via 3 `.env` lines.
