@@ -84,6 +84,7 @@ completed: 2026-07-06
 2. **Task 2: 3-layer luminous node orbs** — `51d6a60` (feat)
 3. **Task 3: Arced paths + retuned bloom + constellation framing** — `b65648e` (feat)
 4. **Iteration 1: round crystal shells + halo/nebula micro-tunes** — `b7c386a` (fix)
+5. **Iteration 2: invisible hit-proxy restores easy node picking** — `0b9ccb6` (fix)
 
 ## Files Created/Modified
 - `src/lib/crystarium/gradients.js` — browser-only `radialSprite` CanvasTexture util (procedural glow, no image assets, no new deps)
@@ -121,6 +122,14 @@ Coordinator's live-deploy judgment: overhaul reads FFXIII (void/starfield/cores/
 - Nebula violet/magenta/indigo opacities **+0.02–0.03** (0.13/0.09/0.10; cyan unchanged) for the dreamy colour wash — still far under the 0.38 bloom threshold.
 
 Full regression gate re-run green after the fix commit.
+
+## Screenshot-Gate Iteration 2 (`0b9ccb6`)
+
+**UAT regression:** after iteration 1 the Playwright grid-sweep (`tools/uat-detail.mjs`) could no longer open the detail rail — shrinking the shell (then the sole raycast target) to r=0.55 made hit targets tiny from the pulled-back camera. Zero console errors; pure target-size issue.
+
+**Fix (`CrystalNode.svelte`):** a generous INVISIBLE hit-proxy sphere per node (r=2.4, ~the halo footprint) is now the sole pointer/raycast target — `transparent opacity={0}` + `depthWrite:false` + `colorWrite:false`, with `visible` left true so the raycaster still intersects it (zero framebuffer contribution). Pointer handlers + the `matchesFilter` raycast-guard moved from the shell onto the proxy; core/shell/halo are all raycast-disabled. Visuals and handler semantics unchanged.
+
+**Verified:** ran `uat-detail.mjs` against a locally-served BASE_PATH build (scratch `/Eman_dashboard`-prefixed static server) — detail rail opens on an early sweep click (hit 0.48/0.30), Esc-deselect closes it, zero console errors. Full regression gate green.
 
 ## Regression Gate (green after every commit)
 - `pnpm exec vitest run` → **162 passed** (12 files)
