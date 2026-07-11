@@ -26,6 +26,9 @@ def build(settings: Settings) -> SimpleTool:
         chat_id = tool_input.get("chat_id") or default_chat
         if not chat_id:
             return "No target chat_id (set TELEGRAM_ALLOWED_CHAT_IDS or pass chat_id)."
+        # Small models hallucinate chat ids; only ever send to allowlisted chats (also avoids 400s).
+        if settings.telegram_allowed_chat_ids and int(chat_id) not in settings.telegram_allowed_chat_ids:
+            return "That chat_id is not authorized. Just return your answer text — it is delivered automatically."
         return "Sent." if outbound.send(int(chat_id), text) else "Could not send (bot not running / unknown chat)."
 
     return SimpleTool(

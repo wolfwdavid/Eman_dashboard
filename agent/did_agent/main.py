@@ -27,7 +27,7 @@ from telegram.ext import (
     filters,
 )
 
-from did_agent import outbound, publish, reminders, voice
+from did_agent import email_channel, outbound, publish, reminders, voice
 from did_agent.clients import feeds
 from did_agent.config import load_settings
 from did_agent.llm.client import Agent, ToolRegistry
@@ -104,18 +104,37 @@ def main() -> None:
     async def _post_init(app) -> None:
         outbound.register(app, asyncio.get_running_loop())
         jq = app.job_queue  # requires python-telegram-bot[job-queue]
+        if settings.email_enabled:
+            email_history: dict[str, list[dict]] = {}
+
+            async def email_poll(_ctx: ContextTypes.DEFAULT_TYPE) -> None:
+                try:
+                    await asyncio.to_thread(email_channel.poll_once, settings, agent, email_history)
+                except Exception:
+                    log.exception("email poll failed")
+
+            jq.run_repeating(email_poll, interval=settings.email_poll_seconds, first=10, name="email-poll")
+            log.info(
+                "Email channel enabled: polling %s every %ss.",
+                settings.email_address,
+                settings.email_poll_seconds,
+            )
+        else:
+            log.info("Email channel disabled (EMAIL_ADDRESS/EMAIL_APP_PASSWORD/EMAIL_ALLOWED_SENDERS not set).")
         if not settings.notion_grants_data_source_id:
             log.warning("No NOTION_GRANTS_DATA_SOURCE_ID — scheduler idle until bootstrap.")
             return
-        jq.run_daily(daily_scrape, time=dtime(0, 0, tzinfo=tz), name="daily-scrape")
+        # misfire_grace_time: jobs routinely fire ~1s late; default 1s grace silently skips them.
+        grace = {"misfire_grace_time": 3600}
+        jq.run_daily(daily_scrape, time=dtime(0, 0, tzinfo=tz), name="daily-scrape", job_kwargs=grace)
         log.info("Scheduled daily midnight (%s) grant scrape.", settings.timezone)
         targets = settings.telegram_allowed_chat_ids
         if not targets:
             log.warning("No TELEGRAM_ALLOWED_CHAT_IDS — proactive reminders/digest disabled until set.")
             return
         for cid in targets:
-            jq.run_daily(deadline_sweep, time=dtime(9, 0, tzinfo=tz), chat_id=cid, name=f"reminders-{cid}")
-            jq.run_daily(weekly_digest, time=dtime(9, 0, tzinfo=tz), days=(0,), chat_id=cid, name=f"digest-{cid}")
+            jq.run_daily(deadline_sweep, time=dtime(9, 0, tzinfo=tz), chat_id=cid, name=f"reminders-{cid}", job_kwargs=grace)
+            jq.run_daily(weekly_digest, time=dtime(9, 0, tzinfo=tz), days=(0,), chat_id=cid, name=f"digest-{cid}", job_kwargs=grace)
         log.info("Scheduled daily reminders + Monday 9AM digest for %d chat(s).", len(targets))
 
     # --- handlers ---
