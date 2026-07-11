@@ -8,7 +8,7 @@ Gemini's OpenAI-compatible endpoints by changing LLM_BASE_URL + LLM_MODEL_* + LL
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
@@ -19,6 +19,12 @@ def _csv_ints(raw: str | None) -> list[int]:
     if not raw:
         return []
     return [int(p.strip()) for p in raw.split(",") if p.strip()]
+
+
+def _csv_strs(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [p.strip().lower() for p in raw.split(",") if p.strip()]
 
 
 @dataclass(frozen=True)
@@ -43,11 +49,23 @@ class Settings:
     timezone: str = "America/New_York"
     reminder_lead_days: int = 7
     whisper_model: str = "base"  # local speech-to-text for voice notes (faster-whisper)
+    # Email channel (optional; disabled unless address+password+allowlist all set)
+    email_address: str = ""
+    email_app_password: str = ""
+    email_allowed_senders: list[str] = field(default_factory=list)
+    email_imap_host: str = "imap.gmail.com"
+    email_smtp_host: str = "smtp.gmail.com"
+    email_poll_seconds: int = 60
 
     @property
     def telegram_allow_all(self) -> bool:
         """Dev-only: empty allowlist = respond to any chat."""
         return not self.telegram_allowed_chat_ids
+
+    @property
+    def email_enabled(self) -> bool:
+        """Email channel requires address, app password, AND an explicit sender allowlist."""
+        return bool(self.email_address and self.email_app_password and self.email_allowed_senders)
 
     def missing(self) -> list[str]:
         """Required secrets to *start* the bot. The LLM is a local server (no secret needed)."""
@@ -75,4 +93,10 @@ def load_settings() -> Settings:
         timezone=os.getenv("TIMEZONE", "America/New_York"),
         reminder_lead_days=int(os.getenv("REMINDER_LEAD_DAYS", "7")),
         whisper_model=os.getenv("WHISPER_MODEL", "base"),
+        email_address=os.getenv("EMAIL_ADDRESS", "").strip().lower(),
+        email_app_password=os.getenv("EMAIL_APP_PASSWORD", ""),
+        email_allowed_senders=_csv_strs(os.getenv("EMAIL_ALLOWED_SENDERS")),
+        email_imap_host=os.getenv("EMAIL_IMAP_HOST", "imap.gmail.com"),
+        email_smtp_host=os.getenv("EMAIL_SMTP_HOST", "smtp.gmail.com"),
+        email_poll_seconds=int(os.getenv("EMAIL_POLL_SECONDS", "60")),
     )
