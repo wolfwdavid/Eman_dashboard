@@ -142,5 +142,101 @@ document.getElementById("meta").textContent = `Generated ${DATA.generated_at||""
 document.getElementById("foot").textContent = "501(c)(3) pending — eligibility buckets reflect what DID can act on today. Nothing here is auto-submitted.";
 renderStats(); renderSoon(); renderFilters(); renderGrid(); renderNews();
 </script>
+
+<!-- Chat widget -->
+<style>
+  #chat-toggle{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.6rem;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:1000;display:flex;align-items:center;justify-content:center;transition:transform .2s;}
+  #chat-toggle:hover{transform:scale(1.08);}
+  #chat-panel{position:fixed;bottom:90px;right:24px;width:380px;max-height:520px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);z-index:1000;display:none;flex-direction:column;overflow:hidden;}
+  #chat-panel.open{display:flex;}
+  #chat-head{background:var(--blue);color:#fff;padding:14px 16px;font-weight:600;font-size:.95rem;display:flex;justify-content:space-between;align-items:center;}
+  #chat-head button{background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;opacity:.8;}
+  #chat-head button:hover{opacity:1;}
+  #chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:280px;max-height:380px;}
+  .chat-msg{max-width:85%;padding:10px 14px;border-radius:14px;font-size:.88rem;line-height:1.45;word-wrap:break-word;white-space:pre-wrap;}
+  .chat-msg.user{align-self:flex-end;background:var(--blue-2);color:#fff;border-bottom-right-radius:4px;}
+  .chat-msg.bot{align-self:flex-start;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-bottom-left-radius:4px;}
+  .chat-msg.typing{font-style:italic;color:var(--muted);border:1px dashed var(--line);}
+  #chat-input-row{display:flex;border-top:1px solid var(--line);padding:8px;}
+  #chat-input{flex:1;border:1px solid var(--line);border-radius:20px;padding:8px 14px;font-size:.88rem;background:var(--bg);color:var(--ink);outline:none;font-family:inherit;}
+  #chat-input:focus{border-color:var(--blue-2);}
+  #chat-send{background:var(--blue);color:#fff;border:none;border-radius:50%;width:36px;height:36px;margin-left:6px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+  #chat-send:disabled{opacity:.5;cursor:default;}
+  @media(max-width:440px){#chat-panel{width:calc(100vw - 20px);right:10px;bottom:80px;}}
+</style>
+
+<button id="chat-toggle" title="Chat with DID assistant">&#128172;</button>
+<div id="chat-panel">
+  <div id="chat-head"><span>DID Grant Assistant</span><button id="chat-close">&times;</button></div>
+  <div id="chat-messages"><div class="chat-msg bot">Hi! I'm the DID grant assistant. Ask me about grants, deadlines, scores, or applications.</div></div>
+  <div id="chat-input-row">
+    <input id="chat-input" type="text" placeholder="Ask about grants..." autocomplete="off" />
+    <button id="chat-send" title="Send">&#10148;</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LOCAL_API = "http://127.0.0.1:8080/chat";
+  let API = LOCAL_API;
+  const toggle = document.getElementById("chat-toggle");
+  const panel = document.getElementById("chat-panel");
+  const closeBtn = document.getElementById("chat-close");
+  const messages = document.getElementById("chat-messages");
+  const input = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send");
+  let busy = false;
+
+  // Try to load the tunnel URL from chat-config.json (for GitHub Pages access).
+  // Falls back to localhost for local file:// use.
+  (async function loadConfig(){
+    try {
+      const r = await fetch("chat-config.json?_=" + Date.now());
+      if(r.ok){ const c = await r.json(); if(c.api_url) API = c.api_url + "/chat"; }
+    } catch(e){}
+  })();
+
+  toggle.onclick = () => { panel.classList.toggle("open"); if(panel.classList.contains("open")) input.focus(); };
+  closeBtn.onclick = () => panel.classList.remove("open");
+
+  function addMsg(text, cls) {
+    const d = document.createElement("div");
+    d.className = "chat-msg " + cls;
+    d.textContent = text;
+    messages.appendChild(d);
+    messages.scrollTop = messages.scrollHeight;
+    return d;
+  }
+
+  async function send() {
+    const text = input.value.trim();
+    if (!text || busy) return;
+    addMsg(text, "user");
+    input.value = "";
+    busy = true;
+    sendBtn.disabled = true;
+    const typing = addMsg("Thinking...", "bot typing");
+    try {
+      const r = await fetch(API, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message: text}),
+      });
+      const data = await r.json();
+      typing.remove();
+      addMsg(data.reply || data.error || "No response.", "bot");
+    } catch(e) {
+      typing.remove();
+      addMsg("Could not reach the assistant. Is the bot running?", "bot");
+    }
+    busy = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  sendBtn.onclick = send;
+  input.onkeydown = e => { if(e.key === "Enter") send(); };
+})();
+</script>
 </body>
 </html>

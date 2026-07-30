@@ -56,6 +56,9 @@ class Settings:
     email_imap_host: str = "imap.gmail.com"
     email_smtp_host: str = "smtp.gmail.com"
     email_poll_seconds: int = 60
+    # Chat API (dashboard chatbot)
+    chat_api_token: str = ""
+    chat_api_port: int = 8080
 
     @property
     def telegram_allow_all(self) -> bool:
@@ -99,4 +102,6 @@ def load_settings() -> Settings:
         email_imap_host=os.getenv("EMAIL_IMAP_HOST", "imap.gmail.com"),
         email_smtp_host=os.getenv("EMAIL_SMTP_HOST", "smtp.gmail.com"),
         email_poll_seconds=int(os.getenv("EMAIL_POLL_SECONDS", "60")),
+        chat_api_token=os.getenv("CHAT_API_TOKEN", ""),
+        chat_api_port=int(os.getenv("CHAT_API_PORT", "8080")),
     )

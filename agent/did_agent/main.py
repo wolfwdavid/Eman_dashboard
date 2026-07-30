@@ -27,7 +27,7 @@ from telegram.ext import (
     filters,
 )
 
-from did_agent import email_channel, outbound, publish, reminders, voice
+from did_agent import chat_api, email_channel, outbound, publish, reminders, voice
 from did_agent.clients import feeds
 from did_agent.config import load_settings
 from did_agent.llm.client import Agent, ToolRegistry
@@ -68,6 +68,7 @@ def main() -> None:
     registry = ToolRegistry()
     register_all(registry, settings)
     agent = Agent(settings, registry)
+    chat_api.start(agent, settings)
     store = NotionStore(settings)
     scrape_tool = build_scrape(settings)
     tz = ZoneInfo(settings.timezone)
