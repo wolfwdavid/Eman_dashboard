@@ -177,8 +177,7 @@ renderStats(); renderSoon(); renderFilters(); renderGrid(); renderNews();
 
 <script>
 (function(){
-  const LOCAL_API = "http://127.0.0.1:8080/chat";
-  let API = LOCAL_API;
+  let BASE = "http://127.0.0.1:8080";
   const toggle = document.getElementById("chat-toggle");
   const panel = document.getElementById("chat-panel");
   const closeBtn = document.getElementById("chat-close");
@@ -187,13 +186,17 @@ renderStats(); renderSoon(); renderFilters(); renderGrid(); renderNews();
   const sendBtn = document.getElementById("chat-send");
   let busy = false;
 
-  // Try to load the tunnel URL from chat-config.json (for GitHub Pages access).
-  // Falls back to localhost for local file:// use.
+  // Discover API base: try localhost, fall back to tunnel URL from GitHub.
   (async function loadConfig(){
     try {
-      const r = await fetch("chat-config.json?_=" + Date.now());
-      if(r.ok){ const c = await r.json(); if(c.api_url) API = c.api_url + "/chat"; }
-    } catch(e){}
+      const r = await fetch(BASE + "/chat-config.json", {signal: AbortSignal.timeout(2000)});
+      if(!r.ok) throw new Error();
+    } catch(e){
+      try {
+        const r2 = await fetch("https://raw.githubusercontent.com/wolfwdavid/Eman_dashboard/main/agent/dashboard/chat-config.json?_=" + Date.now());
+        if(r2.ok){ const c = await r2.json(); if(c.api_url) BASE = c.api_url; }
+      } catch(e2){}
+    }
   })();
 
   toggle.onclick = () => { panel.classList.toggle("open"); if(panel.classList.contains("open")) input.focus(); };
@@ -217,14 +220,30 @@ renderStats(); renderSoon(); renderFilters(); renderGrid(); renderNews();
     sendBtn.disabled = true;
     const typing = addMsg("Thinking...", "bot typing");
     try {
-      const r = await fetch(API, {
+      // Submit message — returns immediately with a job_id.
+      const r = await fetch(BASE + "/chat", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({message: text}),
       });
-      const data = await r.json();
-      typing.remove();
-      addMsg(data.reply || data.error || "No response.", "bot");
+      const submit = await r.json();
+      if(!submit.job_id){ typing.remove(); addMsg(submit.reply || submit.error || "No response.", "bot"); }
+      else {
+        // Poll for the result every 3 seconds.
+        const poll = async () => {
+          for(let i = 0; i < 120; i++){
+            await new Promise(ok => setTimeout(ok, 3000));
+            try {
+              const pr = await fetch(BASE + "/chat/" + submit.job_id);
+              const job = await pr.json();
+              if(job.status === "done"){ typing.remove(); addMsg(job.reply, "bot"); return; }
+              if(job.status === "error"){ typing.remove(); addMsg(job.reply || "Something went wrong.", "bot"); return; }
+            } catch(pe){}
+          }
+          typing.remove(); addMsg("Timed out waiting for a reply.", "bot");
+        };
+        await poll();
+      }
     } catch(e) {
       typing.remove();
       addMsg("Could not reach the assistant. Is the bot running?", "bot");
