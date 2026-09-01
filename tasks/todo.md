@@ -138,3 +138,61 @@ stubbed client (tool loop, scoring clamp, no anthropic import).
 
 ## Milestone 2 status: all 7 phases BUILT + committed. Remaining = LIVE integration tests (need Eman's
 ## Telegram / Anthropic / Notion tokens + optional Google service account). See each phase's blocked item.
+
+---
+
+# Migration — Mac → Windows laptop (2026-09-01)
+
+The Mac currently hosting the agent is going away. Target host is a Lenovo Yoga Book 9i Gen 8
+(Core i7-1355U, 16 GB, integrated graphics), temporary until another Mac is sourced.
+
+**Key decision — the LLM does not move with it.** That laptop is a 15 W ultrabook; it would run
+`llama3.1:8b` *slower* than the Intel i9 Mac did. Ollama is dropped and `LLM_BASE_URL` repoints at
+Groq's free tier, so replies go from 2–3 min to seconds on weaker hardware. No code changes needed —
+`llm/client.py` was already provider-agnostic via `config.py`. Tradeoff accepted: prompts and grant
+context now leave the machine, which the original local-Ollama design deliberately avoided. Revisit
+when the new Mac arrives (`WINDOWS-DEPLOY.md` Appendix C).
+
+## Prepared
+- [x] `agent/WINDOWS-DEPLOY.md` — full runbook, mirrors MAC-DEPLOY.md's numbered-steps + ✅ verify style
+- [x] `agent/tunnel.ps1` — Windows analog of `tunnel.sh`; only republishes when the hostname actually
+      changes (the bash version pushed a commit on every banner reprint)
+- [x] `agent/supervisor.bat` — fixed two latent bugs: it never `cd`'d to the agent dir (Task Scheduler
+      starts in System32 → `ModuleNotFoundError`), and `pythonw.exe` discards stdout so there was no
+      log to debug from. Now `python.exe` + append to `%TEMP%\did-grant-agent.log`.
+- [x] `agent/.env.example` — the Groq models it named (`llama-3.3-70b-versatile`,
+      `llama-3.1-8b-instant`) were shut down 2026-08-16 on free/dev tiers. Now points at
+      `openai/gpt-oss-120b` / `openai/gpt-oss-20b` and tells the reader to confirm against a live
+      `/models` call rather than trusting the doc.
+- [x] Verified: `tunnel.ps1` parses clean, URL regex + JSON round-trip tested under pwsh, all 18
+      PowerShell blocks in the runbook parse clean.
+
+## To do on the Windows machine (user steps)
+- [ ] Groq API key from console.groq.com, and confirm both model IDs against a live `/models` call
+- [ ] Transfer `.env` out of band (never git); repoint the 4 `LLM_*` keys
+- [ ] Stop + disable the Mac's launchd agents BEFORE starting Windows (one poller per token)
+- [ ] Power settings: lid-close = "Do nothing" on AC and battery; Windows Update active hours
+- [ ] Register both scheduled tasks; one manual `git push` first so the tunnel's push isn't the
+      first time credentials are needed
+- [ ] Reboot test
+
+## Known risks
+- Lid close / sleep is the most likely way this dies; Task Scheduler's 3-day execution limit and
+  its stop-on-battery default are the next two. All three are addressed in the runbook.
+- Groq free tier is 30 req/min. Fine for 2 users; a tool loop can burn several requests per message.
+- Tunnel URL still rotates on every restart — unchanged from the Mac setup.
+
+## Whisper swap (done)
+- [x] `voice.py` now has two backends selected by `WHISPER_BASE_URL`: hosted (any OpenAI-compatible
+      `/audio/transcriptions`; Groq serves whisper-large-v3-turbo free, 2k/day) or the original local
+      `faster-whisper`. Empty = local, so the running Mac is unaffected — this is additive.
+- [x] `config.py`: added `whisper_base_url` + `whisper_api_key`; the key falls back to `LLM_API_KEY`
+      so pointing both at Groq needs no second key.
+- [x] `main.py`: single call site passes the new settings through.
+- [x] `requirements.txt`: `faster-whisper` commented out — it pulls `av`, which needs a native build
+      plus ffmpeg. `voice.py` imports it lazily so absence is harmless. Windows install no longer
+      needs ffmpeg or a compiler.
+- [x] Verified: 8/8 routing tests pass (hosted path gets right base_url/key/model, `.ogg` extension
+      preserved for container sniffing, empty base_url falls back to local, old 2-arg call still
+      works); `config.py`/`voice.py`/`main.py` compile; full package imports; live config confirms
+      the Mac still resolves to the local backend.
