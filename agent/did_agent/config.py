@@ -48,7 +48,15 @@ class Settings:
     # Behavior
     timezone: str = "America/New_York"
     reminder_lead_days: int = 7
-    whisper_model: str = "base"  # local speech-to-text for voice notes (faster-whisper)
+    # Speech-to-text for voice notes. Two backends, picked by whisper_base_url:
+    #   set   -> any OpenAI-compatible /audio/transcriptions endpoint (Groq serves Whisper free);
+    #            no native deps, so no faster-whisper/av/ffmpeg install.
+    #   empty -> local faster-whisper: fully offline, but needs the av wheel + ffmpeg.
+    # whisper_model names a model in whichever backend is active
+    # ("base"/"small"/... locally, "whisper-large-v3-turbo" hosted).
+    whisper_model: str = "base"
+    whisper_base_url: str = ""
+    whisper_api_key: str = ""
     # Email channel (optional; disabled unless address+password+allowlist all set)
     email_address: str = ""
     email_app_password: str = ""
@@ -96,6 +104,10 @@ def load_settings() -> Settings:
         timezone=os.getenv("TIMEZONE", "America/New_York"),
         reminder_lead_days=int(os.getenv("REMINDER_LEAD_DAYS", "7")),
         whisper_model=os.getenv("WHISPER_MODEL", "base"),
+        whisper_base_url=os.getenv("WHISPER_BASE_URL", "").strip(),
+        # Falls back to LLM_API_KEY: when both point at Groq that's the same key, so the
+        # common setup needs only WHISPER_BASE_URL + WHISPER_MODEL.
+        whisper_api_key=os.getenv("WHISPER_API_KEY", "").strip() or os.getenv("LLM_API_KEY", ""),
         email_address=os.getenv("EMAIL_ADDRESS", "").strip().lower(),
         email_app_password=os.getenv("EMAIL_APP_PASSWORD", ""),
         email_allowed_senders=_csv_strs(os.getenv("EMAIL_ALLOWED_SENDERS")),

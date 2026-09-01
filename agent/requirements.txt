@@ -11,4 +11,8 @@ python-dotenv>=1.0         # .env loading
 APScheduler>=3.10          # scheduling fallback / cron-in-process
 pydantic>=2.7              # config + data models
 tzdata>=2024.1             # zoneinfo tz db on Windows (Monday 9AM digest scheduling)
-faster-whisper>=1.0        # local speech-to-text for Telegram voice notes (free, offline)
+# Voice notes, LOCAL backend only. Pulls `av`, which needs a native build (Python <=3.13) plus
+# ffmpeg on PATH — the most fragile part of a fresh install. Skip it entirely by setting
+# WHISPER_BASE_URL to a hosted OpenAI-compatible endpoint; voice.py imports this lazily, so the
+# agent runs fine without it. Install with: pip install "faster-whisper>=1.0"
+# faster-whisper>=1.0

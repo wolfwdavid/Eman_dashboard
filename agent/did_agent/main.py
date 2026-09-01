@@ -191,7 +191,13 @@ def main() -> None:
             fd, path = tempfile.mkstemp(suffix=".ogg")
             os.close(fd)
             await tg_file.download_to_drive(path)
-            text = await asyncio.to_thread(voice.transcribe, path, settings.whisper_model)
+            text = await asyncio.to_thread(
+                voice.transcribe,
+                path,
+                settings.whisper_model,
+                settings.whisper_base_url,
+                settings.whisper_api_key,
+            )
         except Exception:
             log.exception("voice transcription failed")
             await update.message.reply_text("Couldn't transcribe that voice note — try again, or send text.")
