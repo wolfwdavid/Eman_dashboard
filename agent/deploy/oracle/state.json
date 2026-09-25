@@ -1,0 +1,8 @@
+{
+  "vcn_id": "ocid1.vcn.oc1.iad.amaaaaaasdxjsnyaypvizlmmk4l5psekda3dcaii4am3jx77wwi5vki5htmq",
+  "subnet_id": "ocid1.subnet.oc1.iad.aaaaaaaa3mbitxr2qi57rvhtpc7akmwcmbfoukd5gxkfopgbg7567e3c37ma",
+  "instance_id": "ocid1.instance.oc1.iad.anuwcljrsdxjsnyc2tvnrsb72rwyj6khgat43y3bboa2u4be6ckg66lpqata",
+  "public_ip": "193.122.155.75",
+  "availability_domain": "bakd:US-ASHBURN-AD-1",
+  "shape": "VM.Standard.A1.Flex"
+}
