@@ -1,0 +1,37 @@
+# DID agent + Caddy (HTTPS) on the Oracle VM. Run from /opt/did-agent/agent:
+#   docker compose -f deploy/oracle/docker-compose.yml up -d --build
+# Host networking so the agent reaches Ollama on 127.0.0.1:11434 and Caddy binds 80/443 directly.
+services:
+  agent:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: did-agent
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ../../.env
+    environment:
+      LLM_BASE_URL: http://127.0.0.1:11434/v1
+      LLM_API_KEY: ollama
+      LLM_MODEL_REASONING: llama3.2:3b
+      LLM_MODEL_ROUTER: llama3.2:3b
+      CHAT_API_HOST: 127.0.0.1
+      CHAT_API_PORT: 7860
+      TIMEZONE: America/New_York
+    volumes:
+      - ../../dashboard:/home/user/app/dashboard
+
+  caddy:
+    image: caddy:2
+    container_name: did-caddy
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

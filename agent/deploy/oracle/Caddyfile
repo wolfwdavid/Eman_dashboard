@@ -1,0 +1,6 @@
+# Public HTTPS front for the agent's chat API. Caddy obtains and renews the Let's Encrypt
+# certificate automatically once agent.diversityincludesdisability.org points at this VM.
+agent.diversityincludesdisability.org {
+	encode gzip
+	reverse_proxy 127.0.0.1:7860
+}
