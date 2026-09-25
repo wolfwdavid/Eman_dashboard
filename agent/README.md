@@ -20,16 +20,32 @@ agent/
     config.py          # env-backed settings + validation
     main.py            # entrypoint: starts the Telegram bot + scheduler
     llm/client.py      # Claude client, Opus agent loop + Haiku intent router
-    tools/             # the 6 custom tools the agent calls
+    tools/             # the 7 custom tools the agent calls
       notion_sync.py       # read/write/upsert grants in Notion
       scrape_grants.py     # grants.gov API + foundation sources + news
       score_grant.py       # Opus award-likelihood score (0-100 + rationale)
       draft_application.py # Google Docs template autofill -> editable link
       send_telegram.py     # outbound messages
       schedule.py          # T-7 reminders + Monday 9AM digest
+      site_knowledge.py    # DID facts lookup (services, prices, bio, contact, events) — no LLM call
+  knowledge/
+    did-site-knowledge.md  # public facts the site_knowledge tool reads; one `## ` heading per topic
+  tests/                 # pytest (pure, offline): .venv/Scripts/python -m pytest -q tests
   requirements.txt
+  requirements-dev.txt   # pytest
   .env.example         # copy to .env and fill (NEVER commit .env)
 ```
+
+### Site knowledge (replaces the old Wix chat)
+
+The old Wix site's chat widget was a plain Wix Chat box answered by Eman, not an AI bot. When the
+site moved to GitHub Pages (2026-09-24) its content was archived in
+`diversityincludesdisability_one/archive/wix-site-2026-09-24/`, and the public facts from it plus the
+current site were condensed into `knowledge/did-site-knowledge.md`. The `site_knowledge` tool splits
+that file on `## ` headings and returns the best-matching sections, and the system prompt tells the
+model to call it before answering any question about DID itself. To update the assistant's answers,
+edit the markdown file and restart the bot; keep it free of EIN, addresses and credentials (the tests
+check for that).
 
 ## Setup (Windows)
 
