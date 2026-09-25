@@ -21,8 +21,9 @@ runcmd:
   - for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 3; done
   - ollama pull llama3.2:3b
   # Oracle's Ubuntu image ships an iptables policy that drops everything but 22; open web ports for Caddy.
-  - iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-  - iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+  # Insert at the top: the image's reject-all rule sits at position 5, anything after it never matches.
+  - iptables -I INPUT 1 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 1 -m state --state NEW -p tcp --dport 443 -j ACCEPT
   - netfilter-persistent save
   # Agent code (public repo). Secrets arrive later via scp as /opt/did-agent/agent/.env.
   - git clone https://github.com/wolfwdavid/Eman_dashboard.git /opt/did-agent
