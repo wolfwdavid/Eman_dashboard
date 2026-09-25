@@ -62,8 +62,9 @@ The organization is based in New York City (Harlem, Manhattan). No public phone 
 Current site (https://www.diversityincludesdisability.org/): Home, About & Mission (/about/),
 Creative (/creative/, runway photo and two clips from The Model Experience show at New York Fashion
 Week, designer One World Peace Co.), Programs & Services (/programs/), Events (/events/, placeholder
-until real listings), Get Involved (/get-involved/), Blog (/blog/), and Contact (/contact/). An accessibility statement
-page is planned but not published yet. The site has two themes, Accessible (WCAG 2.2 AA+, the
+until real listings), Get Involved (/get-involved/), Blog (/blog/), Contact (/contact/), and an Accessibility statement
+(/accessibility/, linked in the footer: WCAG 2.2 AA target, how the site is tested, known issues, and
+the help email). The site has two themes, Accessible (WCAG 2.2 AA+, the
 default) and Premium (3D hero), switchable in the header. The site is built with SvelteKit and hosted
 on GitHub Pages; the domain is registered at Wix.
 
