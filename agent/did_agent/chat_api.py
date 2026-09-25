@@ -142,13 +142,13 @@ def _make_handler(agent: Agent, settings: Settings):
 
 def start(agent: Agent, settings: Settings) -> None:
     """Start the chat API server in a daemon thread."""
-    port = settings.chat_api_port
+    host, port = settings.chat_api_host, settings.chat_api_port
     handler = _make_handler(agent, settings)
     try:
-        server = HTTPServer(("127.0.0.1", port), handler)
+        server = HTTPServer((host, port), handler)
     except OSError as exc:
-        log.warning("Chat API could not bind to port %d: %s", port, exc)
+        log.warning("Chat API could not bind to %s:%d: %s", host, port, exc)
         return
     thread = threading.Thread(target=server.serve_forever, daemon=True, name="chat-api")
     thread.start()
-    log.info("Chat API listening on http://127.0.0.1:%d/chat", port)
+    log.info("Chat API listening on http://%s:%d/chat", host, port)

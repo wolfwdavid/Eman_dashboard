@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+*.env
+secrets/
+service_account*.json
+google_service_account*.json
+*.key
+*.log
+data/local/
+dashboard/grants-dashboard.html
+dashboard/data/
+tests/
+.git/
