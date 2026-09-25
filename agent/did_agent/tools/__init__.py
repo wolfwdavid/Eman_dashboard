@@ -31,3 +31,8 @@ def register_all(registry: ToolRegistry, settings: Settings) -> None:
         site_knowledge,
     ):
         registry.register(mod.build(settings))
+
+
+def register_public(registry: ToolRegistry, settings: Settings) -> None:
+    """Tools for the PUBLIC website chat: read-only site facts only. No Notion, Telegram, drafting or scraping."""
+    registry.register(site_knowledge.build(settings))

@@ -88,11 +88,12 @@ SYSTEM_PROMPT = (
 
 
 class Agent:
-    def __init__(self, settings: Settings, registry: ToolRegistry) -> None:
+    def __init__(self, settings: Settings, registry: ToolRegistry, system_prompt: str | None = None) -> None:
         self._client = make_client(settings)
         self._model = settings.llm_model_reasoning
         self._router_model = settings.llm_model_router
         self._registry = registry
+        self._system_prompt = system_prompt or SYSTEM_PROMPT
 
     def route_intent(self, text: str) -> str:
         """Cheap classifier: what does this message want? (routing hint, not gospel)."""
@@ -115,7 +116,7 @@ class Agent:
 
     def respond(self, user_text: str, history: list[dict] | None = None) -> str:
         """Run the agentic tool loop for one user turn; return the final text reply."""
-        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages: list[dict] = [{"role": "system", "content": self._system_prompt}]
         messages.extend(history or [])
         messages.append({"role": "user", "content": user_text})
 
