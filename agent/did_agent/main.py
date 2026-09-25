@@ -32,8 +32,8 @@ from did_agent.clients import feeds
 from did_agent.config import load_settings
 from did_agent.llm.client import Agent, ToolRegistry
 from did_agent.notion_store import NotionStore
-from did_agent.tools import register_all, register_public
-from did_agent.tools.site_knowledge import PUBLIC_SYSTEM_PROMPT
+from did_agent.public_agent import PublicAgent
+from did_agent.tools import register_all
 from did_agent.tools.scrape_grants import build as build_scrape
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -69,11 +69,9 @@ def main() -> None:
     registry = ToolRegistry()
     register_all(registry, settings)
     agent = Agent(settings, registry)
-    # The dashboard chat is reachable by anyone on the public URL: give it a separate agent that can only
-    # read site facts, never the grant tools (Notion writes, Telegram sends, drafting, scraping).
-    public_registry = ToolRegistry()
-    register_public(public_registry, settings)
-    chat_api.start(Agent(settings, public_registry, system_prompt=PUBLIC_SYSTEM_PROMPT), settings)
+    # The dashboard chat is reachable by anyone on the public URL: it gets a tool-free agent that answers
+    # only from the site knowledge file (see public_agent.py), never the grant tools.
+    chat_api.start(PublicAgent(settings), settings)
     store = NotionStore(settings)
     scrape_tool = build_scrape(settings)
     tz = ZoneInfo(settings.timezone)
