@@ -1,0 +1,27 @@
+name: Chatbot uptime check
+
+# Every 30 minutes, confirm the public chat API on the Oracle VM answers over HTTPS.
+# A failed run emails the repo owner (GitHub's default failure notification) — no extra service needed.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: CORS preflight must return 204 with a valid certificate
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X OPTIONS \
+            https://agent.diversityincludesdisability.org/chat \
+            -H 'Origin: https://wolfwdavid.github.io' -H 'Access-Control-Request-Method: POST')
+          echo "status=$code"
+          test "$code" = "204"
+      - name: Chat job submission must be accepted
+        run: |
+          body=$(curl -s --max-time 20 -X POST https://agent.diversityincludesdisability.org/chat \
+            -H 'Content-Type: application/json' -d '{"message":"ping","session_id":"uptime"}')
+          echo "$body"
+          echo "$body" | grep -q '"job_id"'
