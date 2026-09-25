@@ -21,6 +21,8 @@ COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r requirements.txt     && pip install --no-cache-dir "faster-whisper>=1.0"
 
 COPY --chown=user . .
+# Pre-create the model cache so a fresh named volume mounted here inherits user ownership.
+RUN mkdir -p /home/user/.cache && chown -R user:user /home/user/.cache
 USER user
 
 EXPOSE 7860
