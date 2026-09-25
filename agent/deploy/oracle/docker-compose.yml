@@ -21,6 +21,7 @@ services:
       TIMEZONE: America/New_York
     volumes:
       - ../../dashboard:/home/user/app/dashboard
+      - whisper_cache:/home/user/.cache   # keeps the downloaded Whisper model across rebuilds
 
   caddy:
     image: caddy:2
@@ -35,3 +36,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  whisper_cache:

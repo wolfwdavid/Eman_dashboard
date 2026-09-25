@@ -1,3 +1,8 @@
+> **Superseded (2026-09-25):** the bot now runs 24/7 on an Oracle Cloud Always Free VM — see
+> `deploy/oracle/` and the "Hosting" notes in `README.md`. The Cloudflare tunnel and the Windows
+> scheduled tasks below are no longer used; do not start a second copy of the bot (one Telegram poller
+> per token). Kept for reference only.
+
 # WINDOWS-DEPLOY — move the DID Grant Agent to the Windows laptop (migration runbook)
 
 **Audience:** whoever sits at the Lenovo Yoga Book 9i. Follow top to bottom; every step has a

@@ -13,8 +13,12 @@ ENV HOME=/home/user \
     CHAT_API_PORT=7860
 WORKDIR $HOME/app
 
+# ffmpeg decodes Telegram voice notes (OGG) for the local Whisper backend (still root here).
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 COPY --chown=user requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
+# faster-whisper: local, free voice transcription; arm64 + py3.13 wheels exist for av/ctranslate2.
+RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r requirements.txt     && pip install --no-cache-dir "faster-whisper>=1.0"
 
 COPY --chown=user . .
 USER user
