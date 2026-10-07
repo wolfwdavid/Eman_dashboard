@@ -37,6 +37,9 @@ from did_agent.tools import register_all
 from did_agent.tools.scrape_grants import build as build_scrape
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# httpx logs every request URL at INFO, and Telegram API URLs embed the bot token.
+# Keep its chatter (and the secret) out of the log; errors still surface at WARNING+.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("did_agent")
 
 _HISTORY: dict[int, list[dict]] = {}
