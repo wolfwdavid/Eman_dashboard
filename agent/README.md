@@ -58,7 +58,47 @@ model to call it before answering any question about DID itself. To update the a
 edit the markdown file and restart the bot; keep it free of EIN, addresses and credentials (the tests
 check for that).
 
-## Hosting on a Hugging Face Space (always-on, no home PC)
+## Hosting on the Oracle VM (current — live since 2026-09-25)
+
+The bot runs 24/7 in Docker on an Oracle Cloud Always Free ARM VM (`VM.Standard.A1.Flex`, Ubuntu 24.04).
+Ollama runs on the host (`llama3.2:3b`); the agent container uses host networking to reach it; Caddy
+terminates HTTPS for the public web chat. `.github/workflows/uptime.yml` probes the chat endpoint every
+30 minutes. Provisioning lives in `deploy/oracle/` (`provision.py` is idempotent; `state.json` records
+the instance and its public IP).
+
+| What | Where on the VM |
+|---|---|
+| Code | `/opt/did-agent` (clone of this repo, branch `main`) |
+| Secrets | `/opt/did-agent/agent/.env` — the source of truth; keep the laptop copy in sync by hand |
+| Stack | `cd /opt/did-agent/agent && sudo docker compose -f deploy/oracle/docker-compose.yml …` |
+| Logs | `sudo docker logs --tail 50 did-agent` |
+
+**Ship a code change** (after `git push origin main`):
+```bash
+ssh -i <key> ubuntu@<vm-ip> "cd /opt/did-agent && git pull -q --ff-only && cd agent   && sudo docker compose -f deploy/oracle/docker-compose.yml up -d --build agent && sleep 10 && sudo docker logs --tail 12 did-agent"
+```
+
+**Change one setting in place.** `env_file` is read only when the container is created, so edit the
+VM's `.env` and recreate:
+```bash
+ssh -i <key> ubuntu@<vm-ip> "sudo sed -i 's/^TELEGRAM_ALLOWED_CHAT_IDS=.*/TELEGRAM_ALLOWED_CHAT_IDS=<id>,<id>/' /opt/did-agent/agent/.env   && cd /opt/did-agent/agent && sudo docker compose -f deploy/oracle/docker-compose.yml up -d --force-recreate agent && sleep 10 && sudo docker logs --tail 12 did-agent"
+```
+Never run a command that still contains a literal placeholder such as `<id>` or `NEW_TOKEN`: it is
+written verbatim and the bot stays down (`InvalidToken`) until the real value is restored. For secrets,
+read the value into a shell variable from the laptop's `.env` first instead of typing it.
+
+`deploy/oracle/deploy.sh <ip>` pulls and builds but ALSO copies the laptop's `.env` over the VM's.
+Use it only when the laptop copy is known to be complete and current.
+
+Healthy startup log: `DID grant agent starting (long-polling)`, `Scheduled daily reminders + Monday 9AM
+digest for N chat(s)`, `Application started`, and no `httpx` lines (silenced because request URLs embed
+the bot token). `Unauthorized message from chat_id=…` means that id is missing from
+`TELEGRAM_ALLOWED_CHAT_IDS`.
+
+Rules: one Telegram poller per token (never run a laptop copy while the VM is up); never re-run
+`python -m did_agent.bootstrap create` (the Notion grants DB already exists).
+
+## Hosting on a Hugging Face Space (alternative, not in use)
 
 The agent is packaged as a Docker Space (`Dockerfile`, `.dockerignore`, front matter at the top of
 this README). Hugging Face requires a PRO subscription on the owning account to run Docker Spaces

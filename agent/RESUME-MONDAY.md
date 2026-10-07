@@ -1,3 +1,7 @@
+> **Superseded (2026-10-07):** July 2026 hand-off. The Mac migration never happened; the bot has run on
+> the Oracle VM since 2026-09-25. Current state: `RESUME-2026-10-07.md`; operations: README.md →
+> "Hosting on the Oracle VM".
+
 # DID Grant Agent — Status & Resume (paused 2026-07-04)
 
 An agentic chatbot that **finds, organizes, scores, and helps fill out grants** for Diversity Includes
