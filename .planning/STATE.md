@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: FFXIII Fidelity
-status: unknown
+status: in-progress
 stopped_at: Completed quick task 261029-jaq (scorer actionable_now derived from bucket)
 last_updated: "2026-10-29T18:03:14.079Z"
 progress:
-  total_phases: 2
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 1
+  total_phases: 7
+  completed_phases: 6
+  total_plans: 19
+  completed_plans: 19
 ---
 
 # Project State
@@ -120,6 +120,12 @@ None yet.
 - **Crystarium layout** (Phase 3/5): original design (MEDIUM confidence); tunable constants need visual iteration — flagged for research-phase.
 - **Two QR URLs not finalized:** ship absolute placeholder https URLs in `config/sites.js`; swap later with zero code change.
 - **Sensitive-field exposure:** confirm all displayed fields (esp. Next Action notes) are public-safe before shipping; never commit raw Notion source / creds.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 261029-jaq | Fix scorer 501c3 fixation: derive actionable_now from bucket, drop legal lines from OPEN_NOW prompt, add unit test | 2026-10-29 | 730a300 | [261029-jaq-fix-scorer-501c3-fixation-derive-actiona](./quick/261029-jaq-fix-scorer-501c3-fixation-derive-actiona/) |
 
 ## Session Continuity
 
