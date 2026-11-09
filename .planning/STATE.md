@@ -127,6 +127,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 261029-jaq | Fix scorer 501c3 fixation: derive actionable_now from bucket, drop legal lines from OPEN_NOW prompt, add unit test | 2026-10-29 | 730a300 | [261029-jaq-fix-scorer-501c3-fixation-derive-actiona](./quick/261029-jaq-fix-scorer-501c3-fixation-derive-actiona/) |
 | 261109-ayp | Move the chat bubble beside the SHARE button on desktop so the two widgets no longer overlap | 2026-11-09 | 67547ad | [261109-ayp-move-the-chat-bubble-beside-the-share-bu](./quick/261109-ayp-move-the-chat-bubble-beside-the-share-bu/) |
+| 261109-bh2 | Add an optional Template column to grants.csv and a Proposal template button in the grant detail panel | 2026-11-09 | 871fb79 | [261109-bh2-add-an-optional-template-column-to-grant](./quick/261109-bh2-add-an-optional-template-column-to-grant/) |
 
 ## Session Continuity
 
