@@ -168,7 +168,7 @@
 		overflow-y: auto;
 		padding: 16px 18px;
 		border-radius: 14px;
-		background: var(--surface-glass);
+		background: var(--surface); /* opaque: the list can reach the Legend; glass would let it bleed through */
 		border: 1px solid var(--surface-glass-border);
 		backdrop-filter: blur(16px);
 		-webkit-backdrop-filter: blur(16px);
