@@ -42,3 +42,14 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 ---
 
 *Next milestone: run `/gsd:new-milestone` (candidate: the DID grant-automation agent, plus v2 backlog: sound cues, particles, node leveling, expanded analytics, robust WebGL fallback, real QR target URLs).*
+
+## Backlog
+
+### Phase 999.1: Voice commands for the DID Grant Assistant (BACKLOG)
+
+**Goal:** Hands-free operation of the assistant and dashboard — push-to-talk mic in the chat widget; instant local commands (filter by status/gate/type, open a grant by fuzzy funder name, open TEMPLATES/SHARE, read next deadlines, reset) plus spoken questions routed to the existing POST /chat; Web Speech API first with a server /chat/transcribe fallback reusing did_agent/voice.py; optional spoken replies; keyboard-operable + aria-live, no wake word. Owner (2026-11-09): plan only, do NOT build yet. Full plan (9 tasks, acceptance criteria, risks, 6 owner decisions): Websites/Eman/plans/voice-commands-plan.md (private notes repo).
+**Requirements:** TBD (VOICE-01…; also a PROJECT.md scope change — accessibility features are currently excluded)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
