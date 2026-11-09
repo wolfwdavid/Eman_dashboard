@@ -162,7 +162,7 @@
 		width: 380px;
 		max-width: 100vw;
 		height: 100vh;
-		padding: 24px; /* lg — panel outer padding */
+		padding: 24px 24px 96px; /* lg — panel outer padding; the extra bottom clears the fixed chat bubble + SHARE button (80px) */
 		overflow-y: auto;
 		border-left: 1px solid var(--surface-glass-border);
 		border-radius: 14px 0 0 14px;
