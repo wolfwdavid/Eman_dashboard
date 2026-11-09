@@ -133,6 +133,7 @@ None yet.
 | 261109-c9g | Add a Templates button under the Grant Crystarium title that lists every grant with a proposal template | 2026-11-09 | e9018d7 | [261109-c9g-add-a-templates-button-under-the-grant-c](./quick/261109-c9g-add-a-templates-button-under-the-grant-c/) |
 | fast | Link a proposal template Doc (Drive grants/templates) for all 28 grants; pin the real-data test to 28 ids | 2026-11-09 | c409bad | — |
 | fast | Opaque surface for the open Templates list (legend bled through the glass) | 2026-11-09 | a7ffc5f | — |
+| 261109-dxq | Add 12 funders from Eman's emails to the tracker (40 rows) and re-pin the dataset tests | 2026-11-09 | d317f0c | [261109-dxq-add-12-funders-from-eman-s-emails-to-the](./quick/261109-dxq-add-12-funders-from-eman-s-emails-to-the/) |
 
 ## Session Continuity
 
