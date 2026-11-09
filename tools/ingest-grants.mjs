@@ -26,7 +26,7 @@ import { GrantSchema } from './schema.mjs';
 
 const CSV_PATH = process.env.GRANTS_CSV ?? 'data/grants.csv';
 const OUT_PATH = process.env.GRANTS_OUT ?? 'src/lib/data/grants.generated.json';
-const EXPECTED_ROWS = 28;
+const EXPECTED_ROWS = 40;
 
 const fail = (msg) => {
 	console.error(`FAIL  ${msg}`);
