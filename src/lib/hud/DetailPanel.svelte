@@ -132,10 +132,21 @@
 			{/if}
 		</section>
 
-		<!-- Row 8 · Link — opens the funder site in a new tab (DETL-03) -->
-		<a class="link" href={grant.link} target="_blank" rel="noopener noreferrer"
-			>Open funder site ↗</a
-		>
+		<!-- Row 8 · Links — funder site (DETL-03) plus, when the grant has one, its
+		     proposal template / draft. Both open in a new tab. -->
+		<div class="links">
+			<a class="link" href={grant.link} target="_blank" rel="noopener noreferrer"
+				>Open funder site ↗</a
+			>
+			{#if grant.template}
+				<a
+					class="link link--secondary"
+					href={grant.template}
+					target="_blank"
+					rel="noopener noreferrer">Proposal template ↗</a
+				>
+			{/if}
+		</div>
 	</aside>
 {/if}
 
@@ -379,6 +390,27 @@
 	.link:hover {
 		background: color-mix(in srgb, var(--node-hue) 22%, transparent);
 		border-color: var(--node-hue);
+	}
+
+	/* Row 8 wrapper — buttons sit side by side and wrap on the narrow mobile sheet */
+	.links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px; /* sm */
+		align-items: flex-start;
+	}
+
+	/* Secondary (ghost) action — the optional proposal template link */
+	.link--secondary {
+		background: transparent;
+		border-color: color-mix(in srgb, var(--node-hue) 35%, transparent);
+		color: var(--text-lo);
+	}
+
+	.link--secondary:hover {
+		background: color-mix(in srgb, var(--node-hue) 12%, transparent);
+		border-color: var(--node-hue);
+		color: var(--text-hi);
 	}
 
 	/* Mobile (MOB-01/02): full-width bottom sheet with an OPAQUE background so no

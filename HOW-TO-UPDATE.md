@@ -8,7 +8,9 @@ from ONE spreadsheet file. You never edit the website itself.
 1. Open `data/grants.csv` (in this repository, on github.com you can click the
    pencil icon to edit in the browser).
 2. Edit rows like a spreadsheet. Columns:
-   `Funder / Program, Type, Amount, Deadline, 501(c)(3) Required, Fit / Eligibility, Status, Next Action, Link`
+   `Funder / Program, Type, Amount, Deadline, 501(c)(3) Required, Fit / Eligibility, Status, Next Action, Link, Template`
+
+   `Template` is optional — paste the Google Doc / file link for that grant's proposal draft; leave it blank if there isn't one. A blank cell hides the button; anything that isn't a link fails the build on purpose.
 3. **Status** must be one of:
    `Active funder · In progress · To research · Recurring · Applied · Declined · Not eligible (yet) · Not eligible`
 4. Commit the change to the `main` branch.
