@@ -132,6 +132,7 @@ None yet.
 | 261109-bqz | Shift the chat bubble and SHARE widget left of the open grant detail panel on desktop | 2026-11-09 | 50b8c6d | [261109-bqz-shift-the-chat-bubble-and-share-widget-l](./quick/261109-bqz-shift-the-chat-bubble-and-share-widget-l/) |
 | 261109-c9g | Add a Templates button under the Grant Crystarium title that lists every grant with a proposal template | 2026-11-09 | e9018d7 | [261109-c9g-add-a-templates-button-under-the-grant-c](./quick/261109-c9g-add-a-templates-button-under-the-grant-c/) |
 | fast | Link a proposal template Doc (Drive grants/templates) for all 28 grants; pin the real-data test to 28 ids | 2026-11-09 | c409bad | — |
+| fast | Opaque surface for the open Templates list (legend bled through the glass) | 2026-11-09 | a7ffc5f | — |
 
 ## Session Continuity
 
