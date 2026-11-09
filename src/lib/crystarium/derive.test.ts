@@ -1,7 +1,8 @@
 // CRYS-05 / CRYS-06 — unit assertions for the data-DERIVED sets: deadline pulse,
 // fiscal-sponsor beam, funder-family bridges, and the progression spine. These counts
-// (beam=4, pulse=3, family=2) are the project's differentiator and MUST come from data,
-// not hardcoded — so every assertion below is checked against the real 28-record dataset.
+// (beam=7, pulse=4, family=3) are the project's differentiator and MUST come from data,
+// re-pinned 2026-11-09 after 12 rows were added;
+// not hardcoded — so every assertion below is checked against the real 40-record dataset.
 import { describe, it, expect } from 'vitest';
 import { computeLayout } from './layout.js';
 import grants from '../data/grants.generated.json';
@@ -16,36 +17,40 @@ const BEAM_IDS = [
 	'harry-s-black-allon-fuller-fund-bank-of-america',
 	'ford-foundation-justfilms-documentary-production',
 	'ford-foundation-nyc-good-neighbor-committee',
-	'ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing'
+	'ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing',
+	'new-york-women-s-foundation-early-investment-grants', // re-pinned 2026-11-09 after 12 rows were added
+	'north-star-fund-nyc-organizing-grants', // re-pinned 2026-11-09 after 12 rows were added
+	'borealis-philanthropy-just-futures-initiative' // re-pinned 2026-11-09 after 12 rows were added
 ];
 const PULSE_IDS = [
 	'harry-s-black-allon-fuller-fund-bank-of-america',
 	'ford-foundation-justfilms-documentary-production',
-	'ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing'
+	'ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing',
+	'north-star-fund-nyc-organizing-grants' // re-pinned 2026-11-09 after 12 rows were added
 ];
 
 describe('fiscal-sponsor beam (CRYS-06)', () => {
 	const beams = edgesOf('beam');
 
-	it('emits exactly 4 beams (raw string, NOT the tri-state which would give 8)', () => {
-		expect(beams).toHaveLength(4);
+	it('emits exactly 7 beams (raw string, NOT the tri-state which would give 17)', () => {
+		expect(beams).toHaveLength(7); // re-pinned 2026-11-09 after 12 rows were added
 		// Guard the corrected derivation: the tri-state `requires501c3 === 'yes'` folds in
-		// "Likely yes" + "Yes (required)" and wrongly yields 8. The raw value gives 4.
+		// "Likely yes" + "Yes (required)" and wrongly yields 17. The raw value gives 7.
 		const triStateCount = GRANTS.filter((g) => g.requires501c3 === 'yes').length;
-		expect(triStateCount).toBe(8);
+		expect(triStateCount).toBe(17); // re-pinned 2026-11-09 after 12 rows were added
 		const rawCount = GRANTS.filter((g) => g.requires501c3Raw === 'Yes - or fiscal sponsor').length;
-		expect(rawCount).toBe(4);
+		expect(rawCount).toBe(7); // re-pinned 2026-11-09 after 12 rows were added
 	});
 
 	it('every beam is sourced from the center core', () => {
 		for (const e of beams) expect(e.from).toBe('ny-community-trust');
 	});
 
-	it('targets exactly the 4 fiscal-sponsor ids', () => {
+	it('targets exactly the 7 fiscal-sponsor ids', () => {
 		expect(new Set(beams.map((e) => e.to))).toEqual(new Set(BEAM_IDS));
 	});
 
-	it('flags beamTarget === true on exactly those 4 nodes', () => {
+	it('flags beamTarget === true on exactly those 7 nodes', () => {
 		const flagged = layout.nodes.filter((n) => n.beamTarget).map((n) => n.id);
 		expect(new Set(flagged)).toEqual(new Set(BEAM_IDS));
 		for (const id of BEAM_IDS) expect(nodeById(id).beamTarget).toBe(true);
@@ -53,9 +58,9 @@ describe('fiscal-sponsor beam (CRYS-06)', () => {
 });
 
 describe('deadline pulse (CRYS-05) — clock-free set', () => {
-	it('flags pulse === true on exactly 3 nodes', () => {
+	it('flags pulse === true on exactly 4 nodes', () => {
 		const pulsing = layout.nodes.filter((n) => n.pulse).map((n) => n.id);
-		expect(pulsing).toHaveLength(3);
+		expect(pulsing).toHaveLength(4); // re-pinned 2026-11-09 after 12 rows were added
 		expect(new Set(pulsing)).toEqual(new Set(PULSE_IDS));
 	});
 
@@ -77,8 +82,8 @@ describe('deadline pulse (CRYS-05) — clock-free set', () => {
 describe('funder-family bridges (CRYS-06)', () => {
 	const fam = edgesOf('family');
 
-	it('emits exactly 2 family edges (Ford pair + BofA substring pair)', () => {
-		expect(fam).toHaveLength(2);
+	it('emits exactly 3 family edges (Ford pair + BofA family of 3 (chained → 2 edges))', () => {
+		expect(fam).toHaveLength(3); // re-pinned 2026-11-09 after 12 rows were added
 	});
 
 	it('includes the Ford pair', () => {
@@ -101,6 +106,17 @@ describe('funder-family bridges (CRYS-06)', () => {
 					e.from === 'bank-of-america-charitable-foundation')
 		);
 		expect(hasBofa).toBe(true);
+	});
+
+	it('includes the BofA Charitable Foundation ↔ Neighborhood Builders link (third BofA row)', () => {
+		const hasNb = fam.some(
+			(e) =>
+				(e.from === 'bank-of-america-charitable-foundation' &&
+					e.to === 'bank-of-america-neighborhood-builders') ||
+				(e.to === 'bank-of-america-charitable-foundation' &&
+					e.from === 'bank-of-america-neighborhood-builders')
+		);
+		expect(hasNb).toBe(true); // re-pinned 2026-11-09 after 12 rows were added
 	});
 });
 

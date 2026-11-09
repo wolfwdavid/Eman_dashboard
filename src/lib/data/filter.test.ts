@@ -1,7 +1,7 @@
 // Tests for the pure filter predicate — imported by BOTH the scene (dim/guard)
 // and the UI (charts/list), so they agree by construction. Keyed to the real
-// 28-record dataset: gate 12 open / 8 gated / 8 unknown; types 26 Grant / 1
-// Fellowship / 1 Investment.
+// 40-record dataset: gate 14 open / 17 gated / 9 unknown; types 37 Grant / 2
+// Fellowship / 1 Investment (re-pinned 2026-11-09 after 12 rows were added).
 import { describe, it, expect } from 'vitest';
 import { grants } from '$lib/data';
 import { matchesFilter, gateBucket, typeBucket, type FilterState } from './filter';
@@ -36,15 +36,15 @@ describe('matchesFilter', () => {
 		expect(out.every((x) => x.status === 'in-progress')).toBe(true);
 	});
 
-	it('gate axis narrows: open 12 / gated 8 / unknown 8', () => {
-		expect(grants.filter((x) => matchesFilter(x, { ...ALL, gate: 'open' }))).toHaveLength(12);
-		expect(grants.filter((x) => matchesFilter(x, { ...ALL, gate: 'gated' }))).toHaveLength(8);
-		expect(grants.filter((x) => matchesFilter(x, { ...ALL, gate: 'unknown' }))).toHaveLength(8);
+	it('gate axis narrows: open 14 / gated 17 / unknown 9', () => {
+		expect(grants.filter((x) => matchesFilter(x, { ...ALL, gate: 'open' }))).toHaveLength(14); // re-pinned 2026-11-09 after 12 rows were added
+		expect(grants.filter((x) => matchesFilter(x, { ...ALL, gate: 'gated' }))).toHaveLength(17); // re-pinned 2026-11-09 after 12 rows were added
+		expect(grants.filter((x) => matchesFilter(x, { ...ALL, gate: 'unknown' }))).toHaveLength(9); // re-pinned 2026-11-09 after 12 rows were added
 	});
 
-	it('type axis narrows: Grant 26 / Fellowship 1 / Investment 1', () => {
-		expect(grants.filter((x) => matchesFilter(x, { ...ALL, type: 'Grant' }))).toHaveLength(26);
-		expect(grants.filter((x) => matchesFilter(x, { ...ALL, type: 'Fellowship' }))).toHaveLength(1);
+	it('type axis narrows: Grant 37 / Fellowship 2 / Investment 1', () => {
+		expect(grants.filter((x) => matchesFilter(x, { ...ALL, type: 'Grant' }))).toHaveLength(37); // re-pinned 2026-11-09 after 12 rows were added
+		expect(grants.filter((x) => matchesFilter(x, { ...ALL, type: 'Fellowship' }))).toHaveLength(2); // re-pinned 2026-11-09 after 12 rows were added
 		expect(grants.filter((x) => matchesFilter(x, { ...ALL, type: 'Investment' }))).toHaveLength(1);
 	});
 
