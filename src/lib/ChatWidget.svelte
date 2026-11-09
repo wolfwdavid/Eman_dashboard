@@ -123,6 +123,12 @@
 		transition: transform .2s;
 	}
 	.chat-toggle:hover { transform: scale(1.08); }
+	/* Desktop: sit beside the SHARE (QR) button instead of on top of it.
+	   right = 24px (QR widget offset) + 109px (SHARE button width) + 12px gap.
+	   Mobile (<=768px) keeps right: 24px; the QR widget already moves above the bubble there. */
+	@media (min-width: 769px) {
+		.chat-toggle { right: 145px; }
+	}
 
 	.chat-panel {
 		position: fixed; bottom: 90px; right: 24px;
