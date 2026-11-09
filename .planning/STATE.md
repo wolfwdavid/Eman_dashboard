@@ -130,6 +130,7 @@ None yet.
 | 261109-bh2 | Add an optional Template column to grants.csv and a Proposal template button in the grant detail panel | 2026-11-09 | 871fb79 | [261109-bh2-add-an-optional-template-column-to-grant](./quick/261109-bh2-add-an-optional-template-column-to-grant/) |
 | fast | Keep detail panel actions clear of the fixed chat bubble and SHARE button (96px bottom padding) | 2026-11-09 | f0ab9e3 | — |
 | 261109-bqz | Shift the chat bubble and SHARE widget left of the open grant detail panel on desktop | 2026-11-09 | 50b8c6d | [261109-bqz-shift-the-chat-bubble-and-share-widget-l](./quick/261109-bqz-shift-the-chat-bubble-and-share-widget-l/) |
+| 261109-c9g | Add a Templates button under the Grant Crystarium title that lists every grant with a proposal template | 2026-11-09 | e9018d7 | [261109-c9g-add-a-templates-button-under-the-grant-c](./quick/261109-c9g-add-a-templates-button-under-the-grant-c/) |
 
 ## Session Continuity
 
