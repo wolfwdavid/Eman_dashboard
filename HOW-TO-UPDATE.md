@@ -20,6 +20,11 @@ If a row is malformed (bad link, unknown status), the build **fails on purpose**
 and the live site keeps the last good version; the Actions tab shows which row
 is wrong.
 
+**Adding or removing a row?** The build also checks the number of rows on
+purpose. When the row count changes, `EXPECTED_ROWS` in `tools/ingest-grants.mjs`
+must be bumped to the new count and the dataset tests re-pinned to match, or
+just ask David to do it.
+
 ## What the visuals mean
 
 - **Ring position**: how far along the funnel (center = money secured, rim = to research)
