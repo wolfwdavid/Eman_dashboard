@@ -59,10 +59,37 @@ describe('grantsWithTemplates', () => {
 	});
 
 	it('real dataset: exactly the Awesome Foundation Disability Chapter has a template', () => {
-		// Intentionally pinned: when the Template column in data/grants.csv gains
-		// more links, update this list on purpose alongside the CSV edit.
+		// Intentionally pinned: every tracker row has a proposal template Doc (2026-11-09).
+		// When rows are added to data/grants.csv, add their ids here alongside the CSV edit.
 		expect(grantsWithTemplates(grants).map((g) => g.id)).toEqual([
-			'the-awesome-foundation-disability-chapter'
+			'37-angels',
+			'bank-of-america-charitable-foundation',
+			'ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing',
+			'borealis-philanthropy-dif-joy-grants',
+			'brava-thrive-grant',
+			'echoing-green-fellowship',
+			'ford-foundation-justfilms-documentary-production',
+			'ford-foundation-nyc-good-neighbor-committee',
+			'giving-joy-grants',
+			'harry-s-black-allon-fuller-fund-bank-of-america',
+			'hey-helen-grant',
+			'just-thrive-justworks-x-the-well-work',
+			'matriarch-digital-media-our-greatness-grant',
+			'milbank-foundation',
+			'ny-community-trust',
+			'nyc-commission-on-human-rights-community-project-grants',
+			'nyc-office-for-prevention-of-hate-crimes-community-project-youth-ambassador',
+			'stavros-niarchos-foundation-snf',
+			'td-bank-funding-opportunities',
+			'tgr-foundation',
+			'the-awesome-foundation-disability-chapter',
+			'the-cek-foundation',
+			'third-wave-fund-disability-frontlines-fund',
+			'tisch-art-fund',
+			'truist-foundation',
+			'w-k-kellogg-foundation',
+			'wells-fargo-versaic',
+			'yield-giving-mackenzie-scott'
 		]);
 	});
 });
