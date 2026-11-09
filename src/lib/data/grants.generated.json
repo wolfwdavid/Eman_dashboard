@@ -27,7 +27,8 @@
 		"status": "active",
 		"statusLabel": "Active funder",
 		"nextAction": "Send grant success report; explore renewed/expanded funding; pursue fiscal sponsorship",
-		"link": "https://www.thenytrust.org"
+		"link": "https://www.thenytrust.org",
+		"template": null
 	},
 	{
 		"id": "harry-s-black-allon-fuller-fund-bank-of-america",
@@ -57,7 +58,8 @@
 		"status": "in-progress",
 		"statusLabel": "In progress",
 		"nextAction": "Assemble attachments (budgets, board list, 990, 501c3 letter or fiscal sponsor); apply via BofA portal",
-		"link": "https://bofa-gh.foundationsource.com/form"
+		"link": "https://bofa-gh.foundationsource.com/form",
+		"template": null
 	},
 	{
 		"id": "ford-foundation-justfilms-documentary-production",
@@ -87,7 +89,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Develop film concept; secure fiscal sponsor + filmmaker partner",
-		"link": "https://www.fordfoundation.org"
+		"link": "https://www.fordfoundation.org",
+		"template": null
 	},
 	{
 		"id": "ford-foundation-nyc-good-neighbor-committee",
@@ -117,7 +120,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Confirm 2026 cycle open date",
-		"link": "https://www.fordfoundation.org/about/about-the-ford-foundation/new-york-city-good-neighbor-committee/"
+		"link": "https://www.fordfoundation.org/about/about-the-ford-foundation/new-york-city-good-neighbor-committee/",
+		"template": null
 	},
 	{
 		"id": "ben-jerry-s-foundation-jerry-greenfield-grassroots-organizing",
@@ -147,7 +151,8 @@
 		"status": "in-progress",
 		"statusLabel": "In progress",
 		"nextAction": "Prep LOI for next cycle (LOI ~Dec 2026)",
-		"link": "https://www.benandjerrysfoundation.org"
+		"link": "https://www.benandjerrysfoundation.org",
+		"template": null
 	},
 	{
 		"id": "third-wave-fund-disability-frontlines-fund",
@@ -177,7 +182,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Build relationship; inquire about invitation",
-		"link": "https://www.thirdwavefund.org"
+		"link": "https://www.thirdwavefund.org",
+		"template": null
 	},
 	{
 		"id": "the-awesome-foundation-disability-chapter",
@@ -207,7 +213,8 @@
 		"status": "recurring",
 		"statusLabel": "Recurring",
 		"nextAction": "Submit a project pitch",
-		"link": "https://www.awesomefoundation.org"
+		"link": "https://www.awesomefoundation.org",
+		"template": "https://docs.google.com/document/d/1bLo6ETX5dTVqA0Byw9zpnrxGilltqLBQEhq_1Ta9utE/edit"
 	},
 	{
 		"id": "matriarch-digital-media-our-greatness-grant",
@@ -237,7 +244,8 @@
 		"status": "recurring",
 		"statusLabel": "Recurring",
 		"nextAction": "Apply for podcast support",
-		"link": "https://www.matriarchdigitalmedia.com"
+		"link": "https://www.matriarchdigitalmedia.com",
+		"template": null
 	},
 	{
 		"id": "giving-joy-grants",
@@ -267,7 +275,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Submit application",
-		"link": "https://givingjoygrants.org"
+		"link": "https://givingjoygrants.org",
+		"template": null
 	},
 	{
 		"id": "nyc-office-for-prevention-of-hate-crimes-community-project-youth-ambassador",
@@ -297,7 +306,8 @@
 		"status": "in-progress",
 		"statusLabel": "In progress",
 		"nextAction": "Follow up email; HEARTworks youth referrals; finalize partnership",
-		"link": "https://www.nyc.gov/site/stophate"
+		"link": "https://www.nyc.gov/site/stophate",
+		"template": null
 	},
 	{
 		"id": "nyc-commission-on-human-rights-community-project-grants",
@@ -327,7 +337,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Apply in fall cycle",
-		"link": "https://www.nyc.gov/site/cchr"
+		"link": "https://www.nyc.gov/site/cchr",
+		"template": null
 	},
 	{
 		"id": "just-thrive-justworks-x-the-well-work",
@@ -357,7 +368,8 @@
 		"status": "not-eligible-yet",
 		"statusLabel": "Not eligible (yet)",
 		"nextAction": "Revisit after hiring W-2 staff + joining Justworks",
-		"link": "https://www.justworks.com"
+		"link": "https://www.justworks.com",
+		"template": null
 	},
 	{
 		"id": "brava-thrive-grant",
@@ -387,7 +399,8 @@
 		"status": "applied",
 		"statusLabel": "Applied",
 		"nextAction": "Reapply in 2026 window",
-		"link": "https://www.brava.org"
+		"link": "https://www.brava.org",
+		"template": null
 	},
 	{
 		"id": "hey-helen-grant",
@@ -417,7 +430,8 @@
 		"status": "declined",
 		"statusLabel": "Declined",
 		"nextAction": null,
-		"link": "https://www.heyhelen.com"
+		"link": "https://www.heyhelen.com",
+		"template": null
 	},
 	{
 		"id": "echoing-green-fellowship",
@@ -447,7 +461,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Research requirements before a 4th attempt",
-		"link": "https://echoinggreen.org"
+		"link": "https://echoinggreen.org",
+		"template": null
 	},
 	{
 		"id": "tgr-foundation",
@@ -477,7 +492,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Review funder 990 + guidelines",
-		"link": "https://tgrfoundation.org"
+		"link": "https://tgrfoundation.org",
+		"template": null
 	},
 	{
 		"id": "tisch-art-fund",
@@ -507,7 +523,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Research guidelines",
-		"link": "https://tisch.nyu.edu"
+		"link": "https://tisch.nyu.edu",
+		"template": null
 	},
 	{
 		"id": "w-k-kellogg-foundation",
@@ -537,7 +554,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Review how-to-apply",
-		"link": "https://www.wkkf.org/grantseekers/"
+		"link": "https://www.wkkf.org/grantseekers/",
+		"template": null
 	},
 	{
 		"id": "yield-giving-mackenzie-scott",
@@ -567,7 +585,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Watch for open call",
-		"link": "https://yieldgiving.com"
+		"link": "https://yieldgiving.com",
+		"template": null
 	},
 	{
 		"id": "bank-of-america-charitable-foundation",
@@ -597,7 +616,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Review funding areas",
-		"link": "https://about.bankofamerica.com"
+		"link": "https://about.bankofamerica.com",
+		"template": null
 	},
 	{
 		"id": "wells-fargo-versaic",
@@ -627,7 +647,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Check eligibility",
-		"link": "https://wellsfargo.versaic.com"
+		"link": "https://wellsfargo.versaic.com",
+		"template": null
 	},
 	{
 		"id": "the-cek-foundation",
@@ -657,7 +678,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Review approach",
-		"link": "https://www.thecekfoundation.org"
+		"link": "https://www.thecekfoundation.org",
+		"template": null
 	},
 	{
 		"id": "milbank-foundation",
@@ -687,7 +709,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Review grant guidelines",
-		"link": "https://milbankfoundation.net/grant-guidelines/"
+		"link": "https://milbankfoundation.net/grant-guidelines/",
+		"template": null
 	},
 	{
 		"id": "borealis-philanthropy-dif-joy-grants",
@@ -717,7 +740,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Check 2026 Joy grants cycle",
-		"link": "https://borealisphilanthropy.org"
+		"link": "https://borealisphilanthropy.org",
+		"template": null
 	},
 	{
 		"id": "stavros-niarchos-foundation-snf",
@@ -747,7 +771,8 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Run foundation search",
-		"link": "https://www.snf.org"
+		"link": "https://www.snf.org",
+		"template": null
 	},
 	{
 		"id": "td-bank-funding-opportunities",
@@ -777,7 +802,8 @@
 		"status": "not-eligible-yet",
 		"statusLabel": "Not eligible (yet)",
 		"nextAction": "Revisit after 501(c)(3)",
-		"link": "https://www.td.com/us/en/about-us/funding-opportunities"
+		"link": "https://www.td.com/us/en/about-us/funding-opportunities",
+		"template": null
 	},
 	{
 		"id": "truist-foundation",
@@ -807,7 +833,8 @@
 		"status": "not-eligible",
 		"statusLabel": "Not eligible",
 		"nextAction": null,
-		"link": "https://www.truistfoundation.org"
+		"link": "https://www.truistfoundation.org",
+		"template": null
 	},
 	{
 		"id": "37-angels",
@@ -837,6 +864,7 @@
 		"status": "to-research",
 		"statusLabel": "To research",
 		"nextAction": "Note: equity, not grant funding",
-		"link": "https://www.37angels.com/female"
+		"link": "https://www.37angels.com/female",
+		"template": null
 	}
 ]

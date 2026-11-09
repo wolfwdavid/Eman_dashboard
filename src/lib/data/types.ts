@@ -57,4 +57,5 @@ export interface Grant {
 	statusLabel: string; // human label kept ("Active funder", "Not eligible (yet)")
 	nextAction: string | null; // "--" → null
 	link: string; // validated http(s) URL
+	template: string | null; // optional proposal template / draft URL
 }

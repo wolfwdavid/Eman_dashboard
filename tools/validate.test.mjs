@@ -46,7 +46,8 @@ const valid = {
 	status: 'in-progress',
 	statusLabel: 'In progress',
 	nextAction: 'Assemble attachments and apply',
-	link: 'https://example.org/grant'
+	link: 'https://example.org/grant',
+	template: null
 };
 
 describe('GrantSchema unit rejections (DATA-05)', () => {
@@ -63,6 +64,24 @@ describe('GrantSchema unit rejections (DATA-05)', () => {
 
 	it('rejects a non-URL link', () => {
 		const result = GrantSchema.safeParse({ ...valid, link: 'not-a-url' });
+		expect(result.success).toBe(false);
+		expect(result.error.issues.length).toBeGreaterThan(0);
+	});
+
+	it('accepts a null template', () => {
+		expect(GrantSchema.safeParse({ ...valid, template: null }).success).toBe(true);
+	});
+
+	it('accepts a URL template', () => {
+		const result = GrantSchema.safeParse({
+			...valid,
+			template: 'https://docs.google.com/document/d/abc/edit'
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects a non-URL template', () => {
+		const result = GrantSchema.safeParse({ ...valid, template: 'not-a-url' });
 		expect(result.success).toBe(false);
 		expect(result.error.issues.length).toBeGreaterThan(0);
 	});

@@ -97,7 +97,8 @@ rows.forEach((row, i) => {
 		status,
 		statusLabel,
 		nextAction: clean(row['Next Action']),
-		link: (row['Link'] ?? '').trim()
+		link: (row['Link'] ?? '').trim(),
+		template: clean(row['Template'])
 	};
 
 	const result = GrantSchema.safeParse(record);

@@ -48,5 +48,6 @@ export const GrantSchema = z.object({
 	]),
 	statusLabel: z.string(),
 	nextAction: z.string().nullable(),
-	link: z.url()
+	link: z.url(),
+	template: z.url().nullable()
 });
