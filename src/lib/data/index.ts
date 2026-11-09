@@ -12,4 +12,7 @@ export const grants = raw as Grant[];
 // Phase 4 QR panel can `import { qrCodes } from '$lib/data'`.
 export { qrCodes } from './qr.generated.js';
 
+// Grants with a proposal template URL (TEMPLATES HUD list).
+export { grantsWithTemplates } from './templates';
+
 export * from './types';
