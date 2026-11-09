@@ -2,6 +2,8 @@
 	// Top-left glass title panel (03-UI-SPEC §HUD Layout 1). Plain Svelte 5 +
 	// Tailwind v4 tokens, NO Three import — this prerenders as real DOM content
 	// (keeps verify-build check #6 and first paint alive under the guarded Canvas).
+	// Positioning lives on the `.top-left` stack in +page.svelte (title card +
+	// TEMPLATES widget directly under it), so this panel is a plain flex child.
 </script>
 
 <div class="panel">
@@ -11,10 +13,6 @@
 
 <style>
 	.panel {
-		position: fixed;
-		top: 24px;
-		left: 24px;
-		z-index: 10;
 		padding: 16px 20px;
 		border-radius: 14px;
 		background: var(--surface-glass);
@@ -50,8 +48,6 @@
 	   Desktop (>768px) is untouched — this block only fires at ≤768px. */
 	@media (max-width: 768px) {
 		.panel {
-			top: 12px;
-			left: 12px;
 			padding: 10px 14px;
 			/* Leave the top-right corner free for the compact readout — no overlap. */
 			max-width: 56vw;

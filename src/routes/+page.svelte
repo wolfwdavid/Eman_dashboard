@@ -17,6 +17,8 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import SceneTitle from '$lib/hud/SceneTitle.svelte';
+	// TEMPLATES toggle + list, stacked directly under the title card (top-left).
+	import TemplatesPanel from '$lib/hud/TemplatesPanel.svelte';
 	import PipelineReadout from '$lib/hud/PipelineReadout.svelte';
 	import Legend from '$lib/hud/Legend.svelte';
 	// Phase-4 overlay panels (each is a self-positioned fixed element).
@@ -51,7 +53,11 @@
      but carries a `detail-open` flag the mobile one-surface rules key off of. -->
 <div class="hud-root" class:detail-open={ui.selected !== null}>
 	<!-- Prerendered glass HUD (SSR-safe, real content around the guarded Canvas). -->
-	<SceneTitle />
+	<!-- Top-left stack: title card + TEMPLATES widget directly under it (flex, no height math). -->
+	<div class="top-left">
+		<SceneTitle />
+		<TemplatesPanel />
+	</div>
 	<PipelineReadout secured={securedTotal(grants)} potential={potentialTotal(grants)} />
 	<Legend />
 
@@ -81,14 +87,40 @@
 		display: contents;
 	}
 
+	/* Top-left stack: the title card with the TEMPLATES widget directly beneath. */
+	.top-left {
+		position: fixed;
+		top: 24px;
+		left: 24px;
+		z-index: 10;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 12px;
+		pointer-events: none;
+	}
+
+	/* The stack is its own stacking context (z-10), so lift it while the list is
+	   open — otherwise the mobile scrim/modal would sit under higher HUD layers. */
+	.top-left:has(:global(.templates-root.open)) {
+		z-index: 40;
+	}
+
 	/* MOB-02 — one primary surface at a time on phones: while the detail sheet is
 	   open, the secondary surfaces (drawer, legend chip, SHARE/QR) step aside so
 	   they don't stack under the bottom sheet. Desktop (>768px) is unaffected. */
 	@media (max-width: 768px) {
+		.top-left {
+			top: 12px;
+			left: 12px;
+			gap: 8px;
+		}
+
 		/* Detail sheet open → hide the secondary bottom controls. */
 		.hud-root.detail-open :global(.drawer),
 		.hud-root.detail-open :global(.legend-root),
-		.hud-root.detail-open :global(.qr-widget) {
+		.hud-root.detail-open :global(.qr-widget),
+		.hud-root.detail-open :global(.templates-root) {
 			display: none;
 		}
 
