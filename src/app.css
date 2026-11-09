@@ -29,6 +29,9 @@
 	--text-hi: #eaf1ff; /* primary HUD text (cool white) */
 	--text-lo: #8a97b8; /* secondary/muted HUD text (slate) */
 
+	/* HUD layout */
+	--detail-panel-w: 380px; /* DetailPanel width; ChatWidget + QrPanel offset by this on desktop while a grant is open */
+
 	/* Status hues (legend swatches + node emissive twin) */
 	--status-active: #ffc24b; /* secured gold — the ONE warm node */
 	--status-in-progress: #33e1ff; /* bright crystal cyan */

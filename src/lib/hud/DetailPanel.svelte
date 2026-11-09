@@ -159,7 +159,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px; /* md — between detail rows */
-		width: 380px;
+		width: var(--detail-panel-w);
 		max-width: 100vw;
 		height: 100vh;
 		padding: 24px 24px 96px; /* lg — panel outer padding; the extra bottom clears the fixed chat bubble + SHARE button (80px) */

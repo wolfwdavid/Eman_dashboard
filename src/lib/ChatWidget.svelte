@@ -1,4 +1,6 @@
 <script>
+	import { ui } from '$lib/state/crystarium.svelte.js';
+
 	let open = $state(false);
 	let busy = $state(false);
 	let inputVal = $state('');
@@ -83,12 +85,12 @@
 	function onKey(e) { if (e.key === 'Enter') send(); }
 </script>
 
-<button class="chat-toggle" onclick={() => open = !open} title="Chat with DID assistant">
+<button class="chat-toggle" class:detail-open={ui.selected !== null} onclick={() => open = !open} title="Chat with DID assistant">
 	&#128172;
 </button>
 
 {#if open}
-<div class="chat-panel" role="dialog" aria-label="Chat with DID Grant Assistant">
+<div class="chat-panel" class:detail-open={ui.selected !== null} role="dialog" aria-label="Chat with DID Grant Assistant">
 	<div class="chat-head">
 		<span>DID Grant Assistant</span>
 		<button onclick={() => open = false} aria-label="Close chat">&times;</button>
@@ -120,14 +122,20 @@
 		background: #14467a; color: #fff; border: none; cursor: pointer;
 		font-size: 1.6rem; box-shadow: 0 4px 14px rgba(0,0,0,.25);
 		z-index: 10000; display: flex; align-items: center; justify-content: center;
-		transition: transform .2s;
+		transition: transform .2s, right 220ms cubic-bezier(.2, .8, .2, 1);
 	}
 	.chat-toggle:hover { transform: scale(1.08); }
 	/* Desktop: sit beside the SHARE (QR) button instead of on top of it.
 	   right = 24px (QR widget offset) + 109px (SHARE button width) + 12px gap.
-	   Mobile (<=768px) keeps right: 24px; the QR widget already moves above the bubble there. */
+	   Mobile (<=768px) keeps right: 24px; the QR widget already moves above the bubble there.
+	   While a grant is selected, the bubble and panel slide left by the detail panel width. */
 	@media (min-width: 769px) {
 		.chat-toggle { right: 145px; }
+		.chat-toggle.detail-open { right: calc(145px + var(--detail-panel-w)); }
+		.chat-panel.detail-open { right: calc(24px + var(--detail-panel-w)); max-width: calc(100vw - var(--detail-panel-w) - 48px); }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.chat-toggle, .chat-panel { transition: none; }
 	}
 
 	.chat-panel {
@@ -136,6 +144,7 @@
 		background: #fff; border: 1px solid #dde5ee; border-radius: 14px;
 		box-shadow: 0 8px 30px rgba(0,0,0,.18); z-index: 10000;
 		display: flex; flex-direction: column; overflow: hidden;
+		transition: right 220ms cubic-bezier(.2, .8, .2, 1);
 	}
 	@media (prefers-color-scheme: dark) {
 		.chat-panel { background: #152233; border-color: #26364a; }

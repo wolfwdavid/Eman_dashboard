@@ -7,14 +7,17 @@
 	// `{@html qr.svg}` is SAFE here: `qrCodes[].svg` is generated at build time by
 	// tools/generate-qr.mjs from the fixed `src/lib/config/sites.js` config — a
 	// trusted static string with NO user/runtime input (04-RESEARCH Pitfall 5).
+	//
+	// Desktop: while a grant is selected the widget slides left of the detail panel.
 	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { qrCodes } from '$lib/data';
+	import { ui } from '$lib/state/crystarium.svelte.js';
 
 	let open = $state(false);
 </script>
 
-<div class="qr-widget" class:open>
+<div class="qr-widget" class:open class:detail-open={ui.selected !== null}>
 	{#if open}
 		<!-- Mobile-only scrim: taps close the modal (display:none on desktop). -->
 		<button
@@ -65,6 +68,7 @@
 		align-items: flex-end;
 		gap: 12px;
 		pointer-events: auto;
+		transition: right 220ms cubic-bezier(.2, .8, .2, 1);
 	}
 
 	.toggle {
@@ -195,6 +199,20 @@
 	.swap-note code {
 		font-family: var(--font-body);
 		color: var(--text-hi);
+	}
+
+	/* Desktop: while the detail panel is open (fixed 380px column on the right),
+	   slide the widget just outside it so it never covers the panel's action row. */
+	@media (min-width: 769px) {
+		.qr-widget.detail-open {
+			right: calc(24px + var(--detail-panel-w));
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.qr-widget {
+			transition: none;
+		}
 	}
 
 	/* Mobile (MOB-01): open as a CENTERED modal over a dark scrim instead of a
