@@ -22,6 +22,7 @@ services:
     volumes:
       - ../../dashboard:/home/user/app/dashboard
       - whisper_cache:/home/user/.cache   # keeps the downloaded Whisper model across rebuilds
+      - sweep_state:/home/user/app/data/local   # Mon/Wed/Fri sweep result read by the 8:45 message
 
   caddy:
     image: caddy:2
@@ -37,3 +38,4 @@ volumes:
   caddy_data:
   caddy_config:
   whisper_cache:
+  sweep_state:

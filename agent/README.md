@@ -19,7 +19,11 @@ and helps fill out grants, and reminds Eman via Telegram before deadlines.
 - **Interface:** Telegram bot.
 - **Data:** Notion (source of truth).
 - **Runtime:** local machine (Windows Task Scheduler `supervisor.bat`, or macOS launchd `supervisor.sh`);
-  deadline reminders (T-7 daily) + Monday 9AM grants/news digest.
+  schedule (America/New_York): midnight grant scrape, daily 9AM deadline reminders (T-7), Monday 9AM
+  grants/news digest (it used to fire on Sunday: PTB numbers weekdays 0=Sunday), Mon/Wed/Fri 6:00AM
+  grant sweep, and a Mon/Wed/Fri 8:45AM Telegram message with the new-grant summary plus Google Doc
+  draft links for up to 3 new OPEN_NOW grants. No new grants sends a short "No new grants" message;
+  missing or stale sweep state sends a "result unavailable" message.
 
 > ⚠️ Runs only while the host machine is on and online. Host is a swappable config for a later VPS move.
 
@@ -37,7 +41,7 @@ agent/
       score_grant.py       # Opus award-likelihood score (0-100 + rationale)
       draft_application.py # Google Docs template autofill -> editable link
       send_telegram.py     # outbound messages
-      schedule.py          # T-7 reminders + Monday 9AM digest
+      schedule.py          # T-7 reminders + Monday 9AM digest (jobs wired in main.py; sweep.py = Mon/Wed/Fri sweep logic)
       site_knowledge.py    # DID facts lookup (services, prices, bio, contact, events) — no LLM call
   knowledge/
     did-site-knowledge.md  # public facts the site_knowledge tool reads; one `## ` heading per topic
@@ -90,8 +94,14 @@ read the value into a shell variable from the laptop's `.env` first instead of t
 `deploy/oracle/deploy.sh <ip>` pulls and builds but ALSO copies the laptop's `.env` over the VM's.
 Use it only when the laptop copy is known to be complete and current.
 
-Healthy startup log: `DID grant agent starting (long-polling)`, `Scheduled daily reminders + Monday 9AM
-digest for N chat(s)`, `Application started`, and no `httpx` lines (silenced because request URLs embed
+**Sweep state and drafts.** The 6:00AM sweep writes `data/local/sweep_state.json` (override with
+`SWEEP_STATE_PATH`; gitignored; compose mounts the `sweep_state` volume there) and the 8:45AM message
+reads it. Draft links need `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_TEMPLATE_DOC_ID`; without them, or if
+one draft fails, the summary is still sent with a one-line note.
+
+Healthy startup log: `DID grant agent starting (long-polling)`, `Scheduled Mon/Wed/Fri 6:00AM
+(America/New_York) grant sweep.`, `Scheduled daily reminders + Monday 9AM digest + Mon/Wed/Fri 8:45AM
+sweep message for N chat(s)`, `Application started`, and no `httpx` lines (silenced because request URLs embed
 the bot token). `Unauthorized message from chat_id=…` means that id is missing from
 `TELEGRAM_ALLOWED_CHAT_IDS`.
 
