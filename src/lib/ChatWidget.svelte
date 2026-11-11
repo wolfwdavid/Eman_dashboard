@@ -6,7 +6,7 @@
 	import { createRouter, isEmptyUtterance, capTranscript } from '$lib/voice/router';
 	import { COPY, assistantLive } from '$lib/voice/copy';
 	import { cancelSpeech } from '$lib/voice/tts';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, untrack, tick } from 'svelte';
 	import {
 		listen,
 		startRecording,
@@ -15,7 +15,7 @@
 		canRecord,
 		isSecureContextSafe
 	} from '$lib/voice/stt';
-	import { getBool, PREF_KEYS } from '$lib/voice/prefs';
+	import { getBool, setBool, PREF_KEYS } from '$lib/voice/prefs';
 
 	// The clock is read only here, at event time.
 	const actions = createActions(dashboard, { grants, now: () => new Date() });
@@ -244,8 +244,19 @@
 	let interimEl = $state();
 	let sessionServer = false;
 	let unavailableShown = false;
-	let hasSR = false;
-	let hasRec = false;
+	let hasSR = $state(false);
+	let hasRec = $state(false);
+	// Voice settings strip and first-use privacy notice (D-16).
+	let settingsOpen = $state(false);
+	let forceServer = $state(false);
+	/** @type {null | 'browser' | 'server'} */
+	let noticeVisible = $state(null);
+	/** Dismissal remembered for this page load when localStorage is unavailable. */
+	const noticeSeenSession = { browser: false, server: false };
+	/** @type {HTMLButtonElement | undefined} */
+	let noticeStartEl = $state();
+	/** @type {HTMLButtonElement | undefined} */
+	let settingsBtnEl = $state();
 	/**
 	 * Current capture: browser recognizer or server recorder. Null when idle.
 	 * @type {null | { kind: 'sr', h: { stop(): void, abort(): void } } | { kind: 'rec', rec: any, ac: AbortController, cancelled: boolean, stopRequested: boolean }}
@@ -438,10 +449,52 @@
 			}
 			return;
 		}
+		const path = useServerPath() ? 'server' : 'browser';
+		const key = path === 'server' ? PREF_KEYS.noticeServer : PREF_KEYS.noticeBrowser;
+		if (!getBool(key) && !noticeSeenSession[path]) {
+			// First press on this path: tell the user where the audio goes BEFORE capturing.
+			cancelSpeech();
+			statusKind = null;
+			settingsOpen = false;
+			noticeVisible = path;
+			tick().then(() => noticeStartEl?.focus());
+			return;
+		}
+		startCapture();
+	}
+
+	/** Synchronous (keeps the user gesture for getUserMedia / recognition.start). */
+	function startCapture() {
 		cancelSpeech();
 		statusKind = null;
 		if (useServerPath()) startServer();
 		else startBrowser();
+	}
+
+	function acceptAndStart() {
+		const path = noticeVisible ?? (useServerPath() ? 'server' : 'browser');
+		setBool(path === 'server' ? PREF_KEYS.noticeServer : PREF_KEYS.noticeBrowser, true);
+		noticeSeenSession[path] = true;
+		noticeVisible = null;
+		startCapture();
+		focusMic();
+	}
+
+	function useServerAndStart() {
+		setBool(PREF_KEYS.forceServer, true);
+		forceServer = true;
+		setBool(PREF_KEYS.noticeBrowser, true);
+		setBool(PREF_KEYS.noticeServer, true);
+		noticeSeenSession.browser = true;
+		noticeSeenSession.server = true;
+		noticeVisible = null;
+		startCapture();
+		focusMic();
+	}
+
+	function onForceServerChange(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) {
+		forceServer = e.currentTarget.checked;
+		setBool(PREF_KEYS.forceServer, forceServer);
 	}
 
 	/**
@@ -455,6 +508,20 @@
 		() => {
 			if (micState !== 'listening' && micState !== 'processing') return false;
 			cancelCapture();
+			return true;
+		},
+		// (3) privacy notice: hide without remembering; focus returns to the mic.
+		() => {
+			if (!noticeVisible) return false;
+			noticeVisible = null;
+			focusMic();
+			return true;
+		},
+		// (4) settings strip: close and return focus to the settings button.
+		() => {
+			if (!settingsOpen) return false;
+			settingsOpen = false;
+			settingsBtnEl?.focus();
 			return true;
 		}
 	];
@@ -480,6 +547,7 @@
 		hasRec = canRecord();
 		const secure = isSecureContextSafe();
 		micState = secure && (hasSR || hasRec) ? 'idle' : 'unavailable';
+		forceServer = getBool(PREF_KEYS.forceServer);
 		mounted = true;
 		const onVis = () => { if (document.hidden) cancelCapture(); };
 		document.addEventListener('visibilitychange', onVis);
@@ -494,6 +562,8 @@
 		if (!open) {
 			untrack(() => {
 				cancelCapture();
+				noticeVisible = null;
+				settingsOpen = false;
 				unavailableShown = false;
 			});
 		}
@@ -530,9 +600,28 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="chat-panel" class:detail-open={ui.selected !== null} role="dialog" aria-label="Chat with DID Grant Assistant" tabindex="-1" onkeydown={onPanelKeydown}>
 	<div class="chat-head">
-		<span>DID Grant Assistant</span>
-		<button onclick={closeChat} aria-label="Close chat">&times;</button>
+		<span class="chat-title">DID Grant Assistant</span>
+		<div class="chat-head-actions">
+			{#if micState !== 'unavailable'}
+				<button type="button" class="chat-settings" aria-label="Voice settings"
+					aria-expanded={settingsOpen} aria-controls="voice-settings" title="Voice settings"
+					bind:this={settingsBtnEl} onclick={() => (settingsOpen = !settingsOpen)}>
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10" /><path d="M18 7h2" /><path d="M4 17h2" /><path d="M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>
+				</button>
+			{/if}
+			<button onclick={closeChat} aria-label="Close chat">&times;</button>
+		</div>
 	</div>
+	{#if settingsOpen}
+		<div id="voice-settings" class="voice-settings">
+			<label class="vs-row">
+				<input type="checkbox" checked={!hasSR || forceServer} disabled={!hasSR} onchange={onForceServerChange} />
+				<span>Use server speech recognition</span>
+			</label>
+			<p class="vs-help">{hasSR ? COPY.settingsHelpBrowser : COPY.settingsHelpNoBrowser}</p>
+			<p class="vs-help">{COPY.settingsHelpScreenReader}</p>
+		</div>
+	{/if}
 	<div class="chat-messages" bind:this={messagesEl}>
 		{#each messages as msg (msg.id)}
 			{#if msg.kind === 'choices'}
@@ -566,7 +655,17 @@
 			{/if}
 		{/each}
 	</div>
-	{#if statusKind}
+	{#if noticeVisible}
+		<div class="voice-notice" role="group" aria-labelledby="voice-notice-text">
+			<p id="voice-notice-text">{noticeVisible === 'server' ? COPY.noticeServer : COPY.noticeBrowser}</p>
+			<div class="vn-actions">
+				<button type="button" class="vn-primary" aria-describedby="voice-notice-text" bind:this={noticeStartEl} onclick={acceptAndStart}>{COPY.noticeStart}</button>
+				{#if noticeVisible === 'browser' && hasRec}
+					<button type="button" class="vn-secondary" onclick={useServerAndStart}>{COPY.noticeUseServer}</button>
+				{/if}
+			</div>
+		</div>
+	{:else if statusKind}
 		<div id="voice-status" class="voice-status">
 			<strong class="lead">{statusKind === 'listening' ? COPY.listeningLead : statusKind === 'processing' ? COPY.transcribingLead : COPY.didntCatchLead}</strong>
 			{#if statusKind === 'listening'}
@@ -677,6 +776,46 @@
 		font-size: 1.2rem; cursor: pointer; opacity: .8;
 	}
 	.chat-head button:hover { opacity: 1; }
+	.chat-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.chat-head-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+	/* Scoped to the new header buttons; the close button keeps its look. */
+	.chat-head .chat-settings {
+		width: 32px; height: 32px; border-radius: 8px; padding: 0;
+		background: none; border: none; color: var(--cw-on-brand);
+		display: flex; align-items: center; justify-content: center; cursor: pointer;
+	}
+	.chat-head .chat-settings:focus-visible { outline: 2px solid var(--cw-on-brand); outline-offset: 2px; }
+	.chat-head .chat-settings[aria-expanded='true'] {
+		background: color-mix(in srgb, var(--cw-on-brand) 18%, transparent); opacity: 1;
+	}
+
+	/* Voice settings strip (UI-SPEC section 5) */
+	.voice-settings {
+		padding: 8px 16px; border-bottom: 1px solid var(--cw-border); background: var(--cw-sunken);
+		color: var(--cw-text); display: flex; flex-direction: column; gap: 8px;
+	}
+	.vs-row { display: flex; align-items: center; gap: 8px; font-size: .88rem; cursor: pointer; }
+	.vs-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--cw-accent); }
+	.vs-help { font-size: .75rem; line-height: 1.5; color: var(--cw-muted); margin: 0; }
+
+	/* First-use privacy notice (UI-SPEC section 6) */
+	.voice-notice {
+		padding: 8px 16px; border-top: 1px solid var(--cw-border); background: var(--cw-sunken);
+		color: var(--cw-text); font-size: .88rem; line-height: 1.45;
+	}
+	.voice-notice p { margin: 0 0 8px; }
+	.vn-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+	.vn-primary, .vn-secondary {
+		min-height: 32px; padding: 4px 16px; border-radius: 16px; font: inherit; cursor: pointer;
+	}
+	.vn-primary {
+		border: 1px solid var(--cw-accent); background: var(--cw-accent);
+		color: var(--cw-on-brand); font-weight: 600;
+	}
+	.vn-secondary {
+		border: 1px solid var(--cw-border); background: transparent; color: var(--cw-text); font-weight: 400;
+	}
+	.vn-primary:focus-visible, .vn-secondary:focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 2px; }
 
 	.chat-messages {
 		flex: 1; overflow-y: auto; padding: 14px;
