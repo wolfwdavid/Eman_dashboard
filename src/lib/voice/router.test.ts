@@ -81,6 +81,27 @@ describe('router', () => {
 		expect(other.pendingOutcome).toEqual({ kind: 'dropped' });
 	});
 
+	it('asks again when a follow-up picks nothing, keeping the same choices', () => {
+		const router = mk();
+		const c = router.route('open ford', { busy: false });
+		if (c.type !== 'choices') throw new Error('expected choices');
+		for (const words of ['third', 'ford']) {
+			const again = router.route(words, { pending: c.options, busy: false });
+			expect(again.type).toBe('choices');
+			if (again.type !== 'choices') return;
+			expect(again.options).toEqual(c.options);
+			expect(again.live.startsWith(`You said: ${words}. Did you mean: 1, `)).toBe(true);
+		}
+	});
+
+	it('offers a lone plausible funder as a single choice', () => {
+		const r = mk().route('open queens', { busy: false });
+		expect(r.type).toBe('choices');
+		if (r.type !== 'choices') return;
+		expect(r.options.map((o) => o.label)).toEqual(['Queens Centers for Progress']);
+		expect(r.spoken).toBe('Did you mean: 1, Queens Centers for Progress?');
+	});
+
 	it('sends other text as a question with the asking live string', () => {
 		const q = 'what grants are due soon for disability orgs';
 		const r = mk().route(q, { busy: false });

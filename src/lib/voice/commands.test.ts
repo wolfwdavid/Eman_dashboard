@@ -1,7 +1,7 @@
 // Table-driven tests for the pure voice command grammar.
 import { describe, it, expect } from 'vitest';
 import { grants } from '$lib/data';
-import { parse, normalize, FILTER_VALUES, type Intent, type Ctx } from './commands';
+import { parse, normalize, optionLabel, FILTER_VALUES, type Intent, type Ctx } from './commands';
 
 const ctx: Ctx = { grants };
 const opts = [
@@ -133,8 +133,17 @@ describe('pending follow-ups', () => {
 		expect(parse('the last one', { grants, pending: two })).toEqual(open(two[1]));
 	});
 
-	it('third is ignored when only two options exist', () => {
-		expect(parse('third', { grants, pending: two }).kind).toBe('chat');
+	// An ordinal past the end of the list asks again; the choices stay open.
+	it.each(['third', 'the third one', 'number three', '3'])('%s of two re-asks', (raw) => {
+		expect(parse(raw, { grants, pending: two })).toEqual({ kind: 'did-you-mean', options: two });
+	});
+
+	it('"the one" alone is not "the first one"', () => {
+		expect(parse('the one', { grants, pending: opts })).toEqual({
+			kind: 'did-you-mean',
+			options: opts
+		});
+		expect(parse('the one', ctx).kind).toBe('chat');
 	});
 
 	it.each(['neither', 'none', 'none of these', 'cancel', 'never mind'])('%s cancels', (raw) => {
@@ -284,6 +293,134 @@ describe('navigate: did you mean', () => {
 			id: pending[1].id,
 			label: pending[1].label
 		});
+	});
+});
+
+describe('navigate: pending re-match by name', () => {
+	const justfilms = { id: idOf(/justfilms/i), label: 'Ford Foundation: JustFilms Documentary Production' };
+	const neighbor = { id: idOf(/good neighbor/i), label: 'Ford Foundation: NYC Good Neighbor Committee' };
+	const northStar = { id: idOf(/north star/i), label: 'North Star Fund' };
+	const fords = [justfilms, neighbor];
+
+	it('a bare shared funder name keeps the choices open', () => {
+		expect(parse('ford', { grants, pending: fords })).toEqual({ kind: 'did-you-mean', options: fords });
+		expect(parse('the ford one', { grants, pending: fords })).toEqual({
+			kind: 'did-you-mean',
+			options: fords
+		});
+	});
+
+	it('a shared funder name narrows a mixed list to the rows it fits', () => {
+		const pending = [justfilms, northStar, neighbor];
+		expect(parse('ford', { grants, pending })).toEqual({ kind: 'did-you-mean', options: fords });
+	});
+
+	it('a bare name that fits one option opens it', () => {
+		const pending = [justfilms, northStar, neighbor];
+		expect(parse('justfilms', { grants, pending })).toEqual({ kind: 'open-grant', ...justfilms });
+		expect(parse('north star', { grants, pending })).toEqual({ kind: 'open-grant', ...northStar });
+	});
+
+	it('commands and questions are not swallowed by the pending list', () => {
+		expect(parse('show recurring grants', { grants, pending: fords })).toEqual(
+			filt('status', 'recurring')
+		);
+		expect(parse('reset', { grants, pending: fords })).toEqual({ kind: 'reset' });
+		expect(parse('what is the deadline for ford', { grants, pending: fords }).kind).toBe('chat');
+		expect(parse('ford deadline', { grants, pending: fords }).kind).toBe('chat');
+	});
+});
+
+// Reproduced against the shipped dataset: one shared word must not pick a grant.
+describe('navigate: matcher quality on the real dataset', () => {
+	const options = (raw: string): string[] => {
+		const out = parse(raw, ctx);
+		if (out.kind !== 'did-you-mean') throw new Error(`${raw} -> ${out.kind}, expected did-you-mean`);
+		return out.options.map((o) => o.label);
+	};
+	const rowOf = (label: string) => grants.find((g) => optionLabel(g, grants) === label)!;
+	const text = (label: string) => {
+		const g = rowOf(label);
+		return `${g.funder} ${g.program ?? ''}`;
+	};
+
+	it('open bank offers TD Bank and Bank of America rows, never a single pick', () => {
+		const labels = options('open bank');
+		expect(labels).toHaveLength(3);
+		expect(labels).toContain('TD Bank');
+		expect(labels.filter((l) => /bank of america/i.test(l)).length).toBe(2);
+	});
+
+	it('open new york offers both New York funders', () => {
+		const labels = options('open new york');
+		expect([...labels].sort()).toEqual(['NY Community Trust', "New York Women's Foundation"]);
+	});
+
+	it('find funding offers the rows that share the word', () => {
+		expect([...options('find funding')].sort()).toEqual(['Impact Funding Solutions', 'TD Bank']);
+	});
+
+	it.each([
+		['show nyc grants', /nyc/i],
+		['find organizing grants', /organizing/i],
+		['open thrive', /thrive/i],
+		['open community', /community/i]
+	] as const)('%s offers only rows that contain the word', (raw, re) => {
+		const labels = options(raw);
+		expect(labels.length).toBeGreaterThanOrEqual(2);
+		expect(labels.length).toBeLessThanOrEqual(3);
+		for (const l of labels) expect(text(l)).toMatch(re);
+	});
+
+	it.each(['open foundation', 'open fund', 'open grants', 'find the foundation'])(
+		'%s (generic words only) goes to chat',
+		(raw) => {
+			expect(parse(raw, ctx).kind).toBe('chat');
+		}
+	);
+
+	it.each([
+		['find fellowships', 'Echoing Green Fellowship'],
+		['open queens', 'Queens Centers for Progress'],
+		['open x', 'Just Thrive (Justworks x The Well Work)']
+	])('%s offers its one plausible row alone, unpadded', (raw, label) => {
+		expect(options(raw)).toEqual([label]);
+	});
+
+	it('a program name alone suggests but does not open', () => {
+		expect(options('open mobilize')).toEqual(['Third Wave Fund: Mobilize Power Fund']);
+	});
+
+	it('no list is padded with a row unrelated to the query', () => {
+		for (const p of ['find fellowships', 'open x', 'find women', 'open queens', 'open hey helen']) {
+			const out = parse(p, ctx);
+			if (out.kind === 'did-you-mean') {
+				expect(out.options.map((o) => o.label)).not.toContain('NY Community Trust');
+			}
+		}
+	});
+
+	it('a funder whose name starts with a filler word still opens', () => {
+		expect(parse('open hey helen grant', ctx)).toEqual(
+			expect.objectContaining({ kind: 'open-grant', id: idOf(/hey helen/i) })
+		);
+	});
+
+	it('every funder still resolves by its full name', () => {
+		for (const g of grants) {
+			if (normalize(g.funder).split(' ').length > 6) continue;
+			const out = parse(`open ${g.funder}`, ctx);
+			const ids =
+				out.kind === 'open-grant' ? [out.id] : out.kind === 'did-you-mean' ? out.options.map((o) => o.id) : [];
+			expect(ids, g.funder).toContain(g.id);
+			const rows = grants.filter((x) => x.funder === g.funder).length;
+			// "Bank of America" is part of three funder names, so those always ask.
+			const lc = (x: { funder: string }) => x.funder.toLowerCase();
+			const shared = grants.some(
+				(x) => x.funder !== g.funder && (lc(x).includes(lc(g)) || lc(g).includes(lc(x)))
+			);
+			if (rows === 1 && !shared) expect(out.kind, g.funder).toBe('open-grant');
+		}
 	});
 });
 
