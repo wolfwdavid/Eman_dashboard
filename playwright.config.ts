@@ -5,6 +5,8 @@ const PORT = 4173;
 export default defineConfig({
 	testDir: './tests',
 	fullyParallel: true,
+	// Every test boots the WebGL scene; more than 2 workers starves software rendering and times out.
+	workers: 2,
 	forbidOnly: !!process.env.CI,
 	retries: 0,
 	reporter: process.env.CI ? 'github' : 'list',
