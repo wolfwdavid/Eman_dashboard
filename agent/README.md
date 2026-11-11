@@ -182,7 +182,7 @@ Errors are `{"error": "..."}` with these statuses:
 | 411 | no `Content-Length` header |
 | 413 | body over 1,048,576 bytes (1 MiB); the body is not read and the connection is closed |
 | 415 | `Content-Type` is not one of the audio types above |
-| 429 | more than 10 requests per minute from one client IP; a `Retry-After` header gives the seconds to wait |
+| 429 | more than 10 requests per minute from one client IP; a `Retry-After` header gives the seconds to wait. Every request counts, including those answered 400, 401, 411, 413 or 415 |
 | 502 | transcription failed (Whisper error or undecodable audio) |
 | 503 | server busy; at most 2 transcriptions run at once |
 | 504 | transcription took longer than 60 seconds |
@@ -213,6 +213,14 @@ choose a new rate-limit key on every request. Turn the setting on only when ever
 request reaches the agent through Cloudflare (a `cloudflared` tunnel or the
 Cloudflare proxy), which sets that header itself; it is then preferred over
 `X-Forwarded-For`, still only from a loopback or private peer.
+
+The rate limit is checked before anything else, so a request refused for a missing
+token or a wrong `Content-Type` uses up budget like any other. A client that is
+over its limit and declares a body larger than 256 KiB gets the 429 without the
+body being read, and the connection is closed. IPv6 clients are counted per /64
+network, not per address. IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) are
+treated as the IPv4 address. The limiter tracks at most 5,000 clients at a time;
+when full it forgets the one that has been quiet longest.
 
 **Access.** By owner decision the endpoint needs no token of its own beyond the
 `CHAT_API_TOKEN` rule above; it is protected by the size, type, rate and

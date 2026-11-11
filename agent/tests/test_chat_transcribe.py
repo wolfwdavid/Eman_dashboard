@@ -191,10 +191,13 @@ def test_non_audio_content_type_is_415(server, rec, ctype):
     assert "error" in _json(data)
 
 
-def test_415_does_not_count_toward_limit(server, rec):
-    for _ in range(15):
+def test_415_counts_toward_limit(server, rec):
+    # The limiter runs before the type check, so wrong-type uploads are not a free path (WR-07).
+    for _ in range(10):
         assert server.post(b"abc", "text/plain")[0] == 415
-    assert server.post(b"abc")[0] == 200
+    assert server.post(b"abc", "text/plain")[0] == 429
+    assert server.post(b"abc")[0] == 429
+    assert rec.calls == []
 
 
 # --- size and length --------------------------------------------------------
@@ -303,6 +306,21 @@ def _assert_independent_budgets(server, a: dict, b: dict) -> None:
     assert server.post(headers=b)[0] == 429
 
 
+def test_over_limit_large_upload_is_refused_without_reading_it(server, rec):
+    for _ in range(10):
+        assert server.post()[0] == 200
+    # Declares 1 MB and sends two bytes: the 429 must not wait for the rest of the body.
+    sock = _slow_upload(server.port)
+    try:
+        started = time.monotonic()
+        raw = _trickle_then_read(sock, 0)
+        elapsed = time.monotonic() - started
+    finally:
+        sock.close()
+    assert b" 429 " in raw.split(b"\r\n")[0]
+    assert elapsed < 5
+
+
 def test_independent_budgets_per_forwarded_client(server, rec):
     _assert_independent_budgets(
         server, {"X-Forwarded-For": "203.0.113.9"}, {"X-Forwarded-For": "203.0.113.10"}
@@ -368,6 +386,27 @@ def test_client_ip_falls_back_on_invalid_header():
 
 def test_client_ip_no_headers_returns_peer():
     assert chat_api.client_ip("127.0.0.1", {}) == "127.0.0.1"
+
+
+def test_client_ip_keys_ipv6_by_slash_64():
+    a = chat_api.client_ip("2001:db8:1:2::5", {})
+    assert a == "2001:db8:1:2::/64"
+    assert chat_api.client_ip("2001:db8:1:2:ffff:1:2:9", {}) == a
+    assert chat_api.client_ip("2001:db8:1:3::5", {}) != a
+    forwarded = {"X-Forwarded-For": "198.51.100.1, 2001:db8:1:2:aaaa::1"}
+    assert chat_api.client_ip("127.0.0.1", forwarded) == a
+    assert chat_api.client_ip("::1", forwarded) == a
+    assert chat_api.client_ip("127.0.0.1", {"CF-Connecting-IP": "2001:db8:1:2::77"}, trust_cf=True) == a
+
+
+def test_client_ip_treats_ipv4_mapped_peers_as_ipv4():
+    headers = {"X-Forwarded-For": "203.0.113.7"}
+    # Dual-stack bind: our own proxy shows up as an IPv4-mapped loopback or private peer.
+    assert chat_api.client_ip("::ffff:127.0.0.1", headers) == "203.0.113.7"
+    assert chat_api.client_ip("::ffff:172.18.0.2", headers) == "203.0.113.7"
+    # A mapped public peer is not trusted and is keyed as its IPv4 address.
+    assert chat_api.client_ip("::ffff:198.51.100.50", headers) == "198.51.100.50"
+    assert chat_api.client_ip("127.0.0.1", {"X-Forwarded-For": "::ffff:203.0.113.7"}) == "203.0.113.7"
 
 
 @pytest.mark.parametrize(
@@ -535,6 +574,17 @@ def test_hosted_whisper_client_has_timeout_and_no_retries(monkeypatch, tmp_path)
 # --- auth -------------------------------------------------------------------
 
 
+def test_401_counts_toward_limit(rec):
+    s = Server(token="secret")
+    try:
+        for _ in range(10):
+            assert s.post()[0] == 401
+        assert s.post()[0] == 429
+        assert s.post(headers={"Authorization": "Bearer secret"})[0] == 429
+    finally:
+        s.close()
+
+
 def test_token_required_when_configured(rec):
     s = Server(token="secret")
     try:
@@ -654,3 +704,37 @@ def test_limiter_prunes_stale_keys_over_cap():
     clock.advance(120)
     lim.allow("fresh")
     assert len(lim._hits) < 100
+
+
+def test_limiter_key_count_is_hard_bounded_within_a_window():
+    clock = FakeClock()
+    lim = chat_api._RateLimiter(limit=10, window=60.0, clock=clock, max_keys=100)
+    for i in range(1000):
+        assert lim.allow(f"ip-{i}") is True
+        assert len(lim._hits) <= 100
+    assert "ip-999" in lim._hits and "ip-0" not in lim._hits
+
+
+def test_limiter_evicts_expired_keys_before_live_ones():
+    clock = FakeClock()
+    lim = chat_api._RateLimiter(limit=2, window=60.0, clock=clock, max_keys=3)
+    lim.allow("old")
+    clock.advance(61)
+    lim.allow("b")
+    clock.advance(1)
+    lim.allow("c")
+    lim.allow("d")
+    assert set(lim._hits) == {"b", "c", "d"}  # "old" had expired
+    lim.allow("b")  # b is now the most recently used
+    lim.allow("e")  # full and nothing expired: the least recently used live key goes
+    assert set(lim._hits) == {"b", "d", "e"}
+    assert lim.allow("b") is False  # b kept its two hits through both evictions
+
+
+def test_limiter_stays_fast_with_many_distinct_keys():
+    lim = chat_api._RateLimiter(limit=10, window=60.0, clock=FakeClock())
+    started = time.monotonic()
+    for i in range(50_000):
+        lim.allow(f"ip-{i}")
+    assert time.monotonic() - started < 5
+    assert len(lim._hits) <= chat_api._MAX_TRACKED_IPS

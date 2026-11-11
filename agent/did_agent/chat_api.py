@@ -26,7 +26,7 @@ import tempfile
 import threading
 import time
 import uuid
-from collections import deque
+from collections import OrderedDict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -75,6 +75,9 @@ _TRANSCRIBE_DEADLINE = 60.0
 # How much of an upload we will not read is discarded, and for how long, after the reply.
 _LINGER_BYTES = 65536
 _LINGER_SECONDS = 0.5
+# A client already over its rate limit has at most this much of a body read before the
+# 429; anything larger is refused unread. Ordinary voice clips fit, so they get a clean 429.
+_OVER_LIMIT_DRAIN_BYTES = 262_144
 
 
 def _unlink(path: str) -> None:
@@ -85,26 +88,44 @@ def _unlink(path: str) -> None:
 
 
 class _RateLimiter:
-    """In-memory sliding-window limiter, safe to share between handler threads."""
+    """In-memory sliding-window limiter, safe to share between handler threads.
 
-    def __init__(self, limit: int = _RATE_LIMIT, window: float = _RATE_WINDOW, clock=time.monotonic):
+    At most `max_keys` keys are tracked. `_hits` is kept ordered by each key's latest
+    counted request, oldest first, so expired keys sit at the front and both pruning
+    and eviction are a pop from the front rather than a scan.
+    """
+
+    def __init__(
+        self,
+        limit: int = _RATE_LIMIT,
+        window: float = _RATE_WINDOW,
+        clock=time.monotonic,
+        max_keys: int = _MAX_TRACKED_IPS,
+    ):
         self.limit = limit
         self.window = window
+        self.max_keys = max_keys
         self._clock = clock
-        self._hits: dict[str, deque] = {}
+        self._hits: OrderedDict[str, deque] = OrderedDict()
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:
         now = self._clock()
         with self._lock:
-            if len(self._hits) > _MAX_TRACKED_IPS:
-                self._prune(now)
-            hits = self._hits.setdefault(key, deque())
-            while hits and now - hits[0] >= self.window:
-                hits.popleft()
-            if len(hits) >= self.limit:
-                return False
+            self._prune(now)
+            hits = self._hits.get(key)
+            if hits is None:
+                if len(self._hits) >= self.max_keys:
+                    # Full and nothing has expired: the least recently counted key goes.
+                    self._hits.popitem(last=False)
+                hits = self._hits[key] = deque()
+            else:
+                while hits and now - hits[0] >= self.window:
+                    hits.popleft()
+                if len(hits) >= self.limit:
+                    return False
             hits.append(now)
+            self._hits.move_to_end(key)
             return True
 
     def retry_after(self, key: str) -> int:
@@ -116,9 +137,12 @@ class _RateLimiter:
             return max(1, int(self.window - (now - hits[0]) + 0.999))
 
     def _prune(self, now: float) -> None:
-        stale = [k for k, h in self._hits.items() if not h or now - h[-1] >= self.window]
-        for k in stale:
-            del self._hits[k]
+        """Drop keys whose latest request has left the window. Costs one step per dropped key."""
+        while self._hits:
+            hits = next(iter(self._hits.values()))
+            if hits and now - hits[-1] < self.window:
+                break
+            self._hits.popitem(last=False)
 
 
 # Explicit proxy-side ranges. ip.is_private is too broad: it also covers documentation
@@ -129,11 +153,29 @@ _TRUSTED_PEERS = tuple(
 )
 
 
+_V6_HOST_BITS = (1 << 64) - 1
+
+
 def _parse_ip(value: str):
+    """Parse an address; an IPv4-mapped IPv6 address (::ffff:a.b.c.d) comes back as IPv4."""
     try:
-        return ipaddress.ip_address(value.strip())
+        ip = ipaddress.ip_address(value.strip())
     except ValueError:
         return None
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
+def _limit_key(ip) -> str:
+    """IPv4 clients are keyed by address, IPv6 clients by /64.
+
+    One IPv6 subscriber normally holds a whole /64, so keying by full address would
+    give a single client as many buckets as it cares to use.
+    """
+    if ip.version == 4:
+        return str(ip)
+    return str(ipaddress.IPv6Network((int(ip) & ~_V6_HOST_BITS, 64)))
 
 
 def client_ip(peer: str, headers, trust_cf: bool = False) -> str:
@@ -148,21 +190,27 @@ def client_ip(peer: str, headers, trust_cf: bool = False) -> str:
     for deployments that really sit behind Cloudflare. A plain reverse proxy such as
     Caddy passes a client-supplied CF-Connecting-IP through unchanged, so trusting it
     there would hand every request a rate-limit bucket of the client's choosing.
+
+    IPv4-mapped IPv6 addresses count as their IPv4 address, both for the trust test (a
+    dual-stack listener reports the local proxy as ::ffff:127.0.0.1) and for the key.
+    IPv6 clients are keyed by /64 (see _limit_key).
     """
     peer_ip = _parse_ip(peer or "")
-    if peer_ip is None or not any(peer_ip in net for net in _TRUSTED_PEERS if net.version == peer_ip.version):
+    if peer_ip is None:
         return peer
+    if not any(peer_ip in net for net in _TRUSTED_PEERS if net.version == peer_ip.version):
+        return _limit_key(peer_ip)
     cf = headers.get("CF-Connecting-IP") if trust_cf else None
     if cf:
         parsed = _parse_ip(cf)
         if parsed is not None:
-            return str(parsed)
+            return _limit_key(parsed)
     xff = headers.get("X-Forwarded-For")
     if xff:
         parsed = _parse_ip(xff.split(",")[-1])
         if parsed is not None:
-            return str(parsed)
-    return peer
+            return _limit_key(parsed)
+    return _limit_key(peer_ip)
 
 
 def _make_handler(
@@ -273,24 +321,37 @@ def _make_handler(
                 return status, b""
             return status, bytes(buf)
 
-        def _drain_body(self) -> None:
-            """Discard a declared upload of at most MAX_AUDIO_BYTES before an early reply.
+        def _reject_upload(
+            self,
+            code: int,
+            data: dict,
+            extra_headers: dict | None = None,
+            drain_limit: int = MAX_AUDIO_BYTES,
+        ) -> None:
+            """Reply early to an upload, discarding a declared body of at most `drain_limit`.
 
             Closing a socket that still holds unread request data makes some stacks reset
             the connection, so the client sees a network error instead of the status code.
-            Oversize uploads are never read: that path drops the connection instead. The
-            read is held to the same total deadline as a real upload; a body that is still
-            arriving when it passes is abandoned and the connection closed.
+            The read is held to the same total deadline as a real upload. A larger body, or
+            one still arriving at the deadline, is not read: the reply is sent and the
+            connection dropped (see _linger).
             """
             try:
-                remaining = int(self.headers.get("Content-Length") or 0)
+                declared = int(self.headers.get("Content-Length") or 0)
             except ValueError:
+                declared = -1
+            drained = declared == 0
+            if 0 < declared <= drain_limit:
+                drained = self._read_body(declared, keep=False)[0] != "timeout"
+            if drained:
+                self._json_response(code, data, extra_headers)
                 return
-            if remaining > MAX_AUDIO_BYTES:
-                self.close_connection = True
+            self.close_connection = True
+            try:
+                self._json_response(code, data, {**(extra_headers or {}), "Connection": "close"})
+            except OSError:
                 return
-            if remaining > 0:
-                self._read_body(remaining, keep=False)
+            self._linger()
 
         def _linger(self) -> None:
             """After replying to an upload we will not read, give the client a moment to see it.
@@ -317,10 +378,6 @@ def _make_handler(
                     got += len(chunk)
             except OSError:
                 pass
-
-        def _reject_upload(self, code: int, data: dict, extra_headers: dict | None = None) -> None:
-            self._drain_body()
-            self._json_response(code, data, extra_headers)
 
         def do_POST(self):
             route = self.path.split("?")[0]
@@ -365,6 +422,18 @@ def _make_handler(
             self._json_response(202, {"job_id": job_id})
 
         def _handle_transcribe(self):
+            # The limiter comes first so that every request counts, including the ones
+            # refused below with 401 or 415. Otherwise those are a free path: each is
+            # answered only after its body, up to MAX_AUDIO_BYTES, has been read.
+            key = client_ip(self.client_address[0], self.headers, trust_cf)
+            if not limiter.allow(key):
+                self._reject_upload(
+                    429,
+                    {"error": "Too many requests"},
+                    {"Retry-After": str(limiter.retry_after(key))},
+                    drain_limit=_OVER_LIMIT_DRAIN_BYTES,
+                )
+                return
             if not self._token_ok():
                 self._reject_upload(401, {"error": "Unauthorized"})
                 return
@@ -372,14 +441,6 @@ def _make_handler(
             suffix = _AUDIO_EXT.get(ctype)
             if suffix is None:
                 self._reject_upload(415, {"error": "Unsupported media type"})
-                return
-            key = client_ip(self.client_address[0], self.headers, trust_cf)
-            if not limiter.allow(key):
-                self._reject_upload(
-                    429,
-                    {"error": "Too many requests"},
-                    {"Retry-After": str(limiter.retry_after(key))},
-                )
                 return
             raw_len = self.headers.get("Content-Length")
             if raw_len is None:
