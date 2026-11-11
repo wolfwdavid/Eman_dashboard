@@ -215,7 +215,7 @@ function resolveOrdinal(norm: string, pending: PendingOption[]): PendingOption |
 	s = s.replace(/^the\s+/, '');
 	s = s.replace(/^number\s+/, '');
 	if (s.includes(' ')) s = s.replace(/\s+(?:one|please)$/, '');
-	if (!(s in ORDINALS)) return null;
+	if (!Object.hasOwn(ORDINALS, s)) return null;
 	const idx = ORDINALS[s];
 	const opt = idx === -1 ? pending[pending.length - 1] : pending[idx];
 	return opt ?? null;
@@ -227,8 +227,9 @@ function resolveOrdinal(norm: string, pending: PendingOption[]): PendingOption |
 
 function lookupFilter(rem: string): Intent | null {
 	const hit = (axis: 'status' | 'gate' | 'type', table: Record<string, string>, labels: Record<string, string>) => {
+		// Own keys only: "constructor" and friends are inherited, not vocabulary.
+		if (!Object.hasOwn(table, rem)) return null;
 		const value = table[rem];
-		if (value === undefined) return null;
 		if (!(FILTER_VALUES[axis] as readonly string[]).includes(value)) return null;
 		return { kind: 'filter', axis, value, label: labels[value] ?? value } as Intent;
 	};
@@ -535,8 +536,8 @@ export function parse(raw: string, ctx: Ctx): Intent {
 	// 2. system phrases
 	if (RESET_PHRASES.includes(norm)) return { kind: 'reset' };
 	if (CLOSE_PHRASES.includes(norm)) return { kind: 'close' };
-	if (norm in PANEL_PHRASES) return { kind: 'panel', name: PANEL_PHRASES[norm] };
-	if (norm in FACT_PHRASES) return { kind: 'fact', fact: FACT_PHRASES[norm] };
+	if (Object.hasOwn(PANEL_PHRASES, norm)) return { kind: 'panel', name: PANEL_PHRASES[norm] };
+	if (Object.hasOwn(FACT_PHRASES, norm)) return { kind: 'fact', fact: FACT_PHRASES[norm] };
 
 	// 3. filters
 	const filter = parseFilter(norm);

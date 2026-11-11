@@ -153,6 +153,16 @@ describe('pending follow-ups', () => {
 });
 
 describe('chat fallthrough', () => {
+	// Inherited Object.prototype keys must never be read as table entries.
+	it.each(['constructor', 'toString', '__proto__', 'valueOf', 'hasOwnProperty', 'show constructor'])(
+		'%s is not a command',
+		(raw) => {
+			expect(parse(raw, ctx)).toEqual({ kind: 'chat', text: raw });
+		}
+	);
+	it('inherited keys are not ordinals while options are pending', () => {
+		expect(parse('constructor', { grants, pending: opts })).toEqual({ kind: 'chat', text: 'constructor' });
+	});
 	it('keeps the original trimmed transcript', () => {
 		expect(parse('  Tell me about the Ford Foundation!  ', ctx)).toEqual({
 			kind: 'chat',
