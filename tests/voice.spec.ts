@@ -535,3 +535,255 @@ test.describe('voice', () => {
 		await expect(page.getByRole('button', { name: 'Voice settings' })).toHaveCount(0);
 	});
 });
+
+// ---------------------------------------------------------------- spoken replies
+
+/** Replace speechSynthesis with a recorder. __spoken, __cancels and __order describe what happened. */
+export async function installFakeSpeech(page: Page, opts: { speaking?: boolean } = {}) {
+	await page.addInitScript((speaking: boolean) => {
+		const w = window as any;
+		w.__spoken = [];
+		w.__cancels = 0;
+		w.__order = [];
+		w.__speaking = speaking;
+		class FakeUtterance {
+			lang = '';
+			voice: unknown = undefined;
+			constructor(public text: string) {}
+		}
+		const synth = {
+			speak(u: any) {
+				w.__spoken.push(u.text);
+				w.__order.push('speak');
+			},
+			cancel() {
+				w.__cancels++;
+				w.__order.push('cancel');
+			},
+			get speaking() {
+				return !!w.__speaking;
+			},
+			getVoices: () => []
+		};
+		Object.defineProperty(w, 'speechSynthesis', { value: synth, configurable: true });
+		w.SpeechSynthesisUtterance = FakeUtterance;
+	}, opts.speaking ?? false);
+}
+
+const speakerButton = (page: Page) => page.getByRole('button', { name: 'Spoken replies' });
+const spokenList = (page: Page): Promise<string[]> => page.evaluate(() => (window as any).__spoken);
+const cancelCount = (page: Page): Promise<number> => page.evaluate(() => (window as any).__cancels);
+const lsKey = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
+
+async function speakerOn(page: Page) {
+	await speakerButton(page).click();
+	await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
+}
+
+async function stubReply(page: Page, reply: string) {
+	await page.route('http://127.0.0.1:8080/chat/j1', (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			headers: { 'access-control-allow-origin': '*' },
+			body: JSON.stringify({ status: 'done', reply })
+		})
+	);
+}
+
+test.describe('spoken replies', () => {
+	test('spoken replies: default off, toggle persists', async ({ page }) => {
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'false');
+		await speakerButton(page).click();
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect(await spokenList(page)).toContain('Spoken replies on.');
+		expect(await lsKey(page, 'did.voice.spokenReplies')).toBe('1');
+
+		await page.reload();
+		await page.getByTitle('Chat with DID assistant').click();
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
+
+		const cancelsBefore = await cancelCount(page);
+		const spokenBefore = (await spokenList(page)).length;
+		await speakerButton(page).click();
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'false');
+		expect(await cancelCount(page)).toBeGreaterThan(cancelsBefore);
+		expect(await lsKey(page, 'did.voice.spokenReplies')).toBe('0');
+		expect((await spokenList(page)).length).toBe(spokenBefore);
+	});
+
+	test('spoken replies: confirmations and replies are spoken', async ({ page }) => {
+		await installFakeSR(page);
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+
+		await speak(page, 'show recurring grants');
+		await expect(page.locator('.chat-msg.command')).toContainText('recurring grants');
+		let spoken = await spokenList(page);
+		expect(spoken.some((t) => t.startsWith('Showing'))).toBe(true);
+		const order: string[] = await page.evaluate(() => (window as any).__order);
+		order.forEach((e, i) => {
+			if (e === 'speak' && order[i - 1] !== 'speak') expect(order[i - 1]).toBe('cancel');
+		});
+		expect(spoken.some((t) => t.includes('show recurring grants'))).toBe(false);
+
+		await speak(page, 'reset');
+		await speak(page, 'show gated');
+		await expect(page.locator('.chat-msg.command').last()).toContainText('501(c)(3)');
+		spoken = await spokenList(page);
+		expect(spoken.some((t) => t.includes('five oh one C three'))).toBe(true);
+		expect(spoken.some((t) => t.includes('501'))).toBe(false);
+
+		const q = 'which grants are due soon for disability organisations';
+		await speak(page, q);
+		await expect.poll(async () => (await spokenList(page)).includes(COPY.asking)).toBe(true);
+		await expect
+			.poll(async () => (await spokenList(page)).includes('Hello from the assistant'), { timeout: 10_000 })
+			.toBe(true);
+		spoken = await spokenList(page);
+		expect(spoken.some((t) => t.includes(q))).toBe(false);
+		expect(spoken.some((t) => t.includes("Hi! I'm the DID grant assistant"))).toBe(false);
+	});
+
+	test('spoken replies: long reply is truncated', async ({ page }) => {
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await stubReply(page, 'word '.repeat(160).trim());
+		await openChat(page);
+		await speakerOn(page);
+		await page.getByPlaceholder('Ask about grants...').fill('a long one');
+		await page.getByPlaceholder('Ask about grants...').press('Enter');
+		await expect(page.getByRole('status')).toContainText('Assistant: word', { timeout: 10_000 });
+		await expect
+			.poll(async () => (await spokenList(page)).at(-1) ?? '', { timeout: 5000 })
+			.toContain('The rest is in the chat.');
+		const spoken = await spokenList(page);
+		const askIdx = spoken.indexOf(COPY.asking);
+		const reply = spoken.slice(askIdx + 1).join(' ');
+		expect(reply.endsWith('The rest is in the chat.')).toBe(true);
+		expect(reply.length).toBeLessThanOrEqual(600 + 1 + 'The rest is in the chat.'.length);
+	});
+
+	test('spoken replies: not spoken while chat is closed', async ({ page }) => {
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		await page.getByPlaceholder('Ask about grants...').fill('hello there');
+		await page.getByPlaceholder('Ask about grants...').press('Enter');
+		await page.getByRole('button', { name: 'Close chat' }).click();
+		await expect(page.locator('.chat-panel')).toHaveCount(0);
+		await expect(page.getByRole('status')).toContainText('Assistant: Hello from the assistant', {
+			timeout: 10_000
+		});
+		expect((await spokenList(page)).some((t) => t.includes('Hello from the assistant'))).toBe(false);
+	});
+
+	test('spoken replies: Escape stops speech', async ({ page }) => {
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		await page.evaluate(() => ((window as any).__speaking = true));
+		const before = await cancelCount(page);
+		await page.getByPlaceholder('Ask about grants...').focus();
+		await page.keyboard.press('Escape');
+		expect(await cancelCount(page)).toBeGreaterThan(before);
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.locator('.chat-panel')).toBeVisible();
+	});
+
+	test('spoken replies: mic start cancels speech', async ({ page }) => {
+		await installFakeSR(page);
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		const before = await cancelCount(page);
+		await micButton(page).click();
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect(await cancelCount(page)).toBeGreaterThan(before);
+	});
+
+	test('spoken replies: toggle absent without speechSynthesis', async ({ page }) => {
+		await page.addInitScript(() => {
+			Object.defineProperty(window, 'speechSynthesis', { value: undefined, configurable: true });
+		});
+		await stubNetwork(page);
+		await openChat(page);
+		await expect(micButton(page)).toBeVisible();
+		await expect(speakerButton(page)).toHaveCount(0);
+	});
+});
+
+test.describe('voice layout', () => {
+	test('voice mobile: collapse rule and sizes', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 800 });
+		await installFakeSR(page);
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		await speak(page, 'open templates');
+		await expect(page.locator('.chat-panel')).toHaveCount(0);
+		await expect(page.locator('.chat-toggle')).toBeFocused();
+		await expect(page.getByRole('button', { name: /^TEMPLATES/ })).toHaveAttribute('aria-expanded', 'true');
+		const spoken = await spokenList(page);
+		expect(spoken.length).toBe(2);
+		const order: string[] = await page.evaluate(() => (window as any).__order);
+		expect(order.at(-1)).toBe('speak');
+
+		await page.getByTitle('Chat with DID assistant').click();
+		await expect(page.locator('.chat-msg.command')).toHaveCount(1);
+
+		for (const loc of [
+			micButton(page),
+			speakerButton(page),
+			page.getByRole('button', { name: 'Voice settings' }),
+			page.getByRole('button', { name: 'Close chat' }),
+			page.locator('.chat-send')
+		]) {
+			const box = await loc.boundingBox();
+			expect(box).not.toBeNull();
+			expect(box!.width).toBeGreaterThanOrEqual(44);
+			expect(box!.height).toBeGreaterThanOrEqual(44);
+		}
+
+		await page.setViewportSize({ width: 320, height: 568 });
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+		await expect(page.locator('.chat-panel')).toBeVisible();
+	});
+
+	test('voice desktop: detail keeps chat open', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speak(page, 'open north star');
+		await expect(page.locator('h2.funder')).toContainText('North Star');
+		await expect(page.locator('.chat-panel')).toBeVisible();
+		await speak(page, 'share');
+		await expect(page.locator('.chat-panel')).toHaveCount(0);
+		await expect(page.locator('.chat-toggle')).toBeFocused();
+	});
+
+	test('voice reduced motion: animation off, speech on', async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		await installFakeSR(page);
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		await micButton(page).click();
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
+		const anim = await page.locator('.chat-mic').evaluate((el) => getComputedStyle(el).animationName);
+		expect(anim).toBe('none');
+		await page.evaluate(() => (window as any).__say('show recurring grants'));
+		await expect.poll(async () => (await spokenList(page)).some((t) => t.startsWith('Showing'))).toBe(true);
+	});
+});
