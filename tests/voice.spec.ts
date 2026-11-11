@@ -116,6 +116,7 @@ export async function installFakeRecorder(
 				delete w.webkitSpeechRecognition;
 			}
 			w.__tracksStopped = 0;
+			w.__recStarted = 0;
 			const getUserMedia = async () => ({
 				getTracks: () => [{ stop: () => w.__tracksStopped++ }]
 			});
@@ -130,6 +131,7 @@ export async function installFakeRecorder(
 				ondataavailable: any = null;
 				onstop: any = null;
 				start() {
+					w.__recStarted++;
 					this.state = 'recording';
 				}
 				stop() {
@@ -393,5 +395,143 @@ test.describe('voice', () => {
 		await mic.click();
 		await mic.click();
 		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errUnavailable })).toHaveCount(1);
+	});
+
+	const ls = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
+	const win = (page: Page, name: string) => page.evaluate((n) => (window as any)[n], name);
+
+	test('voice notice: first press shows the browser notice and does not start', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		const notice = page.locator('.voice-notice');
+		await expect(notice).toBeVisible();
+		await expect(notice).toContainText(COPY.noticeBrowser);
+		expect(await win(page, '__srStarted')).toBe(0);
+		await expect(page.getByRole('button', { name: COPY.noticeStart })).toBeFocused();
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+
+		await page.getByRole('button', { name: COPY.noticeStart }).click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect(await win(page, '__srStarted')).toBe(1);
+		expect(await ls(page, 'did.voice.notice.browser')).toBe('1');
+		await expect(notice).toHaveCount(0);
+
+		await page.reload();
+		await page.getByTitle('Chat with DID assistant').click();
+		await micButton(page).click();
+		await expect(page.locator('.voice-notice')).toHaveCount(0);
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect(await win(page, '__srStarted')).toBe(1);
+	});
+
+	test('voice notice: Use the server instead', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await installFakeRecorder(page, { noticeSeen: false, keepSR: true });
+		await stubNetwork(page);
+		await openChat(page);
+		await micButton(page).click();
+		await page.getByRole('button', { name: COPY.noticeUseServer }).click();
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect(await ls(page, 'did.voice.forceServer')).toBe('1');
+		expect(await ls(page, 'did.voice.notice.browser')).toBe('1');
+		expect(await ls(page, 'did.voice.notice.server')).toBe('1');
+		expect(await win(page, '__recStarted')).toBeGreaterThanOrEqual(1);
+		expect(await win(page, '__srStarted')).toBe(0);
+	});
+
+	test('voice notice: Escape hides without remembering', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.voice-notice')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('.voice-notice')).toHaveCount(0);
+		await expect(mic).toBeFocused();
+		expect(await ls(page, 'did.voice.notice.browser')).toBeNull();
+		expect(await win(page, '__srStarted')).toBe(0);
+		await mic.click();
+		await expect(page.locator('.voice-notice')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Close chat' }).click();
+		await page.getByTitle('Chat with DID assistant').click();
+		await expect(page.locator('.voice-notice')).toHaveCount(0);
+		expect(await ls(page, 'did.voice.notice.browser')).toBeNull();
+	});
+
+	test('voice notice: server variant', async ({ page }) => {
+		await installFakeRecorder(page, { noticeSeen: false });
+		await stubNetwork(page);
+		await openChat(page);
+		await micButton(page).click();
+		const notice = page.locator('.voice-notice');
+		await expect(notice).toContainText(COPY.noticeServer);
+		await expect(notice.getByRole('button')).toHaveCount(1);
+		await expect(notice.getByRole('button', { name: COPY.noticeStart })).toBeVisible();
+		expect(await win(page, '__recStarted')).toBe(0);
+	});
+
+	test('voice settings: force server speech recognition', async ({ page }) => {
+		await installFakeSR(page);
+		await installFakeRecorder(page, { keepSR: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const btn = page.getByRole('button', { name: 'Voice settings' });
+		await btn.click();
+		await expect(btn).toHaveAttribute('aria-expanded', 'true');
+		const strip = page.locator('#voice-settings');
+		await expect(strip).toBeVisible();
+		await expect(strip).toContainText(COPY.settingsHelpBrowser);
+		await strip.getByRole('checkbox', { name: 'Use server speech recognition' }).check();
+		expect(await ls(page, 'did.voice.forceServer')).toBe('1');
+
+		await page.reload();
+		await page.getByTitle('Chat with DID assistant').click();
+		await page.getByRole('button', { name: 'Voice settings' }).click();
+		const box = page.getByRole('checkbox', { name: 'Use server speech recognition' });
+		await expect(box).toBeChecked();
+		await micButton(page).click();
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect(await win(page, '__recStarted')).toBeGreaterThanOrEqual(1);
+		expect(await win(page, '__srStarted')).toBe(0);
+
+		// Escape first cancels the active capture; the next one closes the strip.
+		await box.focus();
+		await page.keyboard.press('Escape');
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'false');
+		await box.focus();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('#voice-settings')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Voice settings' })).toBeFocused();
+	});
+
+	test('voice settings: no browser recognition', async ({ page }) => {
+		await installFakeRecorder(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await page.getByRole('button', { name: 'Voice settings' }).click();
+		const strip = page.locator('#voice-settings');
+		const box = strip.getByRole('checkbox');
+		await expect(box).toBeChecked();
+		await expect(box).toBeDisabled();
+		await expect(strip).toContainText(COPY.settingsHelpNoBrowser);
+		await expect(strip).toContainText(COPY.settingsHelpScreenReader);
+	});
+
+	test('voice settings: not rendered when unavailable', async ({ page }) => {
+		await page.addInitScript(() => {
+			const w = window as any;
+			delete w.SpeechRecognition;
+			delete w.webkitSpeechRecognition;
+			delete w.MediaRecorder;
+		});
+		await stubNetwork(page);
+		await openChat(page);
+		await expect(micButton(page)).toHaveAttribute('data-state', 'unavailable');
+		await expect(page.getByRole('button', { name: 'Voice settings' })).toHaveCount(0);
 	});
 });
