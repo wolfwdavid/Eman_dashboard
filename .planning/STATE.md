@@ -135,6 +135,7 @@ None yet.
 | fast | Opaque surface for the open Templates list (legend bled through the glass) | 2026-11-09 | a7ffc5f | — |
 | 261109-dxq | Add 12 funders from Eman's emails to the tracker (40 rows) and re-pin the dataset tests | 2026-11-09 | d317f0c | [261109-dxq-add-12-funders-from-eman-s-emails-to-the](./quick/261109-dxq-add-12-funders-from-eman-s-emails-to-the/) |
 | 261110-vgj | DID bot: Mon/Wed/Fri 6AM ET grant sweep + 8:45AM Telegram summary with draft links (new = not present at the previous sweep); Monday digest weekday fixed (was firing Sunday) | 2026-11-10 | 7f2de2e | [261110-vgj-did-bot-mon-wed-fri-6am-grant-sweep-and-](./quick/261110-vgj-did-bot-mon-wed-fri-6am-grant-sweep-and-/) |
+| 261111-fast | Chat history is now per browser session (random id per page load; server store bounded to 500 sessions, 30 min idle expiry; no shared default) | 2026-11-11 | 1358f94 | (fast task, no directory) |
 
 ## Session Continuity
 
