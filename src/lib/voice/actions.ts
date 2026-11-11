@@ -96,7 +96,18 @@ const result = (text: string, opened: ActionResult['opened'] = null): ActionResu
 
 type Runnable = Exclude<Intent, { kind: 'chat' } | { kind: 'did-you-mean' }>;
 
-export function createActions(dash: Dashboard, data: { grants: Grant[]; now: () => Date }) {
+export function createActions(
+	dash: Dashboard,
+	data: {
+		grants: Grant[];
+		now: () => Date;
+		/**
+		 * True when the screen shows one primary surface at a time (phones): the grant
+		 * detail hides TEMPLATES and SHARE there. Injected and read at command time.
+		 */
+		oneSurface?: () => boolean;
+	}
+) {
 	const { grants } = data;
 
 	function run(intent: Runnable): ActionResult {
@@ -120,19 +131,23 @@ export function createActions(dash: Dashboard, data: { grants: Grant[]; now: () 
 			case 'open-grant': {
 				const g = grants.find((x) => x.id === intent.id);
 				if (!g) return result("I couldn't find that funder.");
+				// Like picking a row in the TEMPLATES list: the panels close, so the detail
+				// is what the user sees and what "close" closes next.
+				const p = dash.getPanels();
+				if (p.templates || p.share) dash.closePanels();
 				dash.select(g.id);
 				return result(`Opening ${intent.label}.`, 'detail');
 			}
 			case 'panel': {
-				if (intent.name === 'templates') {
-					dash.openPanel('templates');
-					return result('Templates list opened.', 'templates');
+				if (intent.name !== 'templates' && intent.name !== 'share') {
+					return result("I couldn't open that panel.");
 				}
-				if (intent.name === 'share') {
-					dash.openPanel('share');
-					return result('Share panel opened.', 'share');
-				}
-				return result("I couldn't open that panel.");
+				// One surface at a time: an open grant detail would hide the panel, so it closes first.
+				if (dash.getSelected() !== null && data.oneSurface?.()) dash.deselect();
+				dash.openPanel(intent.name);
+				return intent.name === 'templates'
+					? result('Templates list opened.', 'templates')
+					: result('Share panel opened.', 'share');
 			}
 			case 'close': {
 				const p = dash.getPanels();

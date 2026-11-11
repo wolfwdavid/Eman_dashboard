@@ -17,8 +17,9 @@
 	} from '$lib/voice/stt';
 	import { getBool, setBool, PREF_KEYS } from '$lib/voice/prefs';
 
-	// The clock is read only here, at event time.
-	const actions = createActions(dashboard, { grants, now: () => new Date() });
+	// The clock and the viewport are read only here, at event time (never during prerender).
+	const isPhone = () => window.matchMedia('(max-width: 768px)').matches;
+	const actions = createActions(dashboard, { grants, now: () => new Date(), oneSurface: isPhone });
 	const router = createRouter(actions, { grants });
 
 	let open = $state(false);
@@ -191,8 +192,7 @@
 	/** One primary surface (UI-SPEC 3d). matchMedia is evaluated at event time. */
 	function collapseRule(/** @type {string | null} */ opened) {
 		if (!opened) return false;
-		const mobile = window.matchMedia('(max-width: 768px)').matches;
-		const collapse = mobile ? ['detail', 'templates', 'share'].includes(opened) : opened === 'share';
+		const collapse = isPhone() ? ['detail', 'templates', 'share'].includes(opened) : opened === 'share';
 		if (collapse) collapseChat();
 		return collapse;
 	}

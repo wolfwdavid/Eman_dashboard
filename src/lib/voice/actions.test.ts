@@ -88,9 +88,9 @@ function fake(init?: { selected?: string | null; templates?: boolean; share?: bo
 	return { dash, calls };
 }
 
-const mk = (grants = GRANTS, init?: Parameters<typeof fake>[0]) => {
+const mk = (grants = GRANTS, init?: Parameters<typeof fake>[0], oneSurface?: () => boolean) => {
 	const f = fake(init);
-	return { ...f, actions: createActions(f.dash, { grants, now: () => NOW }) };
+	return { ...f, actions: createActions(f.dash, { grants, now: () => NOW, oneSurface }) };
 };
 
 // Fresh dashboard per call so filter axes do not accumulate across assertions.
@@ -211,6 +211,26 @@ describe('open-grant', () => {
 		expect(r.text).toBe("I couldn't find that funder.");
 		expect(r.opened).toBeNull();
 	});
+	it('closes an open TEMPLATES or SHARE panel first, so the detail is what shows', () => {
+		for (const init of [{ templates: true }, { share: true }, { templates: true, share: true }]) {
+			const { actions, calls, dash } = mk(GRANTS, init);
+			const r = actions.run({ kind: 'open-grant', id: 'a', label: 'A' });
+			expect(calls).toEqual(['closePanels', 'select:a']);
+			expect(dash.getPanels()).toEqual({ templates: false, share: false });
+			expect(r.opened).toBe('detail');
+		}
+	});
+	it('"close" after that closes the grant, not a hidden panel', () => {
+		const { actions, calls } = mk(GRANTS, { templates: true });
+		actions.run({ kind: 'open-grant', id: 'a', label: 'A' });
+		expect(actions.run({ kind: 'close' }).text).toBe('Closed A.');
+		expect(calls).toEqual(['closePanels', 'select:a', 'deselect']);
+	});
+	it('leaves an open panel alone when the funder is unknown', () => {
+		const { actions, calls } = mk(GRANTS, { templates: true });
+		actions.run({ kind: 'open-grant', id: 'nope', label: 'Nope' });
+		expect(calls).toEqual([]);
+	});
 });
 
 describe('panels', () => {
@@ -227,6 +247,29 @@ describe('panels', () => {
 		expect(calls).toEqual(['openPanel:share']);
 		expect(r.text).toBe('Share panel opened.');
 		expect(r.opened).toBe('share');
+	});
+	// One surface at a time (phones): the detail sheet hides both panels, so it steps aside.
+	it('deselects the grant first when only one surface fits', () => {
+		for (const name of ['templates', 'share'] as const) {
+			const { actions, calls, dash } = mk(GRANTS, { selected: 'a' }, () => true);
+			const r = actions.run({ kind: 'panel', name });
+			expect(calls).toEqual(['deselect', `openPanel:${name}`]);
+			expect(dash.getSelected()).toBeNull();
+			expect(r.opened).toBe(name);
+		}
+	});
+	it('keeps the grant open beside the panel on a wide screen', () => {
+		for (const oneSurface of [() => false, undefined]) {
+			const { actions, calls, dash } = mk(GRANTS, { selected: 'a' }, oneSurface);
+			actions.run({ kind: 'panel', name: 'templates' });
+			expect(calls).toEqual(['openPanel:templates']);
+			expect(dash.getSelected()).toBe('a');
+		}
+	});
+	it('does not deselect when no grant is open', () => {
+		const { actions, calls } = mk(GRANTS, undefined, () => true);
+		actions.run({ kind: 'panel', name: 'share' });
+		expect(calls).toEqual(['openPanel:share']);
 	});
 });
 

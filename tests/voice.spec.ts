@@ -984,6 +984,48 @@ test.describe('voice layout', () => {
 		await expect(page.locator('.chat-panel')).toBeVisible();
 	});
 
+	test('voice mobile: a panel command replaces the open grant detail', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 800 });
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const cases: [string, () => ReturnType<Page['locator']>, RegExp][] = [
+			['open templates', () => page.locator('#templates-popover'), /^TEMPLATES/],
+			['share', () => page.locator('.qr-widget .panel'), /^SHARE/]
+		];
+		for (const [words, surface, toggleName] of cases) {
+			await speak(page, 'open north star');
+			await expect(page.locator('h2.funder')).toContainText('North Star');
+			// The detail sheet collapsed the chat (one surface); reopen it for the next command.
+			await clickChatToggle(page);
+			await speak(page, words);
+			// The panel is what the user sees: the grant detail stepped aside.
+			await expect(page.locator('h2.funder')).toHaveCount(0);
+			await expect(surface()).toBeVisible();
+			await expect(page.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'true');
+			await clickChatToggle(page);
+			await speak(page, 'close');
+			await expect(page.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'false');
+		}
+	});
+
+	test('voice commands: opening a grant closes the templates list first', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const toggle = page.getByRole('button', { name: /^TEMPLATES/ });
+		await speak(page, 'open templates');
+		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+		await speak(page, 'open north star');
+		await expect(page.locator('h2.funder')).toContainText('North Star');
+		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+		// One "close" closes what is on screen: the grant.
+		await speak(page, 'close');
+		await expect(page.locator('.chat-msg.command').last()).toContainText('Closed North Star Fund.');
+		await expect(page.locator('h2.funder')).toHaveCount(0);
+	});
+
 	test('voice desktop: detail keeps chat open', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
 		await installFakeSR(page);
