@@ -1,8 +1,8 @@
 <script lang="ts">
 	// TEMPLATES panel — a top-left toggle that sits directly under the GRANT
 	// CRYSTARIUM title card (owner request 2026-11-09). A glass `TEMPLATES ▾`
-	// button toggles a LOCAL `open` (not the shared `ui`) and drops a glass
-	// popover listing every grant whose proposal template / draft URL is filled in.
+	// button toggles `panels.templates` (the shared panels store, so the voice
+	// assistant can open/close it too) and drops a glass popover listing every grant whose proposal template / draft URL is filled in.
 	//
 	// Data-driven from `grantsWithTemplates(grants)`: filling more cells in the
 	// Template column of data/grants.csv grows the list with no code change.
@@ -16,45 +16,45 @@
 	import { cubicOut } from 'svelte/easing';
 	import { grants, grantsWithTemplates } from '$lib/data';
 	import { select } from '$lib/state/crystarium.svelte.js';
+	import { panels } from '$lib/state/panels.svelte.js';
 
-	let open = $state(false);
 	// Static build-time data — a plain const is enough.
 	const templates = grantsWithTemplates(grants);
 
 	function pick(id: string) {
 		select(id);
-		open = false;
+		panels.templates = false;
 	}
 
 	function onKey(e: KeyboardEvent) {
-		if (open && e.key === 'Escape') open = false;
+		if (panels.templates && e.key === 'Escape') panels.templates = false;
 	}
 </script>
 
 <svelte:window onkeydown={onKey} />
 
-<div class="templates-root" class:open>
+<div class="templates-root" class:open={panels.templates}>
 	<button
 		type="button"
 		class="toggle"
-		onclick={() => (open = !open)}
-		aria-expanded={open}
+		onclick={() => (panels.templates = !panels.templates)}
+		aria-expanded={panels.templates}
 		aria-controls="templates-popover"
 	>
 		TEMPLATES
 		{#if templates.length > 0}
 			<span class="badge" aria-label="{templates.length} {templates.length === 1 ? 'template' : 'templates'}">{templates.length}</span>
 		{/if}
-		<span class="glyph" class:flipped={open} aria-hidden="true">▾</span>
+		<span class="glyph" class:flipped={panels.templates} aria-hidden="true">▾</span>
 	</button>
 
-	{#if open}
+	{#if panels.templates}
 		<!-- Mobile-only scrim: taps close the modal (display:none on desktop). -->
 		<button
 			type="button"
 			class="scrim"
 			aria-label="Close templates list"
-			onclick={() => (open = false)}
+			onclick={() => (panels.templates = false)}
 		></button>
 		<div
 			id="templates-popover"
