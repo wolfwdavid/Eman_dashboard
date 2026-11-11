@@ -124,15 +124,19 @@ export async function installFakeSR(
  * Remove SpeechRecognition and install a fake getUserMedia + MediaRecorder so the
  * server path runs. Seeds did.voice.notice.server (and the browser key) unless
  * noticeSeen is false. window.__tracksStopped counts track.stop() calls.
+ * throwOnStart: MediaRecorder.start() throws. deferStop: stop() does not fire onstop
+ * until __recFinishStop() (the gap between a stop request and the recorder's onstop).
  */
 export async function installFakeRecorder(
 	page: Page,
-	opts: { noticeSeen?: boolean; keepSR?: boolean } = {}
+	opts: { noticeSeen?: boolean; keepSR?: boolean; throwOnStart?: boolean; deferStop?: boolean } = {}
 ) {
 	const noticeSeen = opts.noticeSeen ?? true;
 	const keepSR = opts.keepSR ?? false;
+	const throwOnStart = opts.throwOnStart ?? false;
+	const deferStop = opts.deferStop ?? false;
 	await page.addInitScript(
-		({ seen, keep }: { seen: boolean; keep: boolean }) => {
+		({ seen, keep, throws, defer }: { seen: boolean; keep: boolean; throws: boolean; defer: boolean }) => {
 			const w = window as any;
 			if (seen) {
 				localStorage.setItem('did.voice.notice.server', '1');
@@ -158,18 +162,20 @@ export async function installFakeRecorder(
 				ondataavailable: any = null;
 				onstop: any = null;
 				start() {
+					if (throws) throw new Error('NotSupportedError');
 					w.__recStarted++;
 					this.state = 'recording';
 				}
 				stop() {
 					this.state = 'inactive';
 					this.ondataavailable?.({ data: new Blob(['fake-audio'], { type: this.mimeType }) });
-					setTimeout(() => this.onstop?.(), 0);
+					if (defer) w.__recFinishStop = () => this.onstop?.();
+					else setTimeout(() => this.onstop?.(), 0);
 				}
 			}
 			w.MediaRecorder = FakeMR;
 		},
-		{ seen: noticeSeen, keep: keepSR }
+		{ seen: noticeSeen, keep: keepSR, throws: throwOnStart, defer: deferStop }
 	);
 }
 
@@ -409,6 +415,53 @@ test.describe('voice', () => {
 		await expect(page.getByRole('button', { name: /^TEMPLATES/ })).toHaveAttribute('aria-expanded', 'true');
 		expect(contentType.startsWith('audio/')).toBe(true);
 		expect(await page.evaluate(() => (window as any).__tracksStopped)).toBeGreaterThanOrEqual(1);
+	});
+
+	test('server fallback: a throwing recorder releases the mic and reports the failure', async ({ page }) => {
+		await installFakeRecorder(page, { throwOnStart: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errOther })).toHaveCount(1);
+		await expect(mic).toHaveAttribute('data-state', 'error');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+		expect(await page.evaluate(() => (window as any).__tracksStopped)).toBeGreaterThanOrEqual(1);
+	});
+
+	test('server fallback: auto-stop plus a mic press uploads the clip once', async ({ page }) => {
+		await page.clock.install();
+		await installFakeRecorder(page, { deferStop: true });
+		await stubNetwork(page);
+		let uploads = 0;
+		await page.route('http://127.0.0.1:8080/chat/transcribe', (route) => {
+			uploads++;
+			return route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				headers: { 'access-control-allow-origin': '*' },
+				body: JSON.stringify({ text: 'show recurring grants' })
+			});
+		});
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect(await page.evaluate(() => (window as any).__recStarted)).toBe(1);
+		// The 18 s cap asks the recorder to stop; its onstop has not fired yet.
+		await page.clock.fastForward(18_500);
+		await expect
+			.poll(() => page.evaluate(() => typeof (window as any).__recFinishStop))
+			.toBe('function');
+		// A press in that gap must not produce a second upload of the same clip.
+		await mic.click();
+		await page.evaluate(() => (window as any).__recFinishStop());
+		await expect(page.locator('.chip', { hasText: 'Recurring' })).toHaveClass(/active/);
+		await expect(mic).toHaveAttribute('data-state', 'idle');
+		await page.waitForTimeout(300);
+		expect(uploads).toBe(1);
+		await expect(page.locator('.chat-msg.user', { hasText: 'show recurring grants' })).toHaveCount(1);
 	});
 
 	test.describe('server fallback: error messages', () => {

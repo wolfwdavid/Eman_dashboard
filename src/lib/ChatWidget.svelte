@@ -291,7 +291,7 @@
 	let settingsBtnEl = $state();
 	/**
 	 * Current capture: browser recognizer or server recorder. Null when idle.
-	 * @type {null | { kind: 'sr', h: { stop(): void, abort(): void } } | { kind: 'rec', rec: any, ac: AbortController, cancelled: boolean, stopRequested: boolean }}
+	 * @type {null | { kind: 'sr', h: { stop(): void, abort(): void } } | { kind: 'rec', rec: any, ac: AbortController, cancelled: boolean, stopRequested: boolean, uploading: boolean }}
 	 */
 	let capture = null;
 
@@ -407,26 +407,32 @@
 		interim = '';
 		elapsed = 0;
 		/** @type {any} */
-		const cap = { kind: 'rec', rec: null, ac: new AbortController(), cancelled: false, stopRequested: false };
+		const cap = { kind: 'rec', rec: null, ac: new AbortController(), cancelled: false, stopRequested: false, uploading: false };
 		capture = cap;
+		/** @param {'not-allowed' | 'audio-capture' | 'other'} code */
+		const onError = (code) => {
+			if (capture !== cap) return;
+			capture = null;
+			statusKind = null;
+			if (code === 'not-allowed') { micState = 'blocked'; failBubbleMic(COPY.errBlocked); }
+			else if (code === 'audio-capture') { micState = 'error'; failBubbleMic(COPY.errNoMic); }
+			else { micState = 'error'; failBubbleMic(COPY.errOther); }
+		};
 		// getUserMedia() is called synchronously by startRecording (user-gesture rule).
 		startRecording({
 			maxMs: 18000,
 			onTick: (s) => { if (capture === cap) elapsed = s; },
 			onAutoStop: (blob) => { if (capture === cap) upload(cap, blob); },
-			onError: (code) => {
-				if (capture !== cap) return;
-				capture = null;
-				statusKind = null;
-				if (code === 'not-allowed') { micState = 'blocked'; failBubbleMic(COPY.errBlocked); }
-				else if (code === 'audio-capture') { micState = 'error'; failBubbleMic(COPY.errNoMic); }
-				else { micState = 'error'; failBubbleMic(COPY.errOther); }
-			}
+			onError
 		}).then((rec) => {
 			if (!rec) return;
 			cap.rec = rec;
 			if (cap.cancelled) rec.cancel();
 			else if (cap.stopRequested) finishRecording(cap);
+		}).catch(() => {
+			// Anything unexpected while starting: release the mic and never stay in "listening".
+			cap.rec?.cancel();
+			onError('other');
 		});
 	}
 
@@ -442,6 +448,10 @@
 
 	/** @param {any} cap @param {Blob} blob */
 	async function upload(cap, blob) {
+		// One upload per capture: the 18 s auto-stop and a mic press in the gap before the
+		// recorder's onstop both arrive here with the same clip.
+		if (cap.uploading) return;
+		cap.uploading = true;
 		micState = 'processing';
 		statusKind = 'processing';
 		interim = '';

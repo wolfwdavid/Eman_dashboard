@@ -244,6 +244,7 @@ export async function startRecording(opts: RecordOpts, deps: any = {}): Promise<
 	const chunks: Blob[] = [];
 	let cancelled = false;
 	let finished = false;
+	let failed = false;
 	let tickTimer: any;
 	let capTimer: any;
 	let resolveBlob!: (b: Blob) => void;
@@ -280,8 +281,26 @@ export async function startRecording(opts: RecordOpts, deps: any = {}): Promise<
 		return blobPromise;
 	};
 
+	// Any failure once the stream is live: release the microphone, stop the timers and
+	// report it once. The blob promise still resolves (empty) so no caller is left waiting.
+	const fail = () => {
+		if (failed) return;
+		failed = cancelled = finished = true;
+		chunks.length = 0;
+		clearTimers();
+		stopTracks();
+		resolveBlob(new Blob([], { type: mimeType }));
+		opts.onError('other');
+	};
+	recorder.onerror = fail;
+
 	let seconds = 0;
-	recorder.start();
+	try {
+		recorder.start();
+	} catch {
+		fail();
+		return null;
+	}
 	if (opts.onTick) {
 		tickTimer = si(() => {
 			seconds += 1;

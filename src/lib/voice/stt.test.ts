@@ -298,7 +298,7 @@ describe('pickMimeType', () => {
 });
 
 describe('startRecording', () => {
-	function rig(opts: { rejectWith?: string; supported?: string[] } = {}) {
+	function rig(opts: { rejectWith?: string; supported?: string[]; throwOnStart?: boolean } = {}) {
 		const tracks = [{ stop: vi.fn() }, { stop: vi.fn() }];
 		const stream = { getTracks: () => tracks };
 		const getUserMedia = vi.fn(() =>
@@ -313,6 +313,7 @@ describe('startRecording', () => {
 			mimeType: string;
 			ondataavailable: ((e: any) => void) | null = null;
 			onstop: (() => void) | null = null;
+			onerror: ((e: any) => void) | null = null;
 			ctorOpts: any;
 			constructor(
 				public stream: any,
@@ -323,6 +324,7 @@ describe('startRecording', () => {
 				rec = this;
 			}
 			start() {
+				if (opts.throwOnStart) throw new Error('NotSupportedError');
 				this.state = 'recording';
 			}
 			stop() {
@@ -409,6 +411,49 @@ describe('startRecording', () => {
 			expect(await startRecording({ onError }, deps)).toBeNull();
 			expect(onError).toHaveBeenCalledWith(code);
 		}
+	});
+
+	it('a throwing recorder.start() releases the microphone and reports other', async () => {
+		const { deps, tracks } = rig({ throwOnStart: true });
+		const onError = vi.fn();
+		const onTick = vi.fn();
+		const onAutoStop = vi.fn();
+		const r = await startRecording({ onError, onTick, onAutoStop }, deps);
+		expect(r).toBeNull();
+		for (const t of tracks) expect(t.stop).toHaveBeenCalledTimes(1);
+		expect(onError).toHaveBeenCalledTimes(1);
+		expect(onError).toHaveBeenCalledWith('other');
+		await vi.advanceTimersByTimeAsync(30000);
+		expect(onTick).not.toHaveBeenCalled();
+		expect(onAutoStop).not.toHaveBeenCalled();
+	});
+
+	it('a recorder error mid-capture releases the microphone and reports other once', async () => {
+		const { deps, tracks, rec } = rig();
+		const onError = vi.fn();
+		const onTick = vi.fn();
+		const onAutoStop = vi.fn();
+		const r = await startRecording({ onError, onTick, onAutoStop }, deps);
+		rec().onerror?.({ error: new Error('boom') });
+		rec().onerror?.({ error: new Error('boom') });
+		for (const t of tracks) expect(t.stop).toHaveBeenCalled();
+		expect(onError).toHaveBeenCalledTimes(1);
+		expect(onError).toHaveBeenCalledWith('other');
+		await vi.advanceTimersByTimeAsync(30000);
+		expect(onTick).not.toHaveBeenCalled();
+		expect(onAutoStop).not.toHaveBeenCalled();
+		// A late stop() still resolves, with nothing in it.
+		expect((await r!.stop()).size).toBe(0);
+	});
+
+	it('auto-stop and a manual stop share one blob', async () => {
+		const { deps } = rig();
+		const onAutoStop = vi.fn();
+		const r = await startRecording({ onAutoStop, onError: vi.fn(), maxMs: 1000 }, deps);
+		await vi.advanceTimersByTimeAsync(1000);
+		const manual = await r!.stop();
+		expect(onAutoStop).toHaveBeenCalledTimes(1);
+		expect(onAutoStop.mock.calls[0][0]).toBe(manual);
 	});
 
 	it('reports other when the APIs are missing', async () => {
