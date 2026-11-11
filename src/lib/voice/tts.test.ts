@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ttsAvailable, toSpeech, chunkSpeech, speak, cancelSpeech } from './tts';
+import { ttsAvailable, toSpeech, chunkSpeech, speak, cancelSpeech, isSpeaking } from './tts';
 
 function fakes() {
 	const calls: string[] = [];
@@ -96,5 +96,17 @@ describe('ttsAvailable', () => {
 		expect(ttsAvailable({ speechSynthesis: {} })).toBe(true);
 		expect(ttsAvailable({})).toBe(false);
 		expect(ttsAvailable()).toBe(false);
+	});
+});
+
+describe('isSpeaking', () => {
+	it('is true when the synth reports speaking', () => {
+		const synth = { cancel() {}, speak() {}, speaking: true };
+		expect(isSpeaking({ synth })).toBe(true);
+	});
+	it('is false when idle or when there is no synth', () => {
+		const synth = { cancel() {}, speak() {}, speaking: false };
+		expect(isSpeaking({ synth })).toBe(false);
+		expect(isSpeaking({ synth: null })).toBe(false);
 	});
 });

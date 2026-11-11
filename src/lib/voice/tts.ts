@@ -5,6 +5,7 @@ import { truncateReply } from './copy';
 type Synth = {
 	cancel(): void;
 	speak(u: unknown): void;
+	speaking?: boolean;
 };
 type TtsDeps = { synth?: Synth | null; Utterance?: new (text: string) => any };
 
@@ -67,6 +68,14 @@ export function cancelSpeech(deps?: TtsDeps): void {
 		resolveSynth(deps)?.cancel();
 	} catch {
 		/* ignore */
+	}
+}
+
+export function isSpeaking(deps?: TtsDeps): boolean {
+	try {
+		return !!resolveSynth(deps)?.speaking;
+	} catch {
+		return false;
 	}
 }
 

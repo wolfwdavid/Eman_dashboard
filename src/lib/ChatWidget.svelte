@@ -5,7 +5,7 @@
 	import { createActions } from '$lib/voice/actions';
 	import { createRouter, isEmptyUtterance, capTranscript } from '$lib/voice/router';
 	import { COPY, assistantLive } from '$lib/voice/copy';
-	import { cancelSpeech } from '$lib/voice/tts';
+	import { speak, cancelSpeech, isSpeaking, ttsAvailable } from '$lib/voice/tts';
 	import { onMount, untrack, tick } from 'svelte';
 	import {
 		listen,
@@ -70,6 +70,28 @@
 		setTimeout(() => { liveText = text; }, 50);
 	}
 
+	// Spoken replies (D-04). Read from storage in onMount; the synth is touched only in handlers.
+	let spoken = $state(false);
+	let canSpeak = $state(false);
+
+	/**
+	 * The one gate for speech output. Speaks only when spoken replies are on and the chat
+	 * is open, except for the confirmation of the command that just collapsed the chat.
+	 */
+	function say(/** @type {string} */ text, { allowClosed = false } = {}) {
+		if (!spoken || !canSpeak) return;
+		if (!open && !allowClosed) return;
+		speak(text);
+	}
+
+	function toggleSpoken() {
+		spoken = !spoken;
+		setBool(PREF_KEYS.spokenReplies, spoken);
+		// Turning on speaks inside the click handler, which unlocks Safari/iOS speech.
+		if (spoken) speak(COPY.spokenOn);
+		else cancelSpeech();
+	}
+
 	function pushUser(/** @type {string} */ text) {
 		messages = [...messages, { id: nextId++, text, from: 'user' }];
 		scrollDown();
@@ -92,11 +114,13 @@
 		busy = true;
 		messages = [...messages, { id: nextId++, text: COPY.asking, from: 'typing' }];
 		scrollDown();
+		say(COPY.asking);
 		/** @param {string} t */
 		const failBubble = (t) => {
 			messages = messages.filter(m => m.from !== 'typing');
 			pushBot(t);
 			announce(t);
+			say(t);
 		};
 		try {
 			const r = await fetch(BASE + '/chat', {
@@ -117,6 +141,7 @@
 							messages = messages.filter(m => m.from !== 'typing');
 							pushBot(job.reply);
 							announce(assistantLive(String(job.reply ?? '')));
+							say(String(job.reply ?? ''));
 							break;
 						}
 						if (job.status === 'error') {
@@ -180,6 +205,7 @@
 			pushBot(r.text, { kind: 'choices', options: r.options, resolved: undefined });
 			pending = r.options;
 			announce(r.live);
+			say(r.spoken);
 			return;
 		}
 		const o = r.pendingOutcome;
@@ -188,10 +214,13 @@
 		if (r.type === 'command') {
 			pushBot(r.text, { kind: 'command' });
 			announce(r.live);
-			collapseRule(r.opened);
+			// After a collapse the chat is closed: the confirmation is the one allowed exception.
+			const collapsed = collapseRule(r.opened);
+			say(r.spoken, { allowClosed: collapsed });
 		} else if (r.type === 'busy') {
 			pushBot(r.text);
 			announce(r.live);
+			say(r.text);
 		} else {
 			announce(r.live);
 			askAssistant(r.text);
@@ -205,7 +234,9 @@
 		const res = actions.run({ kind: 'open-grant', id: option.id, label: option.label });
 		pushBot(res.text, { kind: 'command' });
 		announce(res.text);
-		if (!collapseRule(res.opened)) focusMic();
+		const collapsed = collapseRule(res.opened);
+		say(res.spoken, { allowClosed: collapsed });
+		if (!collapsed) focusMic();
 	}
 
 	function cancelChoices(/** @type {any} */ msg) {
@@ -215,6 +246,7 @@
 		const res = actions.run({ kind: 'cancel-pending' });
 		pushBot(res.text, { kind: 'command' });
 		announce(res.text);
+		say(res.spoken);
 		focusMic();
 	}
 
@@ -301,6 +333,7 @@
 	function failBubbleMic(text) {
 		pushBot(text);
 		announce(text);
+		say(text);
 	}
 
 	function showDidnt() {
@@ -309,6 +342,7 @@
 		interim = '';
 		statusKind = 'didnt';
 		announce(COPY.didntCatchLive);
+		say(`${COPY.didntCatchLead} ${COPY.didntCatchHint}`);
 	}
 
 	/** @param {string} t */
@@ -510,6 +544,12 @@
 			cancelCapture();
 			return true;
 		},
+		// (2) speech being read aloud: stop it; the toggle stays on.
+		() => {
+			if (!spoken || !isSpeaking()) return false;
+			cancelSpeech();
+			return true;
+		},
 		// (3) privacy notice: hide without remembering; focus returns to the mic.
 		() => {
 			if (!noticeVisible) return false;
@@ -548,6 +588,8 @@
 		const secure = isSecureContextSafe();
 		micState = secure && (hasSR || hasRec) ? 'idle' : 'unavailable';
 		forceServer = getBool(PREF_KEYS.forceServer);
+		spoken = getBool(PREF_KEYS.spokenReplies);
+		canSpeak = ttsAvailable();
 		mounted = true;
 		const onVis = () => { if (document.hidden) cancelCapture(); };
 		document.addEventListener('visibilitychange', onVis);
@@ -602,6 +644,16 @@
 	<div class="chat-head">
 		<span class="chat-title">DID Grant Assistant</span>
 		<div class="chat-head-actions">
+			{#if mounted && canSpeak}
+				<button type="button" class="chat-speaker" aria-label="Spoken replies"
+					aria-pressed={spoken} title={spoken ? 'Spoken replies: on' : 'Spoken replies: off'}
+					onclick={toggleSpoken}>
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M4 9v6h4l5 4V5L8 9H4z" />
+						{#if spoken}<path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" />{:else}<path d="M17 9.5l4 5" /><path d="M21 9.5l-4 5" />{/if}
+					</svg>
+				</button>
+			{/if}
 			{#if micState !== 'unavailable'}
 				<button type="button" class="chat-settings" aria-label="Voice settings"
 					aria-expanded={settingsOpen} aria-controls="voice-settings" title="Voice settings"
@@ -779,13 +831,13 @@
 	.chat-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.chat-head-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 	/* Scoped to the new header buttons; the close button keeps its look. */
-	.chat-head .chat-settings {
+	.chat-head .chat-settings, .chat-head .chat-speaker {
 		width: 32px; height: 32px; border-radius: 8px; padding: 0;
 		background: none; border: none; color: var(--cw-on-brand);
 		display: flex; align-items: center; justify-content: center; cursor: pointer;
 	}
-	.chat-head .chat-settings:focus-visible { outline: 2px solid var(--cw-on-brand); outline-offset: 2px; }
-	.chat-head .chat-settings[aria-expanded='true'] {
+	.chat-head .chat-settings:focus-visible, .chat-head .chat-speaker:focus-visible { outline: 2px solid var(--cw-on-brand); outline-offset: 2px; }
+	.chat-head .chat-settings[aria-expanded='true'], .chat-head .chat-speaker[aria-pressed='true'] {
 		background: color-mix(in srgb, var(--cw-on-brand) 18%, transparent); opacity: 1;
 	}
 
@@ -947,4 +999,5 @@
 		font-size: 1rem; display: flex; align-items: center; justify-content: center;
 	}
 	.chat-send:disabled { opacity: .5; cursor: default; }
+
 </style>
