@@ -388,9 +388,11 @@ def _make_handler(
                 self._json_response(400, {"error": "Empty body"})
                 return
             if n > MAX_AUDIO_BYTES:
-                # Answer without reading the body and drop the connection (T-08-06).
+                # Answer without reading the body and drop the connection (T-08-06). Only
+                # the small fixed amount in _linger is discarded so the reply can be seen.
                 self.close_connection = True
-                self._json_response(413, {"error": "Audio too large"})
+                self._json_response(413, {"error": "Audio too large"}, {"Connection": "close"})
+                self._linger()
                 return
             # The whole body is in memory before a Whisper slot is taken, so a slow
             # sender can only tie up its own connection, never a slot.
