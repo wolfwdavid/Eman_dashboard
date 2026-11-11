@@ -267,7 +267,252 @@ function parseFilter(norm: string): Intent | null {
 // Step 4: navigate (matcher added below)
 // ---------------------------------------------------------------------------
 
-// NAVIGATE_PLACEHOLDER
+// Matcher tuning constants. Tune against commands.test.ts, then leave alone.
+export const HIGH = 0.82; // confident single match
+export const LOW = 0.55; // below this the speech is not a funder name at all
+export const MARGIN = 0.08; // best must beat the runner-up by this much to open directly
+
+/** Spoken variants -> canonical phrase (applied to the normalized navigate remainder). */
+export const FUNDER_ALIASES: Record<string, string> = {
+	's n f': 'snf',
+	't 7': 't7',
+	'thirty seven': '37',
+	'w k kellogg': 'kellogg',
+	'ben and jerry': 'ben and jerrys',
+	'mackenzie scott': 'yield giving',
+	'c e k': 'cek',
+	't g r': 'tgr'
+};
+
+const NAV_VERBS = ['take me to', 'go to', 'open', 'show', 'select', 'find'];
+const QUESTION_WORDS = new Set(['how', 'what', 'why', 'when', 'can', 'do', 'does', 'is', 'are', 'tell']);
+const MAX_NAV_TOKENS = 6;
+const GENERIC = new Set([
+	'the',
+	'foundation',
+	'fund',
+	'grant',
+	'grants',
+	'charitable',
+	'inc',
+	'program',
+	'initiative',
+	'of',
+	'for',
+	'a',
+	'and'
+]);
+
+/** Label shown for a grant in "Did you mean" lists: funder, or "funder: program" for multi-row funders. */
+export function optionLabel(grant: Grant, grants: Grant[]): string {
+	const rows = grants.filter((g) => g.funder === grant.funder).length;
+	return rows > 1 && grant.program ? `${grant.funder}: ${grant.program}` : grant.funder;
+}
+
+function lev(a: string, b: string): number {
+	const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+	for (let i = 1; i <= a.length; i++) {
+		let diag = prev[0];
+		prev[0] = i;
+		for (let j = 1; j <= b.length; j++) {
+			const tmp = prev[j];
+			prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+			diag = tmp;
+		}
+	}
+	return prev[b.length];
+}
+
+const phon = (t: string): string =>
+	t.charAt(0) + t.slice(1).replace(/[aeiou]/g, '').replace(/(.)\1+/g, '$1');
+
+/** Token similarity in [0,1]: exact, prefix, close edit distance, or same consonant skeleton. */
+function sim(a: string, b: string): number {
+	if (a === b) return 1;
+	const m = Math.min(a.length, b.length);
+	if (m >= 3 && (a.startsWith(b) || b.startsWith(a))) return 0.92;
+	if (m >= 4) {
+		const r = 1 - lev(a, b) / Math.max(a.length, b.length);
+		if (r >= 0.75) return r;
+		const pa = phon(a);
+		if (pa.length >= 3 && pa === phon(b)) return 0.8;
+	}
+	return 0;
+}
+
+/** Merge adjacent tokens of `a` that together match a single token of `b` ("third wave" ~ "thirdwave"). */
+function mergeJoins(a: string[], b: string[]): string[] {
+	const out: string[] = [];
+	for (let i = 0; i < a.length; i++) {
+		if (i + 1 < a.length) {
+			const joined = a[i] + a[i + 1];
+			if (b.some((t) => t.length >= 5 && sim(joined, t) >= 0.9)) {
+				out.push(joined);
+				i++;
+				continue;
+			}
+		}
+		out.push(a[i]);
+	}
+	return out;
+}
+
+type Entry = { g: Grant; sets: string[][]; funderSet: string[]; progTokens: string[] };
+type Index = { entries: Entry[]; df: Map<string, number>; n: number };
+
+const INDEX = new WeakMap<Grant[], Index>();
+
+function uniq(a: string[]): string[] {
+	return [...new Set(a)];
+}
+
+function buildIndex(grants: Grant[]): Index {
+	const df = new Map<string, number>();
+	const entries: Entry[] = grants.map((g) => {
+		const parens = [...g.funder.matchAll(/\(([^)]*)\)/g)].map((m) => tokens(normalize(m[1])));
+		const base = tokens(normalize(g.funder.replace(/\([^)]*\)/g, ' ')));
+		const funderSet = uniq(tokens(normalize(g.funder)));
+		const prog = uniq(tokens(normalize(g.program ?? '')));
+		const sets = [
+			uniq([...funderSet, ...prog]),
+			funderSet,
+			uniq(base),
+			...parens.map(uniq),
+			prog
+		].filter((s) => s.length > 0);
+		const progTokens = prog.filter((t) => !GENERIC.has(t) && !funderSet.includes(t));
+		for (const t of new Set(sets[0])) df.set(t, (df.get(t) ?? 0) + 1);
+		return { g, sets, funderSet, progTokens };
+	});
+	return { entries, df, n: grants.length };
+}
+
+function getIndex(grants: Grant[]): Index {
+	let idx = INDEX.get(grants);
+	if (!idx) {
+		idx = buildIndex(grants);
+		INDEX.set(grants, idx);
+	}
+	return idx;
+}
+
+const idf = (ix: Index, t: string): number => Math.log((ix.n + 1) / ((ix.df.get(t) ?? 0) + 1)) + 1;
+// Generic words and bare initials carry little identifying weight.
+const weight = (ix: Index, t: string): number =>
+	idf(ix, t) * (GENERIC.has(t) || (t.length <= 2 && !/\d/.test(t)) ? 0.2 : 1);
+
+/** Weighted fraction of `from` tokens that find a match in `to`. */
+function coverage(ix: Index, from: string[], to: string[]): number {
+	let num = 0;
+	let den = 0;
+	for (const f of from) {
+		const w = weight(ix, f);
+		den += w;
+		let best = 0;
+		for (const t of to) best = Math.max(best, sim(f, t));
+		num += w * best;
+	}
+	return den === 0 ? 0 : num / den;
+}
+
+function scoreSet(ix: Index, q: string[], c: string[]): number {
+	const q2 = mergeJoins(q, c);
+	const c2 = mergeJoins(c, q);
+	return 0.7 * coverage(ix, q2, c2) + 0.3 * coverage(ix, c2, q2);
+}
+
+type Match =
+	| { kind: 'open'; rows: Grant[] }
+	| { kind: 'ambiguous'; rows: Grant[] }
+	| { kind: 'none' };
+
+function aliasify(norm: string): string {
+	let s = norm;
+	const keys = Object.keys(FUNDER_ALIASES).sort((a, b) => b.length - a.length);
+	for (const k of keys) {
+		s = s.replace(new RegExp(`(?:^| )${k}(?= |$)`, 'g'), (m) => (m.startsWith(' ') ? ' ' : '') + FUNDER_ALIASES[k]);
+	}
+	return s;
+}
+
+/** Fuzzy-match a normalized funder phrase against the pool (default: every grant). */
+function matchFunder(phrase: string, grants: Grant[], poolIds?: Set<string>): Match {
+	// Within a small pending pool the options were already offered, so a clear winner is enough.
+	const openAt = poolIds ? LOW : HIGH;
+	const ix = getIndex(grants);
+	const q = tokens(aliasify(phrase)).filter((t, i) => !(i === 0 && (t === 'the' || t === 'a')));
+	if (q.length === 0 || q.every((t) => GENERIC.has(t))) return { kind: 'none' };
+	const pool = poolIds ? ix.entries.filter((e) => poolIds.has(e.g.id)) : ix.entries;
+	const scored = pool
+		.map((e) => ({ e, score: Math.max(...e.sets.map((s) => scoreSet(ix, q, s))) }))
+		.sort((a, b) => b.score - a.score);
+	const best = scored[0];
+	if (!best || best.score < LOW) return { kind: 'none' };
+
+	// Same-funder family: the query names the funder but no program -> always ask.
+	const family = scored.filter((s) => s.e.g.funder === best.e.g.funder);
+	if (family.length > 1) {
+		const progHit = best.e.progTokens.some((pt) => q.some((qt) => sim(qt, pt) >= 0.75));
+		const funderCover = coverage(ix, q, best.e.funderSet);
+		if (!progHit && funderCover >= 0.9) {
+			return { kind: 'ambiguous', rows: family.slice(0, 3).map((s) => s.e.g) };
+		}
+	}
+
+	const second = scored.find((s) => s.e !== best.e)?.score ?? 0;
+	if (best.score >= openAt && best.score - second >= MARGIN) return { kind: 'open', rows: [best.e.g] };
+
+	// Ambiguous or merely plausible: offer the closest 2 or 3 rows.
+	let near = scored.filter((s) => s.score >= LOW && s.score >= best.score - 0.25).slice(0, 3);
+	if (near.length < 2) near = scored.slice(0, 2);
+	if (near.length < 2) return { kind: 'none' };
+	return { kind: 'ambiguous', rows: near.map((s) => s.e.g) };
+}
+
+/** Strip a navigate verb; returns the remainder tokens' phrase or null when no verb. */
+function navigateRemainder(norm: string): string | null {
+	for (const v of NAV_VERBS) {
+		if (norm.startsWith(v + ' ')) {
+			return norm
+				.slice(v.length + 1)
+				.replace(/^(?:me|us)\s+/, '')
+				.trim();
+		}
+	}
+	return null;
+}
+
+function parseNavigate(norm: string, ctx: Ctx): Intent | null {
+	const rem = navigateRemainder(norm);
+	if (rem === null || rem === '') return null;
+	const t = tokens(rem);
+	if (t.length > MAX_NAV_TOKENS || QUESTION_WORDS.has(t[0])) return null;
+	const m = matchFunder(rem, ctx.grants);
+	if (m.kind === 'open') {
+		const g = m.rows[0];
+		return { kind: 'open-grant', id: g.id, label: optionLabel(g, ctx.grants) };
+	}
+	if (m.kind === 'ambiguous') {
+		return {
+			kind: 'did-you-mean',
+			options: m.rows.map((g) => ({ id: g.id, label: optionLabel(g, ctx.grants) }))
+		};
+	}
+	return null;
+}
+
+/** "the justfilms one" while options are pending: re-match restricted to those options. */
+function rematchPending(norm: string, ctx: Ctx): Intent | null {
+	let rem = navigateRemainder(norm) ?? norm;
+	rem = rem.replace(/^the\s+/, '').replace(/\s+one$/, '');
+	if (!rem || tokens(rem).length > 4) return null;
+	const ids = new Set((ctx.pending ?? []).map((p) => p.id));
+	const m = matchFunder(rem, ctx.grants, ids);
+	if (m.kind !== 'open') return null;
+	const g = m.rows[0];
+	const label = ctx.pending?.find((p) => p.id === g.id)?.label ?? optionLabel(g, ctx.grants);
+	return { kind: 'open-grant', id: g.id, label };
+}
 
 // ---------------------------------------------------------------------------
 // parse
@@ -283,6 +528,8 @@ export function parse(raw: string, ctx: Ctx): Intent {
 		if (CANCEL_PHRASES.includes(norm)) return { kind: 'cancel-pending' };
 		const opt = resolveOrdinal(norm, ctx.pending);
 		if (opt) return { kind: 'open-grant', id: opt.id, label: opt.label };
+		const re = rematchPending(norm, ctx);
+		if (re) return re;
 	}
 
 	// 2. system phrases
@@ -295,7 +542,9 @@ export function parse(raw: string, ctx: Ctx): Intent {
 	const filter = parseFilter(norm);
 	if (filter) return filter;
 
-	// 4. navigate (not yet implemented: falls through to chat)
+	// 4. navigate
+	const nav = parseNavigate(norm, ctx);
+	if (nav) return nav;
 
 	// 5. chat
 	return { kind: 'chat', text };

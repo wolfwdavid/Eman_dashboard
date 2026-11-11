@@ -163,3 +163,137 @@ describe('chat fallthrough', () => {
 		expect(parse('   ', ctx).kind).toBe('chat');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Navigate: fuzzy funder matcher, did-you-mean, question guard
+// ---------------------------------------------------------------------------
+
+const idOf = (re: RegExp): string => {
+	const hits = grants.filter((g) => re.test(`${g.funder} ${g.program ?? ''}`));
+	if (hits.length !== 1) throw new Error(`idOf(${re}) matched ${hits.length} rows`);
+	return hits[0].id;
+};
+
+describe('navigate: single matches', () => {
+	it.each([
+		['open north star', /north star/i],
+		['open ben and jerrys', /ben & jerry/i],
+		["open Ben & Jerry's", /ben & jerry/i],
+		['go to kellogg', /kellogg/i],
+		['show snf', /\(SNF\)/],
+		['open s n f', /\(SNF\)/],
+		['open thirty seven angels', /37 angels/i],
+		['open t 7 summit', /t7 summit/i],
+		['open the third wave mobilize', /mobilize/i],
+		['take me to tisch', /tisch/i],
+		['find echoing green', /echoing green/i]
+	])('%s', (raw, re) => {
+		const out = parse(raw, ctx);
+		expect(out.kind).toBe('open-grant');
+		if (out.kind === 'open-grant') expect(out.id).toBe(idOf(re));
+	});
+
+	it('labels single-row funders by funder name', () => {
+		expect(parse('open north star', ctx)).toEqual({
+			kind: 'open-grant',
+			id: idOf(/north star/i),
+			label: 'North Star Fund'
+		});
+	});
+});
+
+describe('navigate: did you mean', () => {
+	it('open ford -> exactly 2 options with funder: program labels', () => {
+		const out = parse('open ford', ctx);
+		expect(out.kind).toBe('did-you-mean');
+		if (out.kind !== 'did-you-mean') return;
+		expect(out.options).toHaveLength(2);
+		expect(out.options.map((o) => o.label)).toEqual(
+			expect.arrayContaining([
+				'Ford Foundation: JustFilms Documentary Production',
+				'Ford Foundation: NYC Good Neighbor Committee'
+			])
+		);
+	});
+
+	it('open bank of america -> exactly 3 options', () => {
+		const out = parse('open bank of america', ctx);
+		expect(out.kind).toBe('did-you-mean');
+		if (out.kind === 'did-you-mean') expect(out.options).toHaveLength(3);
+	});
+
+	it.each([
+		['open third wave', 2],
+		['open borealis', 2]
+	])('%s -> %i options', (raw, n) => {
+		const out = parse(raw, ctx);
+		expect(out.kind).toBe('did-you-mean');
+		if (out.kind === 'did-you-mean') expect(out.options).toHaveLength(n);
+	});
+
+	it('open foundation never yields a confident single pick', () => {
+		const out = parse('open foundation', ctx);
+		expect(out.kind).not.toBe('open-grant');
+		if (out.kind === 'did-you-mean') {
+			expect(out.options.length).toBeGreaterThanOrEqual(2);
+			expect(out.options.length).toBeLessThanOrEqual(3);
+		}
+	});
+
+	it('option count is always 2 or 3 across many phrases', () => {
+		for (const p of ['open ford', 'open foundation', 'open bank', 'open fund', 'open thrive', 'open grants']) {
+			const out = parse(p, ctx);
+			if (out.kind === 'did-you-mean') {
+				expect(out.options.length).toBeGreaterThanOrEqual(2);
+				expect(out.options.length).toBeLessThanOrEqual(3);
+			}
+		}
+	});
+
+	it('every emitted id comes from the grants array', () => {
+		const ids = new Set(grants.map((g) => g.id));
+		for (const p of ['open ford', 'open bank of america', 'open north star', 'open borealis']) {
+			const out = parse(p, ctx);
+			if (out.kind === 'open-grant') expect(ids.has(out.id)).toBe(true);
+			if (out.kind === 'did-you-mean') for (const o of out.options) expect(ids.has(o.id)).toBe(true);
+		}
+	});
+
+	it('re-matches inside pending options ("the justfilms one")', () => {
+		const pending = [
+			{ id: idOf(/justfilms/i), label: 'Ford Foundation: JustFilms Documentary Production' },
+			{ id: idOf(/good neighbor/i), label: 'Ford Foundation: NYC Good Neighbor Committee' }
+		];
+		expect(parse('the justfilms one', { grants, pending })).toEqual({
+			kind: 'open-grant',
+			id: pending[0].id,
+			label: pending[0].label
+		});
+		expect(parse('the good neighbor one', { grants, pending })).toEqual({
+			kind: 'open-grant',
+			id: pending[1].id,
+			label: pending[1].label
+		});
+	});
+});
+
+describe('navigate: question guard and unknown names', () => {
+	it.each([
+		'what is the deadline for ford',
+		'show me how to apply to ford',
+		'how do I apply to north star',
+		'open the north star fund nyc organizing grants and tell me everything about it',
+		'open zzzz quux'
+	])('%s -> chat', (raw) => {
+		expect(parse(raw, ctx).kind).toBe('chat');
+	});
+});
+
+describe('performance', () => {
+	it('100 parses finish well under 250 ms', () => {
+		const phrases = ['open north star', 'open ford', 'show recurring grants', 'open zzzz quux'];
+		const t0 = performance.now();
+		for (let i = 0; i < 100; i++) parse(phrases[i % phrases.length], ctx);
+		expect(performance.now() - t0).toBeLessThan(250);
+	});
+});
