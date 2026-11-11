@@ -9,7 +9,11 @@ import {
 	transcribeBlob
 } from './stt';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+	vi.useFakeTimers();
+	FakeSR.autoStart = true;
+	FakeSR.throwOnStart = false;
+});
 afterEach(() => vi.useRealTimers());
 
 class FakeSR {
@@ -24,11 +28,18 @@ class FakeSR {
 	onresult: ((e: any) => void) | null = null;
 	onerror: ((e: any) => void) | null = null;
 	onend: (() => void) | null = null;
+	onstart: (() => void) | null = null;
+	onaudiostart: (() => void) | null = null;
+	/** false: the engine stays in its permission prompt until emitStart(). */
+	static autoStart = true;
+	static throwOnStart = false;
 	constructor() {
 		FakeSR.last = this;
 	}
 	start() {
+		if (FakeSR.throwOnStart) throw new Error('InvalidStateError');
 		this.started++;
+		if (FakeSR.autoStart) this.onstart?.();
 	}
 	stop() {
 		this.stopped++;
@@ -131,6 +142,102 @@ describe('listen', () => {
 		sr.onend?.();
 		vi.advanceTimersByTime(20000);
 		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+	});
+
+	it('end after interim results only commits the last interim text as the final', () => {
+		const { cb, sr } = mkListen();
+		sr.emitResults([{ t: 'show recur', final: false }]);
+		sr.emitResults([{ t: ' show recurring grants ', final: false }]);
+		sr.onend?.();
+		sr.onend?.();
+		vi.advanceTimersByTime(60000);
+		expect(cb.onFinal).toHaveBeenCalledTimes(1);
+		expect(cb.onFinal).toHaveBeenCalledWith('show recurring grants');
+		expect(cb.onFail).not.toHaveBeenCalled();
+	});
+
+	it('end after an empty interim result is a single no-speech failure', () => {
+		const { cb, sr } = mkListen();
+		sr.emitResults([{ t: '   ', final: false }]);
+		sr.onend?.();
+		sr.onend?.();
+		expect(cb.onFinal).not.toHaveBeenCalled();
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+	});
+
+	it('stop() after interim results delivers them when the engine ends without a final', () => {
+		const { cb, h, sr } = mkListen();
+		sr.emitResults([{ t: 'open ford', final: false }]);
+		h.stop();
+		expect(sr.stopped).toBe(1);
+		sr.onend?.();
+		expect(cb.onFinal).toHaveBeenCalledTimes(1);
+		expect(cb.onFinal).toHaveBeenCalledWith('open ford');
+	});
+
+	it('a throwing start() fails once as other and leaves nothing running', () => {
+		FakeSR.throwOnStart = true;
+		const { cb, h, sr } = mkListen();
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('other');
+		h.stop();
+		h.abort();
+		sr.onend?.();
+		vi.advanceTimersByTime(60000);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFinal).not.toHaveBeenCalled();
+		expect(sr.stopped).toBe(0);
+	});
+
+	it('the silence timer starts when the engine starts, not at start()', () => {
+		FakeSR.autoStart = false;
+		const { cb, sr } = mkListen();
+		// Permission prompt still open: well past 8 s, nothing is reported.
+		vi.advanceTimersByTime(20000);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		sr.onstart?.();
+		vi.advanceTimersByTime(3000);
+		// A second start signal does not restart the count.
+		sr.onaudiostart?.();
+		vi.advanceTimersByTime(4999);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+		expect(sr.aborted).toBe(1);
+	});
+
+	it('onaudiostart alone arms the silence timer', () => {
+		FakeSR.autoStart = false;
+		const { cb, sr } = mkListen({ silenceMs: 1000 });
+		vi.advanceTimersByTime(5000);
+		sr.onaudiostart?.();
+		vi.advanceTimersByTime(999);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+	});
+
+	it('an engine that never starts still settles at the outer guard', () => {
+		FakeSR.autoStart = false;
+		const { cb, sr } = mkListen();
+		vi.advanceTimersByTime(29999);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+		expect(sr.aborted).toBe(1);
+		sr.onstart?.();
+		vi.advanceTimersByTime(60000);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+	});
+
+	it('honours a custom startGuardMs', () => {
+		FakeSR.autoStart = false;
+		const { cb } = mkListen({ startGuardMs: 2000 });
+		vi.advanceTimersByTime(2000);
 		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
 	});
 

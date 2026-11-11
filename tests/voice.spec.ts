@@ -62,10 +62,17 @@ export async function openChat(page: Page) {
  * Replace SpeechRecognition with a controllable fake. __interim / __say drive the
  * active recognizer; __srStarted counts start() calls. Seeds the browser-path privacy
  * notice as seen unless noticeSeen is false.
+ * deferStart: the engine does not report "start" until __srStart() (an open permission
+ * prompt). throwOnStart: start() throws. __srEnd() ends the session with no final result.
  */
-export async function installFakeSR(page: Page, opts: { noticeSeen?: boolean } = {}) {
+export async function installFakeSR(
+	page: Page,
+	opts: { noticeSeen?: boolean; deferStart?: boolean; throwOnStart?: boolean } = {}
+) {
 	const noticeSeen = opts.noticeSeen ?? true;
-	await page.addInitScript((seen: boolean) => {
+	const deferStart = opts.deferStart ?? false;
+	const throwOnStart = opts.throwOnStart ?? false;
+	await page.addInitScript(({ seen, defer, throws }: { seen: boolean; defer: boolean; throws: boolean }) => {
 		const w = window as any;
 		if (seen) {
 			localStorage.setItem('did.voice.notice.browser', '1');
@@ -81,9 +88,13 @@ export async function installFakeSR(page: Page, opts: { noticeSeen?: boolean } =
 			onresult: any = null;
 			onerror: any = null;
 			onend: any = null;
+			onstart: any = null;
+			onaudiostart: any = null;
 			start() {
+				if (throws) throw new Error('InvalidStateError');
 				FakeSR.last = this;
 				w.__srStarted++;
+				if (!defer) this.onstart?.();
 			}
 			stop() {
 				setTimeout(() => this.onend?.(), 0);
@@ -104,7 +115,9 @@ export async function installFakeSR(page: Page, opts: { noticeSeen?: boolean } =
 			FakeSR.last?.onresult?.(result(t, true));
 			setTimeout(() => FakeSR.last?.onend?.(), 0);
 		};
-	}, noticeSeen);
+		w.__srStart = () => FakeSR.last?.onstart?.();
+		w.__srEnd = () => FakeSR.last?.onend?.();
+	}, { seen: noticeSeen, defer: deferStart, throws: throwOnStart });
 }
 
 /**
@@ -293,6 +306,58 @@ test.describe('voice', () => {
 		const live = (await page.getByRole('status').textContent()) ?? '';
 		expect(live.split("I didn't catch that.").length - 1).toBe(1);
 		await expect(page.locator('.chat-msg')).toHaveCount(bubbles);
+	});
+
+	test('voice silence: a slow permission prompt is not silence', async ({ page }) => {
+		await page.clock.install();
+		await installFakeSR(page, { deferStart: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		// The recognizer has not started yet (prompt open): 8 s must not count as silence.
+		await page.clock.fastForward(12_000);
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.locator('#voice-status')).toContainText('Listening…');
+		await expect(page.locator('#voice-status')).not.toContainText("I didn't catch that.");
+
+		await page.evaluate(() => (window as any).__srStart());
+		await page.clock.fastForward(8500);
+		await expect(page.locator('#voice-status')).toContainText("I didn't catch that.");
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('voice end: interim words are used when the recognizer ends without a final', async ({ page }) => {
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__interim('show recurring grants'));
+		await expect(page.locator('#voice-status')).toContainText('show recurring grants');
+		await page.evaluate(() => (window as any).__srEnd());
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await expect(mic).toHaveAttribute('data-state', 'idle');
+		await expect(page.locator('.chat-msg.user', { hasText: 'show recurring grants' })).toBeVisible();
+		await expect(page.locator('.chip', { hasText: 'Recurring' })).toHaveClass(/active/);
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+	});
+
+	test('voice start failure: a throwing recognizer leaves the mic usable', async ({ page }) => {
+		await installFakeSR(page, { throwOnStart: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errOther })).toHaveCount(1);
+		await expect(mic).toHaveAttribute('data-state', 'error');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+		// Not stuck: the next press tries again.
+		await mic.click();
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errOther })).toHaveCount(2);
 	});
 
 	test('voice cancel: Escape and typing', async ({ page }) => {

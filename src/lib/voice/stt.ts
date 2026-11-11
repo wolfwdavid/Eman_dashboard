@@ -54,7 +54,10 @@ type ListenOpts = {
 	onInterim(t: string): void;
 	onFinal(t: string): void;
 	onFail(code: SttFailCode): void;
+	/** Silence allowed once the engine is capturing (default 8 s). */
 	silenceMs?: number;
+	/** Longest wait for the engine to start, e.g. behind a permission prompt (default 30 s). */
+	startGuardMs?: number;
 	lang?: string;
 };
 type ListenDeps = {
@@ -74,7 +77,8 @@ export function listen(opts: ListenOpts, deps: ListenDeps = {}): { stop(): void;
 
 	const r = new SR();
 	let settled = false;
-	let gotResult = false;
+	let started = false;
+	let lastText = '';
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	const clearTimer = () => {
@@ -103,12 +107,31 @@ export function listen(opts: ListenOpts, deps: ListenDeps = {}): { stop(): void;
 	r.maxAlternatives = 1;
 	r.lang = opts.lang ?? 'en-US';
 
+	// One timer, two phases: the outer guard until the engine reports it started, then
+	// the silence window. A slow permission prompt therefore never counts as silence.
+	const arm = (ms: number) => {
+		clearTimer();
+		timer = st(() => {
+			timer = undefined;
+			settle(() => opts.onFail('no-speech'));
+			tryAbort();
+		}, ms);
+	};
+	const onStarted = () => {
+		if (settled || started) return;
+		started = true;
+		arm(opts.silenceMs ?? 8000);
+	};
+	r.onstart = onStarted;
+	r.onaudiostart = onStarted;
+
 	r.onresult = (ev: any) => {
 		if (settled) return;
-		gotResult = true;
+		started = true;
 		clearTimer();
 		const results = Array.from(ev.results as ArrayLike<any>);
 		const text = results.map((x: any) => x[0]?.transcript ?? '').join('').trim();
+		lastText = text;
 		const last: any = results[results.length - 1];
 		if (last && last.isFinal) settle(() => opts.onFinal(text));
 		else opts.onInterim(text);
@@ -118,20 +141,17 @@ export function listen(opts: ListenOpts, deps: ListenDeps = {}): { stop(): void;
 		const code: SttFailCode = PASSTHROUGH.has(raw) ? (raw as SttFailCode) : 'other';
 		settle(() => opts.onFail(code));
 	};
-	r.onend = () => {
-		if (!gotResult) settle(() => opts.onFail('no-speech'));
-		else settle(() => {});
-	};
+	// Ending without a final result: the last interim text is what was heard. Exactly
+	// one callback fires per session, so the caller never stays in "listening".
+	r.onend = () => settle(() => (lastText ? opts.onFinal(lastText) : opts.onFail('no-speech')));
 
-	r.start();
-	timer = st(
-		() => {
-			timer = undefined;
-			settle(() => opts.onFail('no-speech'));
-			tryAbort();
-		},
-		opts.silenceMs ?? 8000
-	);
+	arm(opts.startGuardMs ?? 30000);
+	try {
+		r.start();
+	} catch {
+		settle(() => opts.onFail('other'));
+		return { stop() {}, abort() {} };
+	}
 
 	return {
 		stop() {
