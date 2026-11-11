@@ -202,7 +202,7 @@
 		return collapse;
 	}
 
-	/** A final transcript from the mic (wired in a later plan). Never touches inputVal. */
+	/** A final transcript from the mic. Never touches inputVal. */
 	function handleUtterance(/** @type {string} */ rawTranscript) {
 		if (isEmptyUtterance(rawTranscript)) return;
 		const text = capTranscript(rawTranscript);
