@@ -466,6 +466,12 @@
 		// recorder's onstop both arrive here with the same clip.
 		if (cap.uploading) return;
 		cap.uploading = true;
+		// Nothing was recorded (mic pressed twice during the permission prompt): that is
+		// "nothing heard", not a server problem, and there is nothing to send.
+		if (blob.size === 0) {
+			showDidnt();
+			return;
+		}
 		micState = 'processing';
 		statusKind = 'processing';
 		interim = '';

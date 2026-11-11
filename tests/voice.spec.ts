@@ -126,17 +126,37 @@ export async function installFakeSR(
  * noticeSeen is false. window.__tracksStopped counts track.stop() calls.
  * throwOnStart: MediaRecorder.start() throws. deferStop: stop() does not fire onstop
  * until __recFinishStop() (the gap between a stop request and the recorder's onstop).
+ * emptyClip: the recorder delivers no audio data, so the clip is zero bytes.
  */
 export async function installFakeRecorder(
 	page: Page,
-	opts: { noticeSeen?: boolean; keepSR?: boolean; throwOnStart?: boolean; deferStop?: boolean } = {}
+	opts: {
+		noticeSeen?: boolean;
+		keepSR?: boolean;
+		throwOnStart?: boolean;
+		deferStop?: boolean;
+		emptyClip?: boolean;
+	} = {}
 ) {
 	const noticeSeen = opts.noticeSeen ?? true;
 	const keepSR = opts.keepSR ?? false;
 	const throwOnStart = opts.throwOnStart ?? false;
 	const deferStop = opts.deferStop ?? false;
+	const emptyClip = opts.emptyClip ?? false;
 	await page.addInitScript(
-		({ seen, keep, throws, defer }: { seen: boolean; keep: boolean; throws: boolean; defer: boolean }) => {
+		({
+			seen,
+			keep,
+			throws,
+			defer,
+			empty
+		}: {
+			seen: boolean;
+			keep: boolean;
+			throws: boolean;
+			defer: boolean;
+			empty: boolean;
+		}) => {
 			const w = window as any;
 			if (seen) {
 				localStorage.setItem('did.voice.notice.server', '1');
@@ -168,14 +188,14 @@ export async function installFakeRecorder(
 				}
 				stop() {
 					this.state = 'inactive';
-					this.ondataavailable?.({ data: new Blob(['fake-audio'], { type: this.mimeType }) });
+					this.ondataavailable?.({ data: new Blob(empty ? [] : ['fake-audio'], { type: this.mimeType }) });
 					if (defer) w.__recFinishStop = () => this.onstop?.();
 					else setTimeout(() => this.onstop?.(), 0);
 				}
 			}
 			w.MediaRecorder = FakeMR;
 		},
-		{ seen: noticeSeen, keep: keepSR, throws: throwOnStart, defer: deferStop }
+		{ seen: noticeSeen, keep: keepSR, throws: throwOnStart, defer: deferStop, empty: emptyClip }
 	);
 }
 
@@ -539,6 +559,35 @@ test.describe('voice', () => {
 			await mic.click();
 			await expect(page.locator('#voice-status')).toContainText("I didn't catch that.");
 		});
+	});
+
+	test('server fallback: an empty recording is "I didn\'t catch that", with no upload', async ({ page }) => {
+		await installFakeRecorder(page, { emptyClip: true });
+		await stubNetwork(page);
+		let uploads = 0;
+		await page.route('http://127.0.0.1:8080/chat/transcribe', (route) => {
+			uploads++;
+			return route.fulfill({
+				status: 400,
+				contentType: 'application/json',
+				headers: { 'access-control-allow-origin': '*' },
+				body: JSON.stringify({ error: 'Empty body' })
+			});
+		});
+		await openChat(page);
+		const mic = micButton(page);
+		const bubbles = await page.locator('.chat-msg').count();
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await mic.click();
+		const strip = page.locator('#voice-status');
+		await expect(strip).toContainText(COPY.didntCatchLead);
+		await expect(strip).toContainText(COPY.didntCatchHint);
+		await expect(mic).toHaveAttribute('data-state', 'idle');
+		await expect(page.getByRole('status')).toContainText(COPY.didntCatchLive);
+		await expect(page.locator('.chat-msg')).toHaveCount(bubbles);
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errTranscribeUnreachable })).toHaveCount(0);
+		expect(uploads).toBe(0);
 	});
 
 	test('voice mic: unavailable', async ({ page }) => {
