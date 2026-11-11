@@ -139,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-29T18:03:14.075Z
-Stopped at: Completed quick task 261029-jaq (scorer actionable_now derived from bucket)
+Last session: 2026-11-11
+Stopped at: Phase 8 (voice) built, reviewed, pushed and live on Pages and the VM; per-session chat history fix (1358f94) live on both. Open: manual browser checks M1-M8 in 08-MANUAL-CHECKS.md, then mark VOICE-01..07 complete.
 Resume file: None

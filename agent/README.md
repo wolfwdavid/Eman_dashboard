@@ -160,11 +160,32 @@ python -m did_agent.main
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | path to service-account key file |
 | `GOOGLE_TEMPLATE_DOC_ID` | the application template Google Doc id |
 
+### Web chat conversations (`POST /chat`)
+
+Each visitor has their own conversation. The dashboard widget makes a random id
+when the page loads and sends it with every question as `session_id`:
+
+```json
+{ "message": "Which grants are due this month?", "session_id": "<random id>" }
+```
+
+- The id must be 16 to 64 characters of letters, digits, `-` or `_`. A request
+  with no id, or a malformed one, is answered with no memory of earlier questions.
+  There is no shared default conversation.
+- History lives in memory only, capped at the last few turns per conversation.
+- A conversation is dropped after 30 minutes without a question
+  (`SESSION_IDLE_SECONDS`), and at most 500 are kept at once (`MAX_SESSIONS`);
+  the least recently used goes first. Both are constants in `did_agent/chat_api.py`.
+- Restarting the container clears every conversation. Reloading the dashboard
+  starts a new one.
+
+Tests: `tests/test_chat_sessions.py`.
+
 ### Voice transcription endpoint (`POST /chat/transcribe`)
 
 Used by the dashboard mic on browsers without built-in speech recognition
 (Firefox and others). The browser records a short clip and this endpoint turns it
-into text. It ships with the next VM deploy; the VM does not have it yet.
+into text. Live on the VM since 2026-11-11.
 
 **Request.** The body is the raw audio bytes (not JSON, not multipart) and
 `Content-Type` is an audio type. Accepted types: webm, ogg, opus, mp4, m4a,
