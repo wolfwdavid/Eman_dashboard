@@ -41,15 +41,14 @@ New elements use only these values (multiples of 4):
 |-------|-------|---------------------|
 | xs | 4px | Gap between header action buttons; gap between icon and text in a confirmation bubble; gap between choice buttons |
 | sm | 8px | Mic button left margin; status strip and notice vertical padding; gap between notice buttons; settings strip row gap |
-| md | 12px | Status strip, notice and settings strip horizontal padding; choice button horizontal padding |
-| lg | 16px | Not used by new elements except to match the header's existing 16px horizontal padding |
-| — | 20px | Icon size (all inline SVG render at 20×20); choice number badge diameter |
-| — | 32px | Header action button size on desktop |
-| — | 44px | Mic button (all viewports); every new control at ≤768px; choice buttons (all viewports) |
+| md | 16px | Horizontal padding of the status strip, privacy notice, settings strip, choice buttons, "None of these" and the notice buttons (matches the header's existing 16px horizontal padding) |
+| xl | 32px | Header action button size on desktop; notice button min-height on desktop |
 
 Exceptions:
 - Existing widget values that are not multiples of 4 (`.chat-msg` padding `10px 14px`, `.chat-messages` gap `10px` and padding `14px`, `.chat-send` `margin-left: 6px`, `.chat-head` padding `14px 16px`) are inherited as they are. New bubbles (`.command`, `.choices`) reuse `.chat-msg` and therefore its padding. Do not "fix" them in this phase.
 - Listening pulse ring animates `box-shadow` spread 0 → 8px.
+- Sizes, not spacing tokens: **20px** is the icon size (all inline SVG render at 20×20) and the choice number badge diameter; **44px** is the touch-target size (mic button at all viewports, choice buttons at all viewports, every new control at ≤768px).
+- `.cmd-glyph` uses `vertical-align: -3px`. This is an optical-alignment value that seats the 16px check glyph on the text baseline; it is not a spacing value.
 
 ---
 
@@ -103,11 +102,13 @@ Checked contrast: `#1f6fb2` on `#fff` 5.3:1 · `#fff` on `#14467a` 9.6:1 · `#5b
 
 Accent (`--cw-accent`) is reserved for:
 1. Mic button fill and pulse ring while **listening** (and the spinner arc while **processing**).
-2. `:focus-visible` outline (2px, offset 2px) on every new control that sits on the panel body. Header controls use a `#fff` outline instead, because they sit on `--cw-brand`.
+2. `:focus-visible` outline (2px, offset 2px) on every new control that sits on the panel body. Header controls use a `var(--cw-on-brand)` outline instead, because they sit on `--cw-brand`. The mic in `listening` uses `var(--cw-icon)` (section 1).
 3. The check glyph at the start of a command confirmation bubble.
 4. The number badge on each "Did you mean" choice button, and the border of a choice button on hover / focus / chosen.
 5. The primary button in the privacy notice ("Start listening") as its fill.
-6. Existing uses, unchanged: user bubble, input focus border.
+6. The mic button border on `idle:hover`.
+7. The settings checkbox (`accent-color`).
+8. Existing uses, unchanged: user bubble, input focus border.
 
 Not used in the chat widget: `--secured-gold`, `--urgent`, `--color-glow`, status hues, glass tokens. `--urgent` stays reserved for the deadline pulse. Errors are communicated by copy and icon shape, not by a red colour (the widget has no error colour today and its existing error messages are plain bot bubbles `[code]`).
 
@@ -139,14 +140,20 @@ Not used in the chat widget: `--secured-gold`, `--urgent`, `--color-glow`, statu
 
 DOM order equals tab order: speaker → settings → close → (settings checkbox) → (active choice buttons) → (notice buttons) → text input → mic → send. `[R: mic after the text input and before Send]`
 
+### Focal point
+
+- **Idle:** the text input and the filled Send button remain the focal point of the input row, as today. The mic is secondary: sunken fill, hairline border, no accent.
+- **Listening:** the accent-filled mic (with its ring) and the status strip directly above it are the focal point. Nothing else in the panel uses the accent fill or animates at that moment.
+
 ### Existing rules this phase may touch (and nothing else)
 
 | Rule | Change | Why |
 |------|--------|-----|
 | `.chat-input-row` | add `align-items: center` | The 44px mic must not stretch the input or the 36px send button |
-| `.chat-head` | wrap the close button with the two new buttons in `.chat-head-actions` (`display:flex; gap:4px; align-items:center`); close stays last | Header toggle placement `[D-04]` |
+| `.chat-head` | wrap the close button with the two new buttons in `.chat-head-actions` (`display:flex; gap:4px; align-items:center; flex-shrink:0`); close stays last. The title `<span>` gets `min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;` | Header toggle placement `[D-04]`; at 320px the title truncates with an ellipsis instead of wrapping or pushing the buttons out |
 | `.chat-msg.typing` text | "Thinking..." becomes the D-18 string (see Copywriting) | `[D-18]` |
 | `@media (max-width: 768px)` (new block) | `.chat-panel { max-height: calc(100dvh - 104px); }` and `.chat-messages { min-height: 120px; }` | With the header toggles on top and the status/notice row added, the panel must not run off the top of a short phone or clip the input row |
+| `@media (max-height: 560px)` (new block) | `.chat-messages { min-height: 0; }` | On a short viewport (small phone, landscape) the header, the privacy notice and the input row must all stay visible; the message list gives up its height first |
 
 ---
 
@@ -161,7 +168,7 @@ DOM order equals tab order: speaker → settings → close → (settings checkbo
   data-state={micState}            <!-- idle | listening | processing | error | blocked | unavailable -->
   aria-label="Voice input"
   aria-pressed={micState === 'listening'}
-  aria-disabled={micState === 'processing' || micState === 'unavailable'}
+  aria-disabled={micState === 'processing'}
   aria-describedby="voice-status"  <!-- only while the status strip is rendered -->
   title={micTitle}
   onclick={onMic}
@@ -171,7 +178,7 @@ DOM order equals tab order: speaker → settings → close → (settings checkbo
 - A real `<button>`, activated with `onclick` only (Space and Enter come free; no `pointerdown`, no press-and-hold). `[D-20][R]`
 - "Push-to-talk" `[D-13]` means: one press starts, the session ends by itself on the final result, a second press ends it early. It is a toggle, not a hold. `[discretion]`
 - `aria-label` is constant ("Voice input"); state is carried by `aria-pressed`, the icon, and the status strip. Never swap the label for the state. The Playwright selector is `getByRole('button', { name: /voice input/i })`. `[R]`
-- `aria-disabled`, never the `disabled` attribute, so the button stays focusable and can explain itself.
+- `aria-disabled` (only in `processing`), never the `disabled` attribute, so the button always stays focusable. In `unavailable` the button is NOT `aria-disabled`: it is a working button whose press shows the explanation.
 - Rendered only after `onMount` capability detection. `[D-25]`
 
 ### Geometry (all viewports)
@@ -187,16 +194,18 @@ DOM order equals tab order: speaker → settings → close → (settings checkbo
 | `listening` | Recognizer or recorder is capturing | `--cw-accent` | `1px solid --cw-accent` | stop square (`--cw-on-brand`) | `true` | "Stop listening" | "Listening…" + interim text |
 | `processing` | Server path only: recording uploaded, waiting for `/chat/transcribe` | `--cw-sunken` | `1px solid --cw-border` | spinner arc (`--cw-accent`), rotating | `false` (+ `aria-disabled="true"`) | "Transcribing…" | "Transcribing…" |
 | `error` | Transient failure (no microphone, server unreachable, rate limited, recording too long) | `--cw-sunken` | `1px dashed --cw-muted` | mic with a small "!" (`--cw-muted`) | `false` | "Voice input. Last attempt failed, press to try again" | hidden (the message is a bot bubble) |
-| `blocked` | Permission denied (`not-allowed`) or speech service blocked (`service-not-allowed`) | `--cw-sunken` | `1px dashed --cw-muted` | mic-off (slash) (`--cw-muted`) | `false` | "Microphone blocked. Press to try again" | hidden (the message is a bot bubble) |
-| `unavailable` | No `SpeechRecognition` AND no `MediaRecorder`/`getUserMedia`, or not a secure context | `--cw-sunken` | `1px dashed --cw-border` | mic-off (slash) (`--cw-muted`), `opacity: .6` | `false` (+ `aria-disabled="true"`) | "Voice input isn't available in this browser" | hidden |
+| `blocked` | Microphone permission denied (`not-allowed`) | `--cw-sunken` | `1px dashed --cw-muted` | mic-off (slash) (`--cw-muted`) | `false` | "Microphone blocked. Press to try again" | hidden (the message is a bot bubble) |
+| `unavailable` | No `SpeechRecognition` AND no `MediaRecorder`/`getUserMedia`, or not a secure context | `--cw-sunken` | `1px dashed --cw-border` | mic-off (slash) (`--cw-muted`), `opacity: .6` | `false` | "Voice input isn't available in this browser" | hidden (the explanation is a bot bubble) |
 
 Rules:
 - `error` returns to `idle` on the next mic press, on send, or when the chat closes. `blocked` stays until a press succeeds or the page reloads. Pressing in either state simply tries again (the user may have fixed the permission).
 - Pressing in `unavailable` does not start anything; it appends the "unavailable" bot bubble once per chat open and announces it.
 - Pressing in `processing` does nothing. Escape cancels it.
+- `processing` times out: if `/chat/transcribe` has not answered 20 s after the upload started, the request is aborted and the mic goes to `error` with the "couldn't reach the transcription server" bubble (see Copywriting).
+- Sending a typed message (Enter in the input, or Send) while the mic is `listening` cancels and discards the capture, exactly like Escape (no transcript bubble, no announcement), and then sends the typed text.
 - The colour change is never the only cue: every state changes the icon shape, and listening/processing also show text in the status strip. `[D-20]`
-- `:focus-visible`: `outline: 2px solid var(--cw-accent); outline-offset: 2px`. In `listening` the outline colour is `--cw-brand` so it stays visible against the accent fill.
-- `cursor: default` in `processing` and `unavailable`.
+- `:focus-visible`: `outline: 2px solid var(--cw-accent); outline-offset: 2px`. In `listening` the outline colour is `var(--cw-icon)` (brand blue on the light panel, near-white on the dark panel) so it stays visible against both the accent fill and the panel.
+- `cursor: default` in `processing` only.
 
 ### Listening animation `[D-19]`
 
@@ -226,7 +235,7 @@ Reduced motion changes only these animations. It never disables, shortens or mut
 |-----|-------|--------|
 | Space / Enter | mic, `idle` / `error` / `blocked` | Start (or show the first-use notice) |
 | Space / Enter | mic, `listening` | Stop and use what was heard so far (`recognition.stop()` / stop the recorder) |
-| Escape | anywhere inside `.chat-panel` | First match wins: (1) `listening` or `processing` → cancel and discard, no bubble, no announcement, back to `idle`; (2) speech is being read aloud → `speechSynthesis.cancel()` (toggle stays on); (3) privacy notice visible → hide it without remembering; (4) settings strip open → close it and focus the settings button; (5) otherwise nothing (Escape does not close the chat today, keep that) |
+| Escape | anywhere inside `.chat-panel` | First match wins: (1) `listening` or `processing` → cancel and discard, no bubble, no announcement, back to `idle`; (2) speech is being read aloud → `speechSynthesis.cancel()` (toggle stays on); (3) privacy notice visible → hide it without remembering and return focus to the mic; (4) settings strip open → close it and focus the settings button; (5) otherwise nothing (Escape does not close the chat today, keep that) |
 
 The Escape handler lives on `.chat-panel` (`onkeydown`), and calls `stopPropagation()` only when it handled the key, so `TemplatesPanel`'s `svelte:window` Escape handler is not triggered by a voice cancel. Focus stays on the mic after any mic state change; the mic never steals focus from elsewhere.
 
@@ -247,7 +256,7 @@ Listening also stops (cancel, discard) when: the chat panel closes, the tab beco
 ```
 
 - Rendered only in `listening`, `processing`, and after a "didn't catch that" result. Otherwise absent (no reserved height).
-- Style: `padding: 8px 12px; border-top: 1px solid var(--cw-border); background: var(--cw-surface); font-size: .88rem; line-height: 1.45; color: var(--cw-text);`
+- Style: `padding: 8px 16px; border-top: 1px solid var(--cw-border); background: var(--cw-surface); font-size: .88rem; line-height: 1.45; color: var(--cw-text);`
 - `.lead`: weight 600, `margin-right: 8px`, colour `--cw-text`.
 - `.interim`: italic, colour `--cw-muted`. Wraps; `max-height: 4.35em` (3 lines); `overflow-y: auto`; kept scrolled to the end as text grows.
 - `.timer`: caption size (0.75rem), `font-variant-numeric: tabular-nums`, colour `--cw-muted`, floated right.
@@ -259,9 +268,14 @@ Listening also stops (cancel, discard) when: the chat panel closes, the tab beco
 | Listening, words arriving (browser path) | "Listening…" | the interim transcript, verbatim | — |
 | Listening (server path: no interim text exists) | "Listening…" | `Press the mic again when you're done.` | elapsed `m:ss`, e.g. `0:07` (recording auto-stops at 0:18 `[R]`) |
 | Processing (server path) | "Transcribing…" | empty | — |
-| Nothing heard within 8 s `[D-14]`, or the server returned empty text | "I didn't catch that." | `Press the mic to try again.` | — |
+| Nothing heard within 8 s `[D-14]`, the recognizer reported `no-speech`, or the server returned empty text | "I didn't catch that." | `Press the mic to try again.` | — |
 
 The "I didn't catch that." strip stays until the next mic press, until the user types in the input, or until the chat closes. It is not added to the message list (repeated misses must not clutter the log). `[discretion]`
+
+Silence on the two paths `[D-14]`:
+- **Browser path:** the widget's own 8 s timer and the recognizer's `no-speech` error lead to the same result (strip only, no bubble, mic back to `idle`), shown exactly once per attempt.
+- **Server (MediaRecorder) path:** there is no level-based silence detection. The recording ends on a second mic press or at the 18 s cap; D-14 is met there by that cap plus the empty-text result from `/chat/transcribe`, which shows the same "I didn't catch that." strip.
+- A recognizer `aborted` event (the user or the widget cancelled) returns silently to `idle`: no strip, no bubble, no announcement.
 
 ### Final transcript → user bubble
 
@@ -315,10 +329,10 @@ A normal bot bubble with a leading check glyph, so instant local results are dis
 - Bubble: `.chat-msg.bot` look, but `max-width: 100%` and `align-self: stretch` so the buttons get the full row width.
 - `.dym-title`: body size, weight 400, `margin: 0 0 8px`.
 - `.dym-list`: `list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;`
-- `.dym-choice`: `width: 100%; min-height: 44px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; text-align: left; border-radius: 12px; border: 1px solid var(--cw-border); background: var(--cw-surface); color: var(--cw-text); font: inherit; cursor: pointer;` Hover and `:focus-visible`: `border-color: var(--cw-accent)`; `:focus-visible` adds the standard 2px accent outline.
+- `.dym-choice`: `width: 100%; min-height: 44px; padding: 8px 16px; display: flex; align-items: center; gap: 8px; text-align: left; border-radius: 16px; border: 1px solid var(--cw-border); background: var(--cw-surface); color: var(--cw-text); font: inherit; cursor: pointer;` Hover and `:focus-visible`: `border-color: var(--cw-accent)`; `:focus-visible` adds the standard 2px accent outline.
 - `.dym-num`: 20×20 circle, `background: var(--cw-accent); color: var(--cw-on-brand);` 0.75rem, weight 600, centred, `flex-shrink: 0`. The visible numbers are what "the first / second / third one" refers to.
 - `.dym-label`: wraps (no ellipsis, labels must be fully readable). Label text is `funder`, or `funder: program` when the same funder has more than one row (e.g. "Ford Foundation: JustFilms"). `[R]`
-- `.dym-none`: text button, `min-height: 44px; padding: 8px 12px; background: none; border: none; color: var(--cw-muted); text-decoration: underline; font: inherit; cursor: pointer;` This is the keyboard/mouse equivalent of saying "neither" / "cancel". `[D-22]`
+- `.dym-none`: text button, `min-height: 44px; padding: 8px 16px; background: none; border: none; color: var(--cw-muted); text-decoration: underline; font: inherit; cursor: pointer;` This is the keyboard/mouse equivalent of saying "neither" / "cancel". `[D-22]`
 - `.dym-hint`: caption (0.75rem / 1.5), `color: var(--cw-muted); margin: 4px 0 0;`
 
 Behaviour:
@@ -327,6 +341,7 @@ Behaviour:
 - Once resolved, all its buttons get `disabled` (leaving the tab order). The chosen button keeps `border-color: var(--cw-accent)` and its number badge becomes the check glyph; the others drop to `opacity: .55`. The hint line is removed.
 - A pick appends the normal confirmation bubble ("Opening Ford Foundation: JustFilms."). "None of these" / "neither" appends "OK, cancelled."
 - Focus does not move when the bubble appears (it stays on the mic so the user can press Space and answer by voice). Keyboard users reach the choices with Shift+Tab from the input, or Tab from the header.
+- After a pick or "None of these", whether by keyboard or by pointer, focus moves to the mic (the buttons that held focus are now `disabled`, so focus must not be left on them). If the pick collapses the chat under section 3d, focus moves to `.chat-toggle` instead.
 
 ### 3c. "I didn't catch that"
 
@@ -343,7 +358,7 @@ The chat panel sits at `z-index: 10000`, above the detail sheet and the SHARE pa
 | SHARE opened | Chat panel collapses; focus moves to `.chat-toggle` | Chat panel collapses; focus moves to `.chat-toggle` (the SHARE panel opens in the same bottom-right corner, under the chat) |
 | Filter, reset, close, facts, "did you mean" list, question | Chat stays open | Chat stays open |
 
-The confirmation is still added to the message list (visible when the chat is reopened), still written to the live region (which lives outside the panel), and still spoken when spoken replies are on. Desktop behaviour of every existing control is unchanged.
+Collapsing cancels any speech already in progress (same as closing the chat by hand). The confirmation for the command that caused the collapse is still added to the message list (visible when the chat is reopened), still written to the live region (which lives outside the panel), and, when spoken replies are on, spoken after the collapse. Desktop behaviour of every existing control is unchanged.
 
 ---
 
@@ -363,7 +378,7 @@ The confirmation is still added to the message list (visible when the chat is re
 
 `display: flex; align-items: center; gap: 4px;` Order: speaker, settings, close (existing `×`, unchanged).
 
-Both new buttons: `width: 32px; height: 32px; border-radius: 8px; background: none; border: none; color: var(--cw-on-brand); display: flex; align-items: center; justify-content: center; cursor: pointer;` Icon 20×20. `:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }` At ≤768px both are 44×44 (see Mobile). These rules must be scoped so they override the existing `.chat-head button` rule only for the two new buttons (the `×` keeps its current look).
+Both new buttons: `width: 32px; height: 32px; border-radius: 8px; background: none; border: none; color: var(--cw-on-brand); display: flex; align-items: center; justify-content: center; cursor: pointer;` Icon 20×20. `:focus-visible { outline: 2px solid var(--cw-on-brand); outline-offset: 2px; }` At ≤768px both are 44×44 (see Mobile). These rules must be scoped so they override the existing `.chat-head button` rule only for the two new buttons (the `×` keeps its current look).
 
 ### Speaker toggle `[D-04][D-17]`
 
@@ -376,12 +391,13 @@ Both new buttons: `width: 32px; height: 32px; border-radius: 8px; background: no
 | State | Icon | Fill | Opacity |
 |-------|------|------|---------|
 | Off (default) | speaker with an × | none | `.8` (matches the existing header button), `1` on hover |
-| On | speaker with two sound waves | `rgba(255, 255, 255, .18)` | `1` |
+| On | speaker with two sound waves | `color-mix(in srgb, var(--cw-on-brand) 18%, transparent)` | `1` |
 
 - Off by default. Stored in `localStorage` key `did.voice.spokenReplies` (`'1'` / `'0'`), read in `onMount`, wrapped in `try/catch`. `[D-04][R]`
 - Turning it **on** speaks `Spoken replies on.` inside the click handler (this also unlocks speech on Safari/iOS `[R]`). Turning it **off** calls `speechSynthesis.cancel()` and says nothing.
 - When on, these are spoken: command confirmations, the "did you mean" prompt with its options, "I didn't catch that.", the "Asking the assistant" string, and assistant replies (first 600 characters, then `The rest is in the chat.`) `[R]`. Voice error bubbles are spoken too. The greeting message and the user's own transcript are never spoken.
-- Speech is cancelled when the mic starts (so the recognizer never hears the assistant `[R]`), on Escape, and when the toggle goes off.
+- Speech is cancelled when the mic starts (so the recognizer never hears the assistant `[R]`), on Escape, when the toggle goes off, and when the chat is closed or collapsed (close `×`, the chat bubble, or a section 3d collapse).
+- While the chat is closed nothing new is spoken: an assistant reply that arrives then goes to the live region and the message list only. The one exception is the confirmation of the command that caused a section 3d collapse, which is spoken after the collapse.
 - Not rendered when `speechSynthesis` is missing.
 - State is conveyed by icon shape and `aria-pressed`, not colour alone.
 
@@ -406,10 +422,10 @@ A settings button in the header opens an inline strip directly under the header.
 {/if}
 ```
 
-- `.voice-settings`: `padding: 8px 12px; border-bottom: 1px solid var(--cw-border); background: var(--cw-sunken); color: var(--cw-text); display: flex; flex-direction: column; gap: 8px;`
+- `.voice-settings`: `padding: 8px 16px; border-bottom: 1px solid var(--cw-border); background: var(--cw-sunken); color: var(--cw-text); display: flex; flex-direction: column; gap: 8px;`
 - `.vs-row`: `display: flex; align-items: center; gap: 8px; font-size: .88rem; cursor: pointer;` Checkbox is the native control, 16×16, `accent-color: var(--cw-accent)`.
 - `.vs-help`: caption (0.75rem / 1.5), `color: var(--cw-muted); margin: 0;`
-- Expanded button state: `background: rgba(255, 255, 255, .18)`, opacity 1 (same treatment as the speaker "on" state).
+- Expanded button state: `background: color-mix(in srgb, var(--cw-on-brand) 18%, transparent)`, opacity 1 (same treatment as the speaker "on" state).
 - Stored in `localStorage` key `did.voice.forceServer` (`'1'` / `'0'`). `[R]`
 - When the browser has no `SpeechRecognition`: the checkbox is shown checked and `disabled`, with the alternative help text (see Copywriting).
 - The settings button is not rendered when the mic is `unavailable` (nothing to configure).
@@ -433,11 +449,12 @@ A settings button in the header opens an inline strip directly under the header.
 </div>
 ```
 
-- Style: `padding: 8px 12px; border-top: 1px solid var(--cw-border); background: var(--cw-sunken); color: var(--cw-text); font-size: .88rem; line-height: 1.45;` Text `margin: 0 0 8px`.
+- Style: `padding: 8px 16px; border-top: 1px solid var(--cw-border); background: var(--cw-sunken); color: var(--cw-text); font-size: .88rem; line-height: 1.45;` Text `margin: 0 0 8px`.
 - `.vn-actions`: `display: flex; flex-wrap: wrap; gap: 8px;`
-- `.vn-primary`: `min-height: 32px; padding: 4px 12px; border-radius: 16px; border: 1px solid var(--cw-accent); background: var(--cw-accent); color: var(--cw-on-brand); font: inherit; font-weight: 600; cursor: pointer;`
+- `.vn-primary`: `min-height: 32px; padding: 4px 16px; border-radius: 16px; border: 1px solid var(--cw-accent); background: var(--cw-accent); color: var(--cw-on-brand); font: inherit; font-weight: 600; cursor: pointer;`
 - `.vn-secondary`: same box, `background: transparent; color: var(--cw-text); border: 1px solid var(--cw-border); font-weight: 400;`
-- Focus moves to "Start listening" when the notice appears (it carries `aria-describedby`, so a screen reader reads the notice text with the button). After either button, focus returns to the mic.
+- Focus moves to "Start listening" when the notice appears (it carries `aria-describedby`, so a screen reader reads the notice text with the button). After either button, and after Escape, focus returns to the mic.
+- Showing the notice closes the voice settings strip if it is open (only one of the two extra rows is on screen at a time, so the message list and input row keep their room).
 
 **Dismissal and persistence:**
 
@@ -445,11 +462,12 @@ A settings button in the header opens an inline strip directly under the header.
 |--------|--------|------------|
 | "Start listening" | Notice closes; capture starts in the same click (keeps the user gesture `[R]`) | Yes: `did.voice.notice.browser = '1'` (or `did.voice.notice.server = '1'` on the server path) |
 | "Use the server instead" (browser path only) | Sets `did.voice.forceServer = '1'`; notice closes; recording starts through the server path in the same click | Yes: both notice keys set to `'1'` |
-| Escape, or closing the chat | Notice hides; nothing starts | No: it shows again on the next mic press |
+| Escape | Notice hides; nothing starts; focus returns to the mic | No: it shows again on the next mic press |
+| Closing the chat | Notice hides; nothing starts | No: it shows again on the next mic press |
 
 - Two variants, one line each (see Copywriting): the **browser** variant when Web Speech will be used; the **server** variant (single "Start listening" button) when the server path will be used because the browser has no `SpeechRecognition` or the setting forces it.
 - Never shown again for a path once remembered. If `localStorage` is unavailable (private mode), the notice shows once per page load.
-- The same wording remains available permanently as the help text in the voice settings strip, so the information is not lost after dismissal.
+- The same information stays available permanently in the voice settings strip, whose help text names who receives the audio in each position of the setting ("Off: your browser's speech service (Google or Apple) receives your audio. On: a short recording goes to the DID assistant server instead."), so nothing is lost after the notice is dismissed.
 
 ---
 
@@ -510,7 +528,8 @@ Consistent with Phase 6.1: breakpoint `max-width: 768px`, 44px targets by paddin
 | Notice buttons | `min-height: 44px` |
 | Settings checkbox row | `min-height: 44px` |
 | `.chat-panel` | `max-height: calc(100dvh - 104px)`; existing `≤440px` full-width rule unchanged |
-| `.chat-messages` | `min-height: 120px` (so header + notice + input row always fit on a short phone) |
+| `.chat-messages` | `min-height: 120px` (so header + notice + input row always fit on a short phone); `min-height: 0` under `@media (max-height: 560px)` |
+| Header title | `white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0` so "DID Grant Assistant" truncates at 320px while the three 44px header buttons keep their size |
 | Status strip | `.interim` max 2 lines (`max-height: 2.9em`) |
 | One surface | A command that opens the grant detail sheet, TEMPLATES modal or SHARE modal collapses the chat panel (section 3d) |
 | Hover styles | Not relied on; every hover change has a focus/pressed equivalent |
@@ -554,7 +573,7 @@ Template-level entries:
 
 ### Every string, by state
 
-`{n}` = number of grants matching the full filter after the change (all three axes). `{N}` = total grants. Use "grant" when the count is 1. Money is formatted with the existing `src/lib/data/format.ts` helper so it matches the HUD.
+`{n}` = number of grants matching the full filter after the change (all three axes). `{N}` = total grants. When the count is 1, use the singular forms in the table under the confirmations. Money is formatted with the existing `src/lib/data/format.ts` helper so it matches the HUD.
 
 **Controls**
 
@@ -572,7 +591,7 @@ Template-level entries:
 | Spoken when turned on | `Spoken replies on.` |
 | Settings `aria-label` / `title` | `Voice settings` |
 | Settings checkbox label | `Use server speech recognition` |
-| Settings help, browser STT available | `Sends a short recording to the DID assistant server instead of your browser's speech service.` |
+| Settings help, browser STT available | `Off: your browser's speech service (Google or Apple) receives your audio. On: a short recording goes to the DID assistant server instead.` |
 | Settings help, no browser STT | `This browser has no built-in speech recognition, so the server is always used.` |
 | Settings help, second line | `Using a screen reader? Leave spoken replies off so replies aren't read twice.` |
 
@@ -599,7 +618,9 @@ Template-level entries:
 
 | Intent | Copy |
 |--------|------|
-| Filter by status | `Showing {n} {status} grants` with status in lower case: active, in progress, applied, recurring, to research, not eligible yet, not eligible, declined. Example: `Showing 3 recurring grants` |
+| Filter by status: active, in progress, applied, recurring, not eligible, declined | `Showing {n} {status} grants` with the status in lower case. Example: `Showing 3 recurring grants` |
+| Filter status = to research | `Showing {n} grants to research` |
+| Filter status = not eligible yet | `Showing {n} grants that are not eligible yet` |
 | Filter gate = open | `Showing {n} grants open without a 501(c)(3)` |
 | Filter gate = gated | `Showing {n} grants that require a 501(c)(3)` |
 | Filter gate = unknown | `Showing {n} grants with an unknown 501(c)(3) requirement` |
@@ -611,8 +632,8 @@ Template-level entries:
 | Open grant | `Opening {label}.` |
 | Open TEMPLATES | `Templates list opened.` |
 | Open SHARE | `Share panel opened.` |
-| Close (a panel was open) | `Closed the templates list.` / `Closed the share panel.` |
-| Close (a grant was open) | `Closed {label}.` |
+| Close (a panel is open; checked first) | `Closed the templates list.` / `Closed the share panel.` / both open: `Closed the templates list and the share panel.` |
+| Close (no panel open, a grant is open) | `Closed {label}.` |
 | Close (nothing open) | `Nothing to close.` |
 | Secured total | `{secured} secured so far, out of {potential} potential.` Example: `$20,000 secured so far, out of $296,500 potential.` |
 | Next deadlines (2 or 3) | `Next deadlines: {funder}, {Month D, YYYY}; {funder}, {Month D, YYYY}.` |
@@ -622,6 +643,23 @@ Template-level entries:
 | Did you mean: hint | `Pick one, or press the mic and say “the first one”.` |
 | Did you mean: cancel button | `None of these` |
 | Did you mean: cancelled | `OK, cancelled.` |
+
+"Close" priority when several things are open: panels first, then the grant. One "close" closes every open panel (TEMPLATES and/or SHARE) and leaves an open grant alone; a second "close" then closes the grant. The chat itself is never closed by "close".
+
+Singular forms (count = 1):
+
+| Plural | Singular |
+|--------|----------|
+| `Showing {n} {status} grants` | `Showing 1 {status} grant` |
+| `Showing {n} grants to research` | `Showing 1 grant to research` |
+| `Showing {n} grants that are not eligible yet` | `Showing 1 grant that is not eligible yet` |
+| `Showing {n} grants open without a 501(c)(3)` | `Showing 1 grant open without a 501(c)(3)` |
+| `Showing {n} grants that require a 501(c)(3)` | `Showing 1 grant that requires a 501(c)(3)` |
+| `Showing {n} grants with an unknown 501(c)(3) requirement` | `Showing 1 grant with an unknown 501(c)(3) requirement` |
+| `Showing {n} grant-type opportunities` | `Showing 1 grant-type opportunity` |
+| `Showing {n} fellowships` | `Showing 1 fellowship` |
+| `Showing {n} investments` | `Showing 1 investment` |
+| `Filters cleared. Showing all {N} grants.` | `Filters cleared. Showing the 1 grant.` |
 
 When spoken, "501(c)(3)" is read as "five oh one C three" (speech text only; the bubble keeps "501(c)(3)").
 
@@ -635,24 +673,26 @@ When spoken, "501(c)(3)" is read as "five oh one C three" (speech text only; the
 | Live region prefix for replies | `Assistant: ` |
 | Live region prefix for transcripts | `You said: ` |
 
-**Voice errors (plain bot bubble + live region; each names the next step)**
+**Voice errors (plain bot bubble + live region unless the row says otherwise; each names the next step)**
 
 | Cause | Mic state after | Copy |
 |-------|-----------------|------|
 | Microphone permission denied (`not-allowed`) | `blocked` | `Microphone access is blocked. Allow the microphone in your browser's site settings, or type your question instead.` |
-| Browser speech service blocked or off (`service-not-allowed`) | `blocked` | `Your browser's speech service is blocked or turned off. Turn on “Use server speech recognition” in voice settings, or type your question instead.` |
+| Browser speech service blocked or off (`service-not-allowed`) | `idle` (server path used for the rest of the page session, not persisted) | `Your browser's speech service is blocked or turned off, so I've switched to server transcription. Press the mic and say that again.` |
 | Browser speech service unreachable (`network`) | `idle` (server path used for the rest of the page session, not persisted) | `I couldn't reach your browser's speech service, so I've switched to server transcription. Press the mic and say that again.` |
+| Recognizer `no-speech` | `idle` | No bubble. Same as "Nothing heard": status strip `I didn't catch that.` / `Press the mic to try again.`, live region `I didn't catch that. Press the mic to try again.` |
+| Recognizer `aborted` (cancelled by the user or the widget) | `idle` | Nothing: no strip, no bubble, no announcement |
 | No microphone (`audio-capture`) | `error` | `No microphone found. Connect one, or type your question instead.` |
 | Other recognizer error (`language-not-supported`, unknown) | `error` | `Voice input isn't working right now. You can type your question instead.` |
 | No speech API and no recorder, or insecure context | `unavailable` | `Voice input isn't available in this browser. You can type your question instead.` |
-| `/chat/transcribe` unreachable, 5xx or 503 | `error` | `I couldn't reach the transcription server. Try again, or type your question instead.` |
+| `/chat/transcribe` unreachable, 5xx or 503, or no response within 20 s (`processing` timeout) | `error` | `I couldn't reach the transcription server. Try again, or type your question instead.` |
 | `/chat/transcribe` 429 | `error` | `Too many voice requests. Wait a minute and try again, or type your question.` |
 | `/chat/transcribe` 413 | `error` | `That recording was too long. Keep it under 20 seconds and try again.` |
 | `/chat/transcribe` 415 | `error` | `This browser's recording format isn't supported. You can type your question instead.` |
 
 Existing strings ("Could not reach the assistant. Is the bot running?", "Timed out waiting for a reply.", the greeting, the input placeholder) are unchanged.
 
-Decision on the `network` case: research suggested falling back automatically; this contract asks for one more mic press instead, because the first utterance is already lost and starting a recorder without a fresh user gesture is unreliable on Safari. `[discretion]`
+Decision on the `network` and `service-not-allowed` cases `[D-02: server Whisper is the fallback when the browser API is unavailable or fails]`: both switch the widget to the server path for the rest of the page session and ask for one more mic press. The switch is automatic; the capture is not, because the first utterance is already lost and starting a recorder without a fresh user gesture is unreliable on Safari. The bubble itself tells the user that server transcription is now in use. Only `not-allowed` (the microphone permission itself) leaves the mic `blocked`, since the server path needs the same permission.
 
 ---
 
@@ -664,6 +704,9 @@ idle ──press (notice already seen)──────────▶ listenin
 listening ──final result / press / 18 s cap (server)──▶ (server path: processing ──▶) transcript
 listening ──8 s silence──▶ idle + "I didn't catch that."
 listening | processing ──Escape / chat closed / tab hidden──▶ idle (discarded, silent)
+listening ──typed message sent──▶ idle (discarded, silent); the typed text is sent
+processing ──no response after 20 s──▶ error (bot bubble)
+listening ──network | service-not-allowed──▶ idle, server path for this session (bot bubble)
 listening ──error──▶ error | blocked (bot bubble)
 transcript ──parse──▶ command        ──▶ user bubble + confirmation bubble (+ maybe collapse chat)
                     ▶ did-you-mean   ──▶ user bubble + choices bubble (pending)
