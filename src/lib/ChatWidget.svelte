@@ -16,6 +16,7 @@
 		isSecureContextSafe
 	} from '$lib/voice/stt';
 	import { getBool, setBool, PREF_KEYS } from '$lib/voice/prefs';
+	import { safeApiUrl } from '$lib/voice/apiUrl';
 
 	// The clock and the viewport are read only here, at event time (never during prerender).
 	const isPhone = () => window.matchMedia('(max-width: 768px)').matches;
@@ -48,6 +49,7 @@
 	let BASE = LOCAL;
 
 	// Discover API: try localhost, fall back to tunnel URL from GitHub.
+	// Called from onMount only, so prerender makes no network request.
 	async function loadConfig() {
 		try {
 			const r = await fetch(LOCAL + '/chat-config.json', { signal: AbortSignal.timeout(2000) });
@@ -55,11 +57,14 @@
 		} catch {
 			try {
 				const r2 = await fetch('https://raw.githubusercontent.com/wolfwdavid/Eman_dashboard/main/agent/dashboard/chat-config.json?_=' + Date.now());
-				if (r2.ok) { const c = await r2.json(); if (c.api_url) BASE = c.api_url; }
+				if (r2.ok) {
+					// Questions and recordings go to this address: https only (or this machine).
+					const url = safeApiUrl((await r2.json())?.api_url);
+					if (url) BASE = url;
+				}
 			} catch {}
 		}
 	}
-	loadConfig();
 
 	function scrollDown() {
 		if (messagesEl) { const el = messagesEl; setTimeout(() => el.scrollTop = el.scrollHeight, 50); }
@@ -600,6 +605,7 @@
 	}
 
 	onMount(() => {
+		loadConfig();
 		hasSR = !!getSpeechRecognition();
 		hasRec = canRecord();
 		const secure = isSecureContextSafe();

@@ -208,6 +208,34 @@ test.describe('voice', () => {
 		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' })).toBeVisible();
 	});
 
+	test('api_url: an unencrypted remote address is ignored', async ({ page }) => {
+		const net = await stubNetwork(page);
+		// Registered last, so it wins over the stub: the published config points somewhere unsafe.
+		await page.route('https://raw.githubusercontent.com/**', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ api_url: 'http://collector.example:9999' })
+			})
+		);
+		const stray: string[] = [];
+		await page.route('http://collector.example:9999/**', (route) => {
+			stray.push(route.request().url());
+			return route.abort();
+		});
+		const config = page.waitForResponse(/raw\.githubusercontent\.com/);
+		await openChat(page);
+		await config;
+		await page.getByPlaceholder('Ask about grants...').fill('which grants are due soon');
+		await page.getByPlaceholder('Ask about grants...').press('Enter');
+		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' })).toBeVisible({
+			timeout: 10_000
+		});
+		// The question went to the default address, and nothing reached the published one.
+		expect(net.posted).toEqual([JSON.stringify({ message: 'which grants are due soon' })]);
+		expect(stray).toEqual([]);
+	});
+
 	test('live region is a single persistent role=status outside the chat panel', async ({ page }) => {
 		await stubNetwork(page);
 		await page.goto('/Eman_dashboard/');
