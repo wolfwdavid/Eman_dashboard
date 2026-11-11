@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import date
 
@@ -88,6 +89,119 @@ def test_previous_seen_unavailable(tmp_path):
     path.write_text(json.dumps({"date": "2026-11-09", "new": []}), encoding="utf-8")
     assert sweep.load_previous_seen(path) is None  # old format, no seen
     assert sweep.load_state(path, date(2026, 11, 9)) == []  # old format still loads
+
+
+def test_drafts_round_trip_keeps_the_rest_of_the_state(tmp_path):
+    path = tmp_path / "state.json"
+    sweep.save_state(path, TODAY, [g("A")], {"a"})
+    assert sweep.load_drafts(path, TODAY) is None  # nothing recorded yet
+    assert sweep.save_drafts(path, TODAY, {"A": "https://docs.example/1"}, "one failed") is True
+    assert sweep.load_drafts(path, TODAY) == ({"A": "https://docs.example/1"}, "one failed")
+    assert sweep.load_state(path, TODAY) == [g("A")]
+    assert sweep.load_previous_seen(path) == {"a"}
+    assert sweep.load_drafts(path, date(2026, 11, 16)) is None  # another day's drafts are not reused
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_empty_drafts_are_still_recorded(tmp_path):
+    path = tmp_path / "state.json"
+    sweep.save_state(path, TODAY, [])
+    assert sweep.save_drafts(path, TODAY, {}, "") is True
+    assert sweep.load_drafts(path, TODAY) == ({}, "")
+
+
+def test_drafts_degrade(tmp_path):
+    path = tmp_path / "state.json"
+    assert sweep.load_drafts(path, TODAY) is None  # missing
+    assert sweep.save_drafts(path, TODAY, {"A": "u"}, "") is False
+    assert not path.exists()  # drafts never create a state file on their own
+    path.write_text("{oops", encoding="utf-8")
+    assert sweep.load_drafts(path, TODAY) is None  # corrupt
+    assert sweep.save_drafts(path, TODAY, {"A": "u"}, "") is False
+    old = json.dumps({"date": "2026-11-13", "new": []})
+    path.write_text(old, encoding="utf-8")
+    assert sweep.load_drafts(path, TODAY) is None  # old format, no drafts
+    assert sweep.load_state(path, TODAY) == []  # and it still loads
+    path.write_text(json.dumps({"date": "2026-11-13", "new": [], "drafts": ["x"]}), encoding="utf-8")
+    assert sweep.load_drafts(path, TODAY) is None  # wrong shape
+    stale = json.dumps({"date": "2026-11-11", "new": []})
+    path.write_text(stale, encoding="utf-8")
+    assert sweep.save_drafts(path, TODAY, {"A": "u"}, "") is False  # not today's sweep
+    assert path.read_text(encoding="utf-8") == stale
+
+
+def test_a_new_sweep_starts_without_drafts(tmp_path):
+    path = tmp_path / "state.json"
+    sweep.save_state(path, date(2026, 11, 11), [g("A")])
+    sweep.save_drafts(path, date(2026, 11, 11), {"A": "u"}, "")
+    sweep.save_state(path, TODAY, [g("B")])
+    assert sweep.load_drafts(path, TODAY) is None
+
+
+class DraftMaker:
+    """Stands in for the Google Docs step; yields to the event loop like the real one."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def __call__(self):
+        self.calls += 1
+        n = self.calls
+        await asyncio.sleep(0.01)
+        return {"A": f"https://docs.example/{n}"}, ""
+
+
+def _cache() -> dict:
+    return {"date": None, "drafts": {}, "note": ""}
+
+
+def test_todays_drafts_are_created_once_for_concurrent_chats(tmp_path):
+    path = tmp_path / "state.json"
+    sweep.save_state(path, TODAY, [g("A")])
+    make = DraftMaker()
+
+    async def run():
+        cache, lock = _cache(), asyncio.Lock()
+        return await asyncio.gather(*(sweep.todays_drafts(path, TODAY, cache, lock, make) for _ in range(3)))
+
+    results = asyncio.run(run())
+    assert make.calls == 1
+    assert results == [({"A": "https://docs.example/1"}, "")] * 3
+    assert sweep.load_drafts(path, TODAY) == ({"A": "https://docs.example/1"}, "")
+
+
+def test_todays_drafts_survive_a_restart(tmp_path):
+    path = tmp_path / "state.json"
+    sweep.save_state(path, TODAY, [g("A")])
+    make = DraftMaker()
+    first = asyncio.run(sweep.todays_drafts(path, TODAY, _cache(), asyncio.Lock(), make))
+    # A restart loses the in-memory cache; the links come back from the state file.
+    again = asyncio.run(sweep.todays_drafts(path, TODAY, _cache(), asyncio.Lock(), make))
+    assert make.calls == 1
+    assert again == first == ({"A": "https://docs.example/1"}, "")
+
+
+def test_todays_drafts_are_made_again_for_the_next_sweep(tmp_path):
+    path = tmp_path / "state.json"
+    make = DraftMaker()
+    cache, lock = _cache(), asyncio.Lock()
+    sweep.save_state(path, date(2026, 11, 11), [g("A")])
+    asyncio.run(sweep.todays_drafts(path, date(2026, 11, 11), cache, lock, make))
+    sweep.save_state(path, TODAY, [g("A")])
+    assert asyncio.run(sweep.todays_drafts(path, TODAY, cache, lock, make)) == ({"A": "https://docs.example/2"}, "")
+    assert make.calls == 2
+
+
+def test_todays_drafts_still_returned_when_they_cannot_be_saved(tmp_path):
+    make = DraftMaker()
+    cache, lock = _cache(), asyncio.Lock()
+    missing = tmp_path / "nowhere" / "state.json"
+
+    async def run():
+        return await asyncio.gather(*(sweep.todays_drafts(missing, TODAY, cache, lock, make) for _ in range(2)))
+
+    assert asyncio.run(run()) == [({"A": "https://docs.example/1"}, "")] * 2
+    assert make.calls == 1  # the in-memory cache still covers this run
 
 
 def test_sweep_new_uses_previous_seen_over_before():

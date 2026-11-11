@@ -129,6 +129,30 @@ def main() -> None:
         log.info("Morning grant sweep done: %d new grant(s).", len(new))
 
     _drafts_cache: dict = {"date": None, "drafts": {}, "note": ""}
+    _drafts_lock = asyncio.Lock()
+
+    async def _create_drafts(new: list) -> tuple[dict[str, str], str]:
+        # One Google Doc per top OPEN_NOW grant. Only ever called through sweep.todays_drafts.
+        drafts: dict[str, str] = {}
+        note = ""
+        top = sweep.top_open_now(new)
+        if top:
+            if settings.google_service_account_json and settings.google_template_doc_id:
+                client = make_client(settings)
+                failed: list[str] = []
+                for g in top:
+                    try:
+                        drafts[g.funder] = await asyncio.to_thread(
+                            draft_application.create_draft, settings, client, g
+                        )
+                    except Exception:
+                        log.exception("sweep draft failed for %r", g.funder)
+                        failed.append(g.funder)
+                if failed:
+                    note = "Could not create a draft for: " + ", ".join(failed) + "."
+            else:
+                note = "Draft links unavailable: Google Docs is not configured."
+        return drafts, note
 
     async def morning_message(ctx: ContextTypes.DEFAULT_TYPE) -> None:
         # Mon/Wed/Fri 8:45AM ET per chat: summary of the sweep + Google Doc drafts for top OPEN_NOW grants.
@@ -137,30 +161,12 @@ def main() -> None:
         if new is None:
             text = sweep.format_sweep_message([], {}, today, state_ok=False)
         else:
-            if _drafts_cache["date"] != today:
-                drafts: dict[str, str] = {}
-                note = ""
-                top = sweep.top_open_now(new)
-                if top:
-                    if settings.google_service_account_json and settings.google_template_doc_id:
-                        client = make_client(settings)
-                        failed: list[str] = []
-                        for g in top:
-                            try:
-                                drafts[g.funder] = await asyncio.to_thread(
-                                    draft_application.create_draft, settings, client, g
-                                )
-                            except Exception:
-                                log.exception("sweep draft failed for %r", g.funder)
-                                failed.append(g.funder)
-                        if failed:
-                            note = "Could not create a draft for: " + ", ".join(failed) + "."
-                    else:
-                        note = "Draft links unavailable: Google Docs is not configured."
-                _drafts_cache.update(date=today, drafts=drafts, note=note)
-            text = sweep.format_sweep_message(
-                new, _drafts_cache["drafts"], today, draft_note=_drafts_cache["note"]
+            # These jobs run once per chat and overlap; todays_drafts makes the drafts once
+            # and every chat, and any later run that day, gets the same links.
+            drafts, note = await sweep.todays_drafts(
+                sweep.DEFAULT_STATE_PATH, today, _drafts_cache, _drafts_lock, lambda: _create_drafts(new)
             )
+            text = sweep.format_sweep_message(new, drafts, today, draft_note=note)
         await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text)
 
     async def daily_scrape(_ctx: ContextTypes.DEFAULT_TYPE) -> None:

@@ -100,7 +100,9 @@ Use it only when the laptop copy is known to be complete and current.
 **Sweep state and drafts.** The 6:00AM sweep writes `data/local/sweep_state.json` (override with
 `SWEEP_STATE_PATH`; gitignored; compose mounts the `sweep_state` volume there) and the 8:45AM message
 reads it. Draft links need `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_TEMPLATE_DOC_ID`; without them, or if
-one draft fails, the summary is still sent with a one-line note.
+one draft fails, the summary is still sent with a one-line note. The drafts are created once per sweep
+day, whatever the number of chat ids: the links are stored in the same state file, so every chat gets
+the same links and a restart or a repeated 8:45AM message that day reuses them.
 
 Healthy startup log: `DID grant agent starting (long-polling)`, `Scheduled Mon/Wed/Fri 6:00AM
 (America/New_York) grant sweep.`, `Scheduled daily reminders + Monday 9AM digest + Mon/Wed/Fri 8:45AM
