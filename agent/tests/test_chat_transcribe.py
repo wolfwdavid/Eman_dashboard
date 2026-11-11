@@ -36,9 +36,10 @@ class FakeAgent:
         return f"echo: {message}"
 
 
-def _settings(token: str = "") -> SimpleNamespace:
+def _settings(token: str = "", trust_cf: bool = False) -> SimpleNamespace:
     return SimpleNamespace(
         chat_api_token=token,
+        chat_trust_cf_connecting_ip=trust_cf,
         chat_api_host="127.0.0.1",
         chat_api_port=0,
         whisper_model="base",
@@ -76,13 +77,13 @@ class Recorder:
 
 
 class Server:
-    def __init__(self, token: str = "", **handler_kwargs) -> None:
+    def __init__(self, token: str = "", trust_cf: bool = False, **handler_kwargs) -> None:
         self.clock = FakeClock()
         self.limiter = chat_api._RateLimiter(limit=10, window=60.0, clock=self.clock)
         self.slots = threading.BoundedSemaphore(2)
         handler = chat_api._make_handler(
             agent=FakeAgent(),
-            settings=_settings(token),
+            settings=_settings(token, trust_cf),
             limiter=self.limiter,
             whisper_slots=self.slots,
             **handler_kwargs,
@@ -293,9 +294,7 @@ def test_413_and_400_count_toward_limit(server, rec):
     assert server.post()[0] == 429
 
 
-def test_independent_budgets_per_forwarded_client(server, rec):
-    a = {"CF-Connecting-IP": "203.0.113.9"}
-    b = {"CF-Connecting-IP": "203.0.113.10"}
+def _assert_independent_budgets(server, a: dict, b: dict) -> None:
     for _ in range(10):
         assert server.post(headers=a)[0] == 200
     assert server.post(headers=a)[0] == 429
@@ -304,12 +303,51 @@ def test_independent_budgets_per_forwarded_client(server, rec):
     assert server.post(headers=b)[0] == 429
 
 
+def test_independent_budgets_per_forwarded_client(server, rec):
+    _assert_independent_budgets(
+        server, {"X-Forwarded-For": "203.0.113.9"}, {"X-Forwarded-For": "203.0.113.10"}
+    )
+
+
+def test_forged_cf_connecting_ip_does_not_open_a_fresh_bucket(server, rec):
+    # What our own proxy appended stays the key, whatever the client claims (CR-02).
+    for i in range(10):
+        headers = {"CF-Connecting-IP": f"203.0.113.{i + 1}", "X-Forwarded-For": "198.51.100.9"}
+        assert server.post(headers=headers)[0] == 200
+    forged = {"CF-Connecting-IP": "203.0.113.77", "X-Forwarded-For": "198.51.100.9"}
+    assert server.post(headers=forged)[0] == 429
+
+
+def test_forged_cf_connecting_ip_without_forwarded_for_keys_on_the_peer(server, rec):
+    for i in range(10):
+        assert server.post(headers={"CF-Connecting-IP": f"203.0.113.{i + 1}"})[0] == 200
+    assert server.post(headers={"CF-Connecting-IP": "203.0.113.77"})[0] == 429
+
+
+def test_cf_connecting_ip_budgets_when_the_setting_is_on(rec):
+    s = Server(trust_cf=True)
+    try:
+        _assert_independent_budgets(
+            s, {"CF-Connecting-IP": "203.0.113.9"}, {"CF-Connecting-IP": "203.0.113.10"}
+        )
+    finally:
+        s.close()
+
+
 # --- client_ip --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("peer", ["127.0.0.1", "172.18.0.2"])
-def test_client_ip_trusts_cf_header_from_private_peer(peer):
-    assert chat_api.client_ip(peer, {"CF-Connecting-IP": "203.0.113.9"}) == "203.0.113.9"
+def test_client_ip_ignores_cf_header_by_default(peer):
+    assert chat_api.client_ip(peer, {"CF-Connecting-IP": "203.0.113.9"}) == peer
+    headers = {"CF-Connecting-IP": "203.0.113.77", "X-Forwarded-For": "198.51.100.9"}
+    assert chat_api.client_ip(peer, headers) == "198.51.100.9"
+
+
+@pytest.mark.parametrize("peer", ["127.0.0.1", "172.18.0.2"])
+def test_client_ip_trusts_cf_header_from_private_peer_when_enabled(peer):
+    headers = {"CF-Connecting-IP": "203.0.113.9", "X-Forwarded-For": "198.51.100.9"}
+    assert chat_api.client_ip(peer, headers, trust_cf=True) == "203.0.113.9"
 
 
 def test_client_ip_uses_rightmost_forwarded_for():
@@ -320,15 +358,30 @@ def test_client_ip_uses_rightmost_forwarded_for():
 def test_client_ip_ignores_headers_from_public_peer():
     headers = {"CF-Connecting-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.7"}
     assert chat_api.client_ip("198.51.100.50", headers) == "198.51.100.50"
+    assert chat_api.client_ip("198.51.100.50", headers, trust_cf=True) == "198.51.100.50"
 
 
 def test_client_ip_falls_back_on_invalid_header():
-    assert chat_api.client_ip("127.0.0.1", {"CF-Connecting-IP": "not-an-ip"}) == "127.0.0.1"
+    assert chat_api.client_ip("127.0.0.1", {"CF-Connecting-IP": "not-an-ip"}, trust_cf=True) == "127.0.0.1"
     assert chat_api.client_ip("127.0.0.1", {"X-Forwarded-For": "1.2.3.4, not-an-ip"}) == "127.0.0.1"
 
 
 def test_client_ip_no_headers_returns_peer():
     assert chat_api.client_ip("127.0.0.1", {}) == "127.0.0.1"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [(None, False), ("", False), ("false", False), ("0", False), ("true", True), ("1", True), (" Yes ", True)],
+)
+def test_trust_cf_setting_is_off_unless_enabled(monkeypatch, raw, expected):
+    from did_agent import config
+
+    if raw is None:
+        monkeypatch.delenv("CHAT_TRUST_CF_CONNECTING_IP", raising=False)
+    else:
+        monkeypatch.setenv("CHAT_TRUST_CF_CONNECTING_IP", raw)
+    assert config.load_settings().chat_trust_cf_connecting_ip is expected
 
 
 # --- failures ---------------------------------------------------------------

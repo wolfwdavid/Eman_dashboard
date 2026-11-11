@@ -198,13 +198,21 @@ The 1 MiB cap is the enforcement behind "about 20 seconds of speech": the server
 does not measure duration. The dashboard stops recording at 18 seconds so a clip
 stays under the cap.
 
-**Client IP for the rate limit.** Behind the Cloudflare tunnel or the Docker
-proxy every connection arrives from a local address, so the limiter reads the real
-client from `CF-Connecting-IP` (or, failing that, the rightmost `X-Forwarded-For`
-entry, the hop our own proxy appended). Those headers are trusted only when the
-connection itself comes from loopback or a private range (`127.0.0.0/8`, `::1`,
-`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`). A direct public
-connection is keyed on its socket address, so it cannot forge the headers.
+**Client IP for the rate limit.** Behind the reverse proxy (Caddy on the VM) every
+connection arrives from a local address, so the limiter reads the real client from
+the rightmost `X-Forwarded-For` entry, the hop our own proxy appended. That header
+is trusted only when the connection itself comes from loopback or a private range
+(`127.0.0.0/8`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`,
+`fc00::/7`). A direct public connection is keyed on its socket address, so it
+cannot forge the header.
+
+`CF-Connecting-IP` is ignored unless `CHAT_TRUST_CF_CONNECTING_IP=true` is set in
+`.env` (default `false`). Caddy and other plain proxies pass a client-supplied
+`CF-Connecting-IP` through unchanged, so believing it there would let a client
+choose a new rate-limit key on every request. Turn the setting on only when every
+request reaches the agent through Cloudflare (a `cloudflared` tunnel or the
+Cloudflare proxy), which sets that header itself; it is then preferred over
+`X-Forwarded-For`, still only from a loopback or private peer.
 
 **Access.** By owner decision the endpoint needs no token of its own beyond the
 `CHAT_API_TOKEN` rule above; it is protected by the size, type, rate and

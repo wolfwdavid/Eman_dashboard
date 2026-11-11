@@ -136,18 +136,23 @@ def _parse_ip(value: str):
         return None
 
 
-def client_ip(peer: str, headers) -> str:
+def client_ip(peer: str, headers, trust_cf: bool = False) -> str:
     """Return the rate-limit key for a request.
 
     Trust rule (T-08-05): the forwarded headers are honoured only when the socket peer
-    is loopback or private, i.e. our own cloudflared / Docker proxy. A public peer could
-    forge them, so for those the socket address wins. From X-Forwarded-For we take the
-    RIGHTMOST entry, the hop our own proxy appended, which the client cannot spoof.
+    is loopback or private, i.e. our own reverse proxy. A public peer could forge them,
+    so for those the socket address wins. From X-Forwarded-For we take the RIGHTMOST
+    entry, the hop our own proxy appended, which the client cannot spoof.
+
+    CF-Connecting-IP is read only when `trust_cf` is set (CHAT_TRUST_CF_CONNECTING_IP),
+    for deployments that really sit behind Cloudflare. A plain reverse proxy such as
+    Caddy passes a client-supplied CF-Connecting-IP through unchanged, so trusting it
+    there would hand every request a rate-limit bucket of the client's choosing.
     """
     peer_ip = _parse_ip(peer or "")
     if peer_ip is None or not any(peer_ip in net for net in _TRUSTED_PEERS if net.version == peer_ip.version):
         return peer
-    cf = headers.get("CF-Connecting-IP")
+    cf = headers.get("CF-Connecting-IP") if trust_cf else None
     if cf:
         parsed = _parse_ip(cf)
         if parsed is not None:
@@ -170,6 +175,7 @@ def _make_handler(
 ):
     """Create a request handler class closed over the agent and settings."""
     token = settings.chat_api_token
+    trust_cf = settings.chat_trust_cf_connecting_ip
     limiter = limiter or _RateLimiter()
     whisper_slots = whisper_slots or threading.BoundedSemaphore(_WHISPER_SLOTS)
 
@@ -367,7 +373,7 @@ def _make_handler(
             if suffix is None:
                 self._reject_upload(415, {"error": "Unsupported media type"})
                 return
-            key = client_ip(self.client_address[0], self.headers)
+            key = client_ip(self.client_address[0], self.headers, trust_cf)
             if not limiter.allow(key):
                 self._reject_upload(
                     429,

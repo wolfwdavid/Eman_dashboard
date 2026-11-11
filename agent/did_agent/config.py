@@ -27,6 +27,10 @@ def _csv_strs(raw: str | None) -> list[str]:
     return [p.strip().lower() for p in raw.split(",") if p.strip()]
 
 
+def _flag(raw: str | None) -> bool:
+    return (raw or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(frozen=True)
 class Settings:
     # LLM provider (OpenAI-compatible; default local Ollama)
@@ -68,6 +72,11 @@ class Settings:
     chat_api_token: str = ""
     chat_api_host: str = "127.0.0.1"  # "0.0.0.0" when hosted (Hugging Face Space, Docker)
     chat_api_port: int = 8080
+    # Rate-limit key for /chat/transcribe. Off: the client is the rightmost X-Forwarded-For
+    # entry our own proxy appended. On: CF-Connecting-IP is believed instead. Only turn it
+    # on when every request really arrives through Cloudflare; any other proxy forwards a
+    # client-supplied CF-Connecting-IP unchanged, which lets a client pick its own key.
+    chat_trust_cf_connecting_ip: bool = False
 
     @property
     def telegram_allow_all(self) -> bool:
@@ -118,4 +127,5 @@ def load_settings() -> Settings:
         chat_api_token=os.getenv("CHAT_API_TOKEN", ""),
         chat_api_host=os.getenv("CHAT_API_HOST", "127.0.0.1").strip() or "127.0.0.1",
         chat_api_port=int(os.getenv("CHAT_API_PORT", "8080")),
+        chat_trust_cf_connecting_ip=_flag(os.getenv("CHAT_TRUST_CF_CONNECTING_IP")),
     )
