@@ -31,7 +31,7 @@ The Crystarium sphere grid makes the entire grant pipeline legible and navigable
 
 ### Out of Scope
 
-- Accessibility features (WCAG, screen-reader, keyboard-first, reduced-motion) — deliberately excluded for THIS build; full 3D/visual investment is the priority instead. (DID's accessibility-first mission is served by the sibling `diversityincludesdisability_*` projects.)
+- Accessibility features (WCAG, screen-reader, keyboard-first, reduced-motion) — deliberately excluded for THIS build; full 3D/visual investment is the priority instead. (DID's accessibility-first mission is served by the sibling `diversityincludesdisability_*` projects.) **Exception (owner, 2026-11-10):** the Phase 8 voice feature ships with its own accessibility contract (keyboard-operable mic, aria-live announcements).
 - Live CRUD editing of grant data in-app — data is build-time ingested from CSV; edits happen in the CSV source, not the UI.
 - Backend / database / auth — static site, no server. Data is baked at build time.
 - Multiple theme variants — single premium 3D version only.

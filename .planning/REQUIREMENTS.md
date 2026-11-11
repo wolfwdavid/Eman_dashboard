@@ -27,6 +27,16 @@
 - [ ] **IMM-03**: Node "leveling" progression animation vocabulary
 - [ ] **ANLY-01**: Expanded analytics panel (amount distribution + richer charts)
 
+### Voice Commands (Phase 8 — promoted from backlog 2026-11-10)
+
+- [ ] **VOICE-01**: A push-to-talk mic button in the chat widget captures speech with the Web Speech API, shows a live transcript and a visible listening state, and stops after 8 s of silence
+- [ ] **VOICE-02**: Spoken dashboard commands run instantly without the LLM: filter by status/gate/type, reset filters, open TEMPLATES/SHARE, close, read the next deadlines and the secured total
+- [ ] **VOICE-03**: "Open <funder>" selects a grant by fuzzy funder/program name; ambiguous matches offer a short "did you mean" list
+- [ ] **VOICE-04**: Speech that is not a command is sent to the existing chat as a question, with the transcript visible before the reply
+- [ ] **VOICE-05**: Browsers without the Web Speech API record audio and transcribe it through a new POST /chat/transcribe endpoint that reuses did_agent/voice.py, capped at 1 MB and 10 requests/min per IP, audio MIME types only
+- [ ] **VOICE-06**: Bot replies and command confirmations can be read aloud; the toggle is off by default and remembered
+- [ ] **VOICE-07**: The voice feature is keyboard-operable (44px target, aria-pressed) and announces transcripts, results and replies through an aria-live region; every voice command keeps its existing mouse/keyboard equivalent
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -52,6 +62,13 @@
 | IMM-02 | Phase 7 | Pending |
 | IMM-03 | Phase 7 | Pending |
 | ANLY-01 | Phase 7 | Pending |
+| VOICE-01 | Phase 8 | Pending |
+| VOICE-02 | Phase 8 | Pending |
+| VOICE-03 | Phase 8 | Pending |
+| VOICE-04 | Phase 8 | Pending |
+| VOICE-05 | Phase 8 | Pending |
+| VOICE-06 | Phase 8 | Pending |
+| VOICE-07 | Phase 8 | Pending |
 
 ---
 *Requirements defined: 2026-07-06 (v1.1)*
