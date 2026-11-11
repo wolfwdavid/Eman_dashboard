@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -
 
 COPY --chown=user . .
 # Pre-create the model cache so a fresh named volume mounted here inherits user ownership.
-RUN mkdir -p /home/user/.cache && chown -R user:user /home/user/.cache
+RUN mkdir -p /home/user/.cache /home/user/app/data/local \
+    && chown -R user:user /home/user/.cache /home/user/app/data
 USER user
 
 EXPOSE 7860

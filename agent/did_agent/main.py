@@ -14,7 +14,7 @@ import asyncio
 import logging
 import os
 import tempfile
-from datetime import date
+from datetime import date, datetime
 from datetime import time as dtime
 from zoneinfo import ZoneInfo
 
@@ -27,13 +27,13 @@ from telegram.ext import (
     filters,
 )
 
-from did_agent import chat_api, email_channel, outbound, publish, reminders, voice
+from did_agent import chat_api, email_channel, outbound, publish, reminders, sweep, voice
 from did_agent.clients import feeds
 from did_agent.config import load_settings
-from did_agent.llm.client import Agent, ToolRegistry
+from did_agent.llm.client import Agent, ToolRegistry, make_client
 from did_agent.notion_store import NotionStore
 from did_agent.public_agent import PublicAgent
-from did_agent.tools import register_all
+from did_agent.tools import draft_application, register_all
 from did_agent.tools.scrape_grants import build as build_scrape
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -94,14 +94,79 @@ def main() -> None:
         text = reminders.format_digest(grants, news, date.today(), settings.reminder_lead_days)
         await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text, parse_mode="Markdown")
 
-    async def daily_scrape(_ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        # Midnight ET, silent: find new grants, save to Notion, refresh the dashboard.
-        log.info("Daily midnight scrape starting…")
+    async def _run_queries() -> None:
         for q in ("disability", "accessibility", "assistive technology"):
             try:
                 await asyncio.to_thread(scrape_tool.run, {"query": q, "sources": ["grants_gov"], "max_results": 8})
             except Exception:
                 log.exception("daily scrape failed for query %r", q)
+
+    async def morning_sweep(_ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        # Mon/Wed/Fri 6AM ET: same queries as the midnight scrape; record which grants are new.
+        log.info("Morning grant sweep starting…")
+        try:
+            before = await asyncio.to_thread(store.list_grants)
+        except Exception:
+            log.exception("sweep: could not read grants before scrape; no state written")
+            return
+        await _run_queries()
+        try:
+            after = await asyncio.to_thread(store.list_grants)
+        except Exception:
+            log.exception("sweep: could not read grants after scrape; no state written")
+            return
+        # "New" = not present at the previous sweep (the midnight scrape adds grants in between).
+        previous_seen = sweep.load_previous_seen(sweep.DEFAULT_STATE_PATH)
+        new = sweep.sweep_new(previous_seen, before, after)
+        try:
+            sweep.save_state(sweep.DEFAULT_STATE_PATH, datetime.now(tz).date(), new, sweep.seen_keys(after))
+        except Exception:
+            log.exception("sweep: could not save state")
+        try:
+            await asyncio.to_thread(publish.publish, None, True, None)
+        except Exception:
+            log.exception("dashboard refresh failed")
+        log.info("Morning grant sweep done: %d new grant(s).", len(new))
+
+    _drafts_cache: dict = {"date": None, "drafts": {}, "note": ""}
+
+    async def morning_message(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        # Mon/Wed/Fri 8:45AM ET per chat: summary of the sweep + Google Doc drafts for top OPEN_NOW grants.
+        today = datetime.now(tz).date()
+        new = sweep.load_state(sweep.DEFAULT_STATE_PATH, today)
+        if new is None:
+            text = sweep.format_sweep_message([], {}, today, state_ok=False)
+        else:
+            if _drafts_cache["date"] != today:
+                drafts: dict[str, str] = {}
+                note = ""
+                top = sweep.top_open_now(new)
+                if top:
+                    if settings.google_service_account_json and settings.google_template_doc_id:
+                        client = make_client(settings)
+                        failed: list[str] = []
+                        for g in top:
+                            try:
+                                drafts[g.funder] = await asyncio.to_thread(
+                                    draft_application.create_draft, settings, client, g
+                                )
+                            except Exception:
+                                log.exception("sweep draft failed for %r", g.funder)
+                                failed.append(g.funder)
+                        if failed:
+                            note = "Could not create a draft for: " + ", ".join(failed) + "."
+                    else:
+                        note = "Draft links unavailable: Google Docs is not configured."
+                _drafts_cache.update(date=today, drafts=drafts, note=note)
+            text = sweep.format_sweep_message(
+                new, _drafts_cache["drafts"], today, draft_note=_drafts_cache["note"]
+            )
+        await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text)
+
+    async def daily_scrape(_ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        # Midnight ET, silent: find new grants, save to Notion, refresh the dashboard.
+        log.info("Daily midnight scrape starting…")
+        await _run_queries()
         try:
             await asyncio.to_thread(publish.publish, None, True, None)
         except Exception:
@@ -135,14 +200,20 @@ def main() -> None:
         grace = {"misfire_grace_time": 3600}
         jq.run_daily(daily_scrape, time=dtime(0, 0, tzinfo=tz), name="daily-scrape", job_kwargs=grace)
         log.info("Scheduled daily midnight (%s) grant scrape.", settings.timezone)
+        jq.run_daily(morning_sweep, time=dtime(6, 0, tzinfo=tz), days=sweep.MON_WED_FRI, name="morning-sweep", job_kwargs=grace)
+        log.info("Scheduled Mon/Wed/Fri 6:00AM (%s) grant sweep.", settings.timezone)
         targets = settings.telegram_allowed_chat_ids
         if not targets:
             log.warning("No TELEGRAM_ALLOWED_CHAT_IDS — proactive reminders/digest disabled until set.")
             return
         for cid in targets:
             jq.run_daily(deadline_sweep, time=dtime(9, 0, tzinfo=tz), chat_id=cid, name=f"reminders-{cid}", job_kwargs=grace)
-            jq.run_daily(weekly_digest, time=dtime(9, 0, tzinfo=tz), days=(0,), chat_id=cid, name=f"digest-{cid}", job_kwargs=grace)
-        log.info("Scheduled daily reminders + Monday 9AM digest for %d chat(s).", len(targets))
+            jq.run_daily(weekly_digest, time=dtime(9, 0, tzinfo=tz), days=sweep.MONDAY, chat_id=cid, name=f"digest-{cid}", job_kwargs=grace)
+            jq.run_daily(morning_message, time=dtime(8, 45, tzinfo=tz), days=sweep.MON_WED_FRI, chat_id=cid, name=f"sweep-message-{cid}", job_kwargs=grace)
+        log.info(
+            "Scheduled daily reminders + Monday 9AM digest + Mon/Wed/Fri 8:45AM sweep message for %d chat(s).",
+            len(targets),
+        )
 
     # --- handlers ---
     async def on_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
