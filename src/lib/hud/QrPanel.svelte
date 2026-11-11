@@ -1,7 +1,7 @@
 <script lang="ts">
 	// QR panel (QRUI-01 / QRUI-02) — a bottom-right toggle widget (the one free
-	// corner). A small glass `SHARE ◹` button toggles a LOCAL `open` (not the
-	// shared `ui`) and expands upward into a glass panel holding the two build-time
+	// corner). A small glass `SHARE ◹` button toggles `panels.share` (the shared
+	// panels store, so the voice assistant can open/close it too) and expands upward into a glass panel holding the two build-time
 	// QR tiles side by side, each on a white "scannability plate".
 	//
 	// `{@html qr.svg}` is SAFE here: `qrCodes[].svg` is generated at build time by
@@ -13,18 +13,17 @@
 	import { cubicOut } from 'svelte/easing';
 	import { qrCodes } from '$lib/data';
 	import { ui } from '$lib/state/crystarium.svelte.js';
-
-	let open = $state(false);
+	import { panels } from '$lib/state/panels.svelte.js';
 </script>
 
-<div class="qr-widget" class:open class:detail-open={ui.selected !== null}>
-	{#if open}
+<div class="qr-widget" class:open={panels.share} class:detail-open={ui.selected !== null}>
+	{#if panels.share}
 		<!-- Mobile-only scrim: taps close the modal (display:none on desktop). -->
 		<button
 			type="button"
 			class="scrim"
 			aria-label="Close share panel"
-			onclick={() => (open = false)}
+			onclick={() => (panels.share = false)}
 		></button>
 		<div
 			class="panel"
@@ -52,7 +51,7 @@
 		</div>
 	{/if}
 
-	<button type="button" class="toggle" onclick={() => (open = !open)} aria-expanded={open}>
+	<button type="button" class="toggle" onclick={() => (panels.share = !panels.share)} aria-expanded={panels.share}>
 		SHARE <span class="glyph">◹</span>
 	</button>
 </div>
