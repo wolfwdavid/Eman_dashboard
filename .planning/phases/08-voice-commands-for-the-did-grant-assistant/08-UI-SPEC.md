@@ -766,3 +766,15 @@ No new npm or pip dependency is introduced by this contract.
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
+
+
+---
+
+## Post-review amendments (2026-11-11)
+
+- "Did you mean" lists hold **1 to 3** options (was "2 or 3"): a single plausible candidate below the high-confidence threshold is offered alone with "None of these"; lists are never padded with unrelated rows.
+- With options pending, an out-of-range ordinal or "the one" re-asks instead of going to the chat.
+- While the mic is listening or processing, replies are not spoken (they still appear in the list and the live region).
+- Voice "open <grant>" closes TEMPLATES/SHARE first; on phones "open templates"/"share" deselects the open grant first (one surface at a time).
+- The close button returns focus to the chat toggle.
+- New server statuses 408 (upload too slow) and 504 (transcription timed out) show the existing "couldn't reach the transcription server" message.

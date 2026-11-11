@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: FFXIII Fidelity
 status: in-progress
-stopped_at: Completed quick task 261110-vgj (Mon/Wed/Fri sweep + 8:45 message); Phase 8 voice commands in planning
-last_updated: "2026-11-11T04:20:00.000Z"
+stopped_at: Phase 8 (voice commands) built and review-fixed on main; awaiting manual browser checks M1-M8, push, and agent redeploy
+last_updated: "2026-11-11T05:40:00.000Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 6
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 29
+  completed_plans: 29
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-04)
 
 **Core value:** The Crystarium sphere grid makes the entire grant pipeline legible and navigable at a glance — funder status, funding amount, and deadline urgency are all readable from the shape and glow of the grid before a single click.
-**Current focus:** Phase 06 complete — FFXIII Visual Fidelity Overhaul (v1.1). Next: Phase 07 Immersion & Analytics.
+**Current focus:** Phase 08 Voice Commands — built (10/10 plans), code review fixes applied, automated gate green (444 unit, 54 Playwright, 119 agent tests). Pending: manual browser matrix M1–M8, push to GitHub Pages, redeploy the agent to the Oracle VM. Phase 07 Immersion & Analytics still not started.
 
 ## Current Position
 
-Phase: 06
-Plan: Complete (06-SUMMARY.md) — awaiting screenshot acceptance gate
+Phase: 08
+Plan: 10/10 executed — VERIFICATION status human_needed (see 08-MANUAL-CHECKS.md)
 
 ## Performance Metrics
 

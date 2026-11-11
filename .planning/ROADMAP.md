@@ -25,7 +25,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 - [x] **Phase 6: FFXIII Visual Fidelity Overhaul** — The Crystarium reads as the real FFXIII Crystarium: luminous crystal orbs in a nebula void, thin curved light-filaments, tight bloom — all v1.0 data encodings preserved. (VIS-01..05) — completed 2026-07-06
 - [x] **Phase 6.1: Mobile Friendly (INSERTED)** ✓ 2026-07-06 — — Responsive HUD re-layout, one-surface-at-a-time mobile UX, touch ergonomics, portrait camera framing + mobile dpr cap. (MOB-01..04)
 - [ ] **Phase 7: Immersion & Analytics** — Sound cues, ambient particles, node leveling vocabulary, expanded analytics. (IMM-01..03, ANLY-01)
-- [ ] **Phase 8: Voice Commands for the DID Grant Assistant** — Push-to-talk mic in the chat widget, instant spoken dashboard commands, spoken questions to the chat, server Whisper fallback, optional spoken replies. (VOICE-01..07) — promoted from backlog 999.1 on 2026-11-10
+- [ ] **Phase 8: Voice Commands for the DID Grant Assistant** — Push-to-talk mic in the chat widget, instant spoken dashboard commands, spoken questions to the chat, server Whisper fallback, optional spoken replies. (VOICE-01..07) — promoted from backlog 999.1 on 2026-11-10 — built 2026-11-11, automated gate green; human verification pending
 
 ## Progress
 
@@ -39,7 +39,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 | 6. FFXIII Visual Fidelity Overhaul | v1.1 | 1/1 | Complete | 2026-07-06 |
 | 6.1 Mobile Friendly (INSERTED) | v1.1 | 1/1 | Complete | 2026-07-06 |
 | 7. Immersion & Analytics | v1.1 | 0/2 | Not started | - |
-| 8. Voice Commands for the DID Grant Assistant | v1.1 | 0/0 | Not started | - |
+| 8. Voice Commands for the DID Grant Assistant | v1.1 | 10/10 | Built — awaiting manual browser checks (M1–M8) and agent deploy | - |
 
 ### Phase 8: Voice Commands for the DID Grant Assistant
 
@@ -50,16 +50,16 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 **Plans:** 10 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Pure voice logic: command grammar, fuzzy funder matcher, facts selectors (wave 1)
-- [ ] 08-02-PLAN.md — Agent POST /chat/transcribe with size, MIME, rate-limit and concurrency controls + pytest (wave 1)
-- [ ] 08-03-PLAN.md — Browser I/O modules: prefs, copy strings, TTS helpers, STT recognizer/recorder/transcribe client (wave 1)
-- [ ] 08-04-PLAN.md — Shared panels store, TemplatesPanel/QrPanel refactor, actions adapter (wave 2)
-- [ ] 08-05-PLAN.md — Docs: HOW-TO-UPDATE synonyms section, agent README transcribe endpoint (wave 2)
-- [ ] 08-06-PLAN.md — ChatWidget text pipeline: router, live region, command and did-you-mean bubbles (wave 3)
-- [ ] 08-07-PLAN.md — Mic button, Web Speech path and server MediaRecorder path (wave 4)
-- [ ] 08-08-PLAN.md — First-use privacy notice, voice settings strip, header actions (wave 5)
-- [ ] 08-09-PLAN.md — Spoken replies toggle and wiring, mobile CSS (wave 6)
-- [ ] 08-10-PLAN.md — Keyboard-only and prerender tests, full gate, manual check list (wave 7)
+- [x] 08-01-PLAN.md — Pure voice logic: command grammar, fuzzy funder matcher, facts selectors (wave 1)
+- [x] 08-02-PLAN.md — Agent POST /chat/transcribe with size, MIME, rate-limit and concurrency controls + pytest (wave 1)
+- [x] 08-03-PLAN.md — Browser I/O modules: prefs, copy strings, TTS helpers, STT recognizer/recorder/transcribe client (wave 1)
+- [x] 08-04-PLAN.md — Shared panels store, TemplatesPanel/QrPanel refactor, actions adapter (wave 2)
+- [x] 08-05-PLAN.md — Docs: HOW-TO-UPDATE synonyms section, agent README transcribe endpoint (wave 2)
+- [x] 08-06-PLAN.md — ChatWidget text pipeline: router, live region, command and did-you-mean bubbles (wave 3)
+- [x] 08-07-PLAN.md — Mic button, Web Speech path and server MediaRecorder path (wave 4)
+- [x] 08-08-PLAN.md — First-use privacy notice, voice settings strip, header actions (wave 5)
+- [x] 08-09-PLAN.md — Spoken replies toggle and wiring, mobile CSS (wave 6)
+- [x] 08-10-PLAN.md — Keyboard-only and prerender tests, full gate, manual check list (wave 7)
 
 ---
 
