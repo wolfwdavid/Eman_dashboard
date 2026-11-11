@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: FFXIII Fidelity
 status: in-progress
-stopped_at: Completed quick task 261029-jaq (scorer actionable_now derived from bucket)
-last_updated: "2026-10-29T18:03:14.079Z"
+stopped_at: Completed quick task 261110-vgj (Mon/Wed/Fri sweep + 8:45 message); Phase 8 voice commands in planning
+last_updated: "2026-11-11T04:20:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 6
@@ -134,6 +134,7 @@ None yet.
 | fast | Link a proposal template Doc (Drive grants/templates) for all 28 grants; pin the real-data test to 28 ids | 2026-11-09 | c409bad | — |
 | fast | Opaque surface for the open Templates list (legend bled through the glass) | 2026-11-09 | a7ffc5f | — |
 | 261109-dxq | Add 12 funders from Eman's emails to the tracker (40 rows) and re-pin the dataset tests | 2026-11-09 | d317f0c | [261109-dxq-add-12-funders-from-eman-s-emails-to-the](./quick/261109-dxq-add-12-funders-from-eman-s-emails-to-the/) |
+| 261110-vgj | DID bot: Mon/Wed/Fri 6AM ET grant sweep + 8:45AM Telegram summary with draft links (new = not present at the previous sweep); Monday digest weekday fixed (was firing Sunday) | 2026-11-10 | 7f2de2e | [261110-vgj-did-bot-mon-wed-fri-6am-grant-sweep-and-](./quick/261110-vgj-did-bot-mon-wed-fri-6am-grant-sweep-and-/) |
 
 ## Session Continuity
 
