@@ -1000,4 +1000,21 @@
 	}
 	.chat-send:disabled { opacity: .5; cursor: default; }
 
+	/* Touch targets and short viewports (UI-SPEC section 8). Desktop is untouched. */
+	@media (max-width: 768px) {
+		.chat-panel { max-height: calc(100dvh - 104px); }
+		.chat-messages { min-height: 120px; }
+		.chat-head { padding: 4px 8px 4px 16px; }
+		.chat-head .chat-speaker, .chat-head .chat-settings, .chat-head-actions > button {
+			width: 44px; height: 44px;
+		}
+		.chat-head-actions > button[aria-label='Close chat'] { min-width: 44px; min-height: 44px; }
+		.chat-send { width: 44px; height: 44px; }
+		.vn-primary, .vn-secondary { min-height: 44px; }
+		.vs-row { min-height: 44px; }
+		.voice-status .interim { max-height: 2.9em; }
+	}
+	@media (max-height: 560px) {
+		.chat-messages { min-height: 0; }
+	}
 </style>
