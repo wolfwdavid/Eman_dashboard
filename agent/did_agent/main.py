@@ -131,11 +131,11 @@ def main() -> None:
     _drafts_cache: dict = {"date": None, "drafts": {}, "note": ""}
     _drafts_lock = asyncio.Lock()
 
-    async def _create_drafts(new: list) -> tuple[dict[str, str], str]:
+    async def _create_drafts(new: list, today: date) -> tuple[dict[str, str], str]:
         # One Google Doc per top OPEN_NOW grant. Only ever called through sweep.todays_drafts.
         drafts: dict[str, str] = {}
         note = ""
-        top = sweep.top_open_now(new)
+        top = sweep.top_open_now(new, today)
         if top:
             if settings.google_service_account_json and settings.google_template_doc_id:
                 client = make_client(settings)
@@ -164,7 +164,7 @@ def main() -> None:
             # These jobs run once per chat and overlap; todays_drafts makes the drafts once
             # and every chat, and any later run that day, gets the same links.
             drafts, note = await sweep.todays_drafts(
-                sweep.DEFAULT_STATE_PATH, today, _drafts_cache, _drafts_lock, lambda: _create_drafts(new)
+                sweep.DEFAULT_STATE_PATH, today, _drafts_cache, _drafts_lock, lambda: _create_drafts(new, today)
             )
             text = sweep.format_sweep_message(new, drafts, today, draft_note=note)
         await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text)

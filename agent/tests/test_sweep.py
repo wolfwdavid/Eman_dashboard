@@ -61,9 +61,26 @@ def test_top_open_now_selection():
         g("Sponsor", bucket="VIA_FISCAL_SPONSOR", score=99.0),
         g("Done", bucket="OPEN_NOW", score=99.0, status="Skipped"),
     ]
-    top = sweep.top_open_now(new)
+    top = sweep.top_open_now(new, TODAY)
     assert [x.funder for x in top] == ["HighSoon", "HighLate", "Low"]
-    assert [x.funder for x in sweep.top_open_now(new, n=4)][-1] == "NoScoreLate"
+    assert [x.funder for x in sweep.top_open_now(new, TODAY, n=4)][-1] == "NoScoreLate"
+
+
+def test_top_open_now_skips_passed_deadlines():
+    new = [
+        g("LongGone", bucket="OPEN_NOW", score=99.0, deadline="2026-01-15"),
+        g("Yesterday", bucket="OPEN_NOW", score=99.0, deadline="2026-11-12"),
+        g("Undated", bucket="OPEN_NOW", score=90.0),
+        g("Rolling", bucket="OPEN_NOW", score=90.0, deadline_note="rolling"),
+        g("DueToday", bucket="OPEN_NOW", score=90.0, deadline="2026-11-13"),
+        g("NextMonth", bucket="OPEN_NOW", score=90.0, deadline="2026-12-13"),
+    ]
+    top = sweep.top_open_now(new, TODAY, n=10)
+    # Passed deadlines are out; a deadline today still counts; undated ones follow the dated.
+    assert [x.funder for x in top] == ["DueToday", "NextMonth", "Rolling", "Undated"]
+    assert sweep.top_open_now(new[:2], TODAY) == []
+    # On the day the earliest deadline falls, none has passed and nothing is skipped.
+    assert len(sweep.top_open_now(new, date(2026, 1, 15), n=10)) == 6
 
 
 def test_seen_round_trip_and_atomic(tmp_path):

@@ -187,19 +187,26 @@ async def todays_drafts(
         return cache["drafts"], cache["note"]
 
 
-def top_open_now(new: list[Grant], n: int = 3) -> list[Grant]:
-    """Best `n` actionable OPEN_NOW grants: score desc, deadline asc, then funder."""
-    cands = [g for g in new if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL]
+def top_open_now(new: list[Grant], today: date, n: int = 3) -> list[Grant]:
+    """Best `n` actionable OPEN_NOW grants: score desc, deadline asc, then funder.
+
+    A grant whose deadline is before `today` is left out: a draft for it would cost an
+    LLM call and a Google Doc for nothing. A deadline of today still counts. Grants with
+    no usable deadline date stay eligible and sort after the dated ones of equal score.
+    """
+    # (grant, days left) with days left None for a grant that has no usable deadline date.
+    cands = [(g, days_until(g, today)) for g in new if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL]
+    cands = [(g, left) for g, left in cands if left is None or left >= 0]
     cands.sort(
-        key=lambda g: (
-            g.score is None,
-            -(g.score or 0),
-            g.deadline is None,
-            g.deadline or "",
-            g.funder,
+        key=lambda c: (
+            c[0].score is None,
+            -(c[0].score or 0),
+            c[1] is None,
+            c[1] or 0,
+            c[0].funder,
         )
     )
-    return cands[:n]
+    return [g for g, _ in cands[:n]]
 
 
 def _block(g: Grant, today: date) -> str:
