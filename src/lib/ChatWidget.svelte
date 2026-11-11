@@ -81,6 +81,9 @@
 	function say(/** @type {string} */ text, { allowClosed = false } = {}) {
 		if (!spoken || !canSpeak) return;
 		if (!open && !allowClosed) return;
+		// Never speak into an open microphone: the recognizer would hear the assistant and
+		// route its words as the user's. The text is still in the chat and the live region.
+		if (capturing()) return;
 		speak(text);
 	}
 
@@ -88,8 +91,8 @@
 		spoken = !spoken;
 		setBool(PREF_KEYS.spokenReplies, spoken);
 		// Turning on speaks inside the click handler, which unlocks Safari/iOS speech.
-		if (spoken) speak(COPY.spokenOn);
-		else cancelSpeech();
+		if (!spoken) cancelSpeech();
+		else if (!capturing()) speak(COPY.spokenOn);
 	}
 
 	function pushUser(/** @type {string} */ text) {
@@ -266,6 +269,8 @@
 	// ---------------------------------------------------------------- mic
 	/** @type {'idle'|'listening'|'processing'|'error'|'blocked'|'unavailable'} */
 	let micState = $state('idle');
+	/** True while the microphone is open or its audio is being transcribed. */
+	const capturing = () => micState === 'listening' || micState === 'processing';
 	/** @type {null|'listening'|'processing'|'didnt'} */
 	let statusKind = $state(null);
 	let interim = $state('');

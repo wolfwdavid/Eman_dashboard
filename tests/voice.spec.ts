@@ -899,6 +899,42 @@ test.describe('spoken replies', () => {
 		expect(await cancelCount(page)).toBeGreaterThan(before);
 	});
 
+	test('spoken replies: a reply arriving during a capture is not spoken into the mic', async ({ page }) => {
+		await installFakeSR(page);
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		await page.getByPlaceholder('Ask about grants...').fill('hello there');
+		await page.getByPlaceholder('Ask about grants...').press('Enter');
+		await expect(page.locator('.chat-msg.typing')).toBeVisible();
+
+		// Open the mic while the question is still pending; an interim result stops the silence timer.
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__interim('show'));
+
+		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' })).toBeVisible({
+			timeout: 10_000
+		});
+		await expect(page.getByRole('status')).toContainText('Assistant: Hello from the assistant');
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect((await spokenList(page)).some((t) => t.includes('Hello from the assistant'))).toBe(false);
+
+		// Turning spoken replies on mid-capture stays silent too.
+		const before = (await spokenList(page)).length;
+		await speakerButton(page).click();
+		await speakerButton(page).click();
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect((await spokenList(page)).length).toBe(before);
+
+		// Not queued either: after the capture ends only the new confirmation is spoken.
+		await page.evaluate(() => (window as any).__say('show recurring grants'));
+		await expect.poll(async () => (await spokenList(page)).some((t) => t.startsWith('Showing'))).toBe(true);
+		expect((await spokenList(page)).some((t) => t.includes('Hello from the assistant'))).toBe(false);
+	});
+
 	test('spoken replies: toggle absent without speechSynthesis', async ({ page }) => {
 		await page.addInitScript(() => {
 			Object.defineProperty(window, 'speechSynthesis', { value: undefined, configurable: true });
