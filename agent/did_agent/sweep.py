@@ -1,19 +1,24 @@
-"""Mon/Wed/Fri grant sweep logic: weekday constants, new-grant diff, state file, message format.
+"""Mon/Wed/Fri grant sweep logic: weekday constants, new-grant diff, state file, drafts, message format.
 
 Pure stdlib + models/reminders (no Telegram/Notion) so it is unit-testable offline.
 """
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
+import logging
 import os
 import tempfile
+from collections.abc import Awaitable, Callable
 from datetime import date
 from pathlib import Path
 
 from did_agent.models import Grant
 from did_agent.reminders import _TERMINAL, days_until
+
+log = logging.getLogger("did_agent.sweep")
 
 # python-telegram-bot 22.x JobQueue.run_daily numbering: 0 = Sunday ... 6 = Saturday
 # (see telegram/ext/_jobqueue.py _CRON_MAPPING). NOT the Python weekday() numbering.
@@ -80,12 +85,17 @@ def load_previous_seen(path: str | Path) -> set[str] | None:
 def save_state(
     path: str | Path, today: date, new: list[Grant], seen: set[str] | None = None
 ) -> None:
-    """Atomically write the sweep result (temp file + os.replace)."""
+    """Atomically write the sweep result. A new sweep starts with no drafts recorded."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict = {"date": today.isoformat(), "new": [dataclasses.asdict(g) for g in new]}
     if seen is not None:
         payload["seen"] = sorted(seen)
+    _write_json(path, payload)
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    """Atomic write: temp file in the same directory, then os.replace."""
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -111,19 +121,92 @@ def load_state(path: str | Path, today: date) -> list[Grant] | None:
         return None
 
 
-def top_open_now(new: list[Grant], n: int = 3) -> list[Grant]:
-    """Best `n` actionable OPEN_NOW grants: score desc, deadline asc, then funder."""
-    cands = [g for g in new if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL]
+def save_drafts(path: str | Path, today: date, drafts: dict[str, str], note: str = "") -> bool:
+    """Record today's draft links (funder -> URL) and note in today's sweep state file.
+
+    The rest of the file is kept as it is. Returns False, writing nothing, when the file
+    is missing, unreadable or not from today's sweep: drafts belong to one sweep.
+    """
+    path = Path(path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("date") != today.isoformat():
+            return False
+        data["drafts"] = dict(drafts)
+        data["draft_note"] = note
+        _write_json(path, data)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def load_drafts(path: str | Path, today: date) -> tuple[dict[str, str], str] | None:
+    """Today's recorded (drafts, note), or None if none were recorded for today's sweep.
+
+    None also covers a missing, corrupt or old-format file (one written before drafts
+    were stored), so the caller simply creates the drafts.
+    """
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if data.get("date") != today.isoformat():
+            return None
+        drafts = data["drafts"]
+        note = data.get("draft_note", "")
+        if not isinstance(drafts, dict) or not isinstance(note, str):
+            return None
+        if not all(isinstance(k, str) and isinstance(v, str) for k, v in drafts.items()):
+            return None
+        return dict(drafts), note
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+async def todays_drafts(
+    path: str | Path,
+    today: date,
+    cache: dict,
+    lock: asyncio.Lock,
+    create: Callable[[], Awaitable[tuple[dict[str, str], str]]],
+) -> tuple[dict[str, str], str]:
+    """Today's (drafts, note), creating them at most once however many callers ask.
+
+    The 8:45 message runs once per chat and those jobs overlap, so the whole
+    look-up-or-create step is serialized by `lock` and checked again inside it. Lookup
+    order: `cache` (this process), then the state file (survives a restart), and only
+    then `create()`, whose result is stored in both. `cache` is a dict with the keys
+    date, drafts and note.
+    """
+    async with lock:
+        if cache.get("date") != today:
+            found = load_drafts(path, today)
+            if found is None:
+                found = await create()
+                if not save_drafts(path, today, *found):
+                    log.warning("sweep: could not record today's draft links in %s", path)
+            cache.update(date=today, drafts=found[0], note=found[1])
+        return cache["drafts"], cache["note"]
+
+
+def top_open_now(new: list[Grant], today: date, n: int = 3) -> list[Grant]:
+    """Best `n` actionable OPEN_NOW grants: score desc, deadline asc, then funder.
+
+    A grant whose deadline is before `today` is left out: a draft for it would cost an
+    LLM call and a Google Doc for nothing. A deadline of today still counts. Grants with
+    no usable deadline date stay eligible and sort after the dated ones of equal score.
+    """
+    # (grant, days left) with days left None for a grant that has no usable deadline date.
+    cands = [(g, days_until(g, today)) for g in new if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL]
+    cands = [(g, left) for g, left in cands if left is None or left >= 0]
     cands.sort(
-        key=lambda g: (
-            g.score is None,
-            -(g.score or 0),
-            g.deadline is None,
-            g.deadline or "",
-            g.funder,
+        key=lambda c: (
+            c[0].score is None,
+            -(c[0].score or 0),
+            c[1] is None,
+            c[1] or 0,
+            c[0].funder,
         )
     )
-    return cands[:n]
+    return [g for g, _ in cands[:n]]
 
 
 def _block(g: Grant, today: date) -> str:

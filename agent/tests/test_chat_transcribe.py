@@ -36,9 +36,10 @@ class FakeAgent:
         return f"echo: {message}"
 
 
-def _settings(token: str = "") -> SimpleNamespace:
+def _settings(token: str = "", trust_cf: bool = False) -> SimpleNamespace:
     return SimpleNamespace(
         chat_api_token=token,
+        chat_trust_cf_connecting_ip=trust_cf,
         chat_api_host="127.0.0.1",
         chat_api_port=0,
         whisper_model="base",
@@ -57,13 +58,14 @@ class Recorder:
         self.gate: threading.Event | None = None
         self.entered = threading.Event()
 
-    def __call__(self, audio_path, model_name="base", base_url="", api_key=""):
+    def __call__(self, audio_path, model_name="base", base_url="", api_key="", **kwargs):
         self.calls.append(
             {
                 "path": audio_path,
                 "existed": os.path.exists(audio_path),
                 "size": os.path.getsize(audio_path) if os.path.exists(audio_path) else -1,
                 "model": model_name,
+                "kwargs": kwargs,
             }
         )
         self.entered.set()
@@ -75,12 +77,16 @@ class Recorder:
 
 
 class Server:
-    def __init__(self, token: str = "") -> None:
+    def __init__(self, token: str = "", trust_cf: bool = False, **handler_kwargs) -> None:
         self.clock = FakeClock()
         self.limiter = chat_api._RateLimiter(limit=10, window=60.0, clock=self.clock)
         self.slots = threading.BoundedSemaphore(2)
         handler = chat_api._make_handler(
-            agent=FakeAgent(), settings=_settings(token), limiter=self.limiter, whisper_slots=self.slots
+            agent=FakeAgent(),
+            settings=_settings(token, trust_cf),
+            limiter=self.limiter,
+            whisper_slots=self.slots,
+            **handler_kwargs,
         )
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         self.httpd.daemon_threads = True
@@ -185,10 +191,13 @@ def test_non_audio_content_type_is_415(server, rec, ctype):
     assert "error" in _json(data)
 
 
-def test_415_does_not_count_toward_limit(server, rec):
-    for _ in range(15):
+def test_415_counts_toward_limit(server, rec):
+    # The limiter runs before the type check, so wrong-type uploads are not a free path (WR-07).
+    for _ in range(10):
         assert server.post(b"abc", "text/plain")[0] == 415
-    assert server.post(b"abc")[0] == 200
+    assert server.post(b"abc", "text/plain")[0] == 429
+    assert server.post(b"abc")[0] == 429
+    assert rec.calls == []
 
 
 # --- size and length --------------------------------------------------------
@@ -288,9 +297,7 @@ def test_413_and_400_count_toward_limit(server, rec):
     assert server.post()[0] == 429
 
 
-def test_independent_budgets_per_forwarded_client(server, rec):
-    a = {"CF-Connecting-IP": "203.0.113.9"}
-    b = {"CF-Connecting-IP": "203.0.113.10"}
+def _assert_independent_budgets(server, a: dict, b: dict) -> None:
     for _ in range(10):
         assert server.post(headers=a)[0] == 200
     assert server.post(headers=a)[0] == 429
@@ -299,12 +306,66 @@ def test_independent_budgets_per_forwarded_client(server, rec):
     assert server.post(headers=b)[0] == 429
 
 
+def test_over_limit_large_upload_is_refused_without_reading_it(server, rec):
+    for _ in range(10):
+        assert server.post()[0] == 200
+    # Declares 1 MB and sends two bytes: the 429 must not wait for the rest of the body.
+    sock = _slow_upload(server.port)
+    try:
+        started = time.monotonic()
+        raw = _trickle_then_read(sock, 0)
+        elapsed = time.monotonic() - started
+    finally:
+        sock.close()
+    assert b" 429 " in raw.split(b"\r\n")[0]
+    assert elapsed < 5
+
+
+def test_independent_budgets_per_forwarded_client(server, rec):
+    _assert_independent_budgets(
+        server, {"X-Forwarded-For": "203.0.113.9"}, {"X-Forwarded-For": "203.0.113.10"}
+    )
+
+
+def test_forged_cf_connecting_ip_does_not_open_a_fresh_bucket(server, rec):
+    # What our own proxy appended stays the key, whatever the client claims (CR-02).
+    for i in range(10):
+        headers = {"CF-Connecting-IP": f"203.0.113.{i + 1}", "X-Forwarded-For": "198.51.100.9"}
+        assert server.post(headers=headers)[0] == 200
+    forged = {"CF-Connecting-IP": "203.0.113.77", "X-Forwarded-For": "198.51.100.9"}
+    assert server.post(headers=forged)[0] == 429
+
+
+def test_forged_cf_connecting_ip_without_forwarded_for_keys_on_the_peer(server, rec):
+    for i in range(10):
+        assert server.post(headers={"CF-Connecting-IP": f"203.0.113.{i + 1}"})[0] == 200
+    assert server.post(headers={"CF-Connecting-IP": "203.0.113.77"})[0] == 429
+
+
+def test_cf_connecting_ip_budgets_when_the_setting_is_on(rec):
+    s = Server(trust_cf=True)
+    try:
+        _assert_independent_budgets(
+            s, {"CF-Connecting-IP": "203.0.113.9"}, {"CF-Connecting-IP": "203.0.113.10"}
+        )
+    finally:
+        s.close()
+
+
 # --- client_ip --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("peer", ["127.0.0.1", "172.18.0.2"])
-def test_client_ip_trusts_cf_header_from_private_peer(peer):
-    assert chat_api.client_ip(peer, {"CF-Connecting-IP": "203.0.113.9"}) == "203.0.113.9"
+def test_client_ip_ignores_cf_header_by_default(peer):
+    assert chat_api.client_ip(peer, {"CF-Connecting-IP": "203.0.113.9"}) == peer
+    headers = {"CF-Connecting-IP": "203.0.113.77", "X-Forwarded-For": "198.51.100.9"}
+    assert chat_api.client_ip(peer, headers) == "198.51.100.9"
+
+
+@pytest.mark.parametrize("peer", ["127.0.0.1", "172.18.0.2"])
+def test_client_ip_trusts_cf_header_from_private_peer_when_enabled(peer):
+    headers = {"CF-Connecting-IP": "203.0.113.9", "X-Forwarded-For": "198.51.100.9"}
+    assert chat_api.client_ip(peer, headers, trust_cf=True) == "203.0.113.9"
 
 
 def test_client_ip_uses_rightmost_forwarded_for():
@@ -315,15 +376,51 @@ def test_client_ip_uses_rightmost_forwarded_for():
 def test_client_ip_ignores_headers_from_public_peer():
     headers = {"CF-Connecting-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.7"}
     assert chat_api.client_ip("198.51.100.50", headers) == "198.51.100.50"
+    assert chat_api.client_ip("198.51.100.50", headers, trust_cf=True) == "198.51.100.50"
 
 
 def test_client_ip_falls_back_on_invalid_header():
-    assert chat_api.client_ip("127.0.0.1", {"CF-Connecting-IP": "not-an-ip"}) == "127.0.0.1"
+    assert chat_api.client_ip("127.0.0.1", {"CF-Connecting-IP": "not-an-ip"}, trust_cf=True) == "127.0.0.1"
     assert chat_api.client_ip("127.0.0.1", {"X-Forwarded-For": "1.2.3.4, not-an-ip"}) == "127.0.0.1"
 
 
 def test_client_ip_no_headers_returns_peer():
     assert chat_api.client_ip("127.0.0.1", {}) == "127.0.0.1"
+
+
+def test_client_ip_keys_ipv6_by_slash_64():
+    a = chat_api.client_ip("2001:db8:1:2::5", {})
+    assert a == "2001:db8:1:2::/64"
+    assert chat_api.client_ip("2001:db8:1:2:ffff:1:2:9", {}) == a
+    assert chat_api.client_ip("2001:db8:1:3::5", {}) != a
+    forwarded = {"X-Forwarded-For": "198.51.100.1, 2001:db8:1:2:aaaa::1"}
+    assert chat_api.client_ip("127.0.0.1", forwarded) == a
+    assert chat_api.client_ip("::1", forwarded) == a
+    assert chat_api.client_ip("127.0.0.1", {"CF-Connecting-IP": "2001:db8:1:2::77"}, trust_cf=True) == a
+
+
+def test_client_ip_treats_ipv4_mapped_peers_as_ipv4():
+    headers = {"X-Forwarded-For": "203.0.113.7"}
+    # Dual-stack bind: our own proxy shows up as an IPv4-mapped loopback or private peer.
+    assert chat_api.client_ip("::ffff:127.0.0.1", headers) == "203.0.113.7"
+    assert chat_api.client_ip("::ffff:172.18.0.2", headers) == "203.0.113.7"
+    # A mapped public peer is not trusted and is keyed as its IPv4 address.
+    assert chat_api.client_ip("::ffff:198.51.100.50", headers) == "198.51.100.50"
+    assert chat_api.client_ip("127.0.0.1", {"X-Forwarded-For": "::ffff:203.0.113.7"}) == "203.0.113.7"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [(None, False), ("", False), ("false", False), ("0", False), ("true", True), ("1", True), (" Yes ", True)],
+)
+def test_trust_cf_setting_is_off_unless_enabled(monkeypatch, raw, expected):
+    from did_agent import config
+
+    if raw is None:
+        monkeypatch.delenv("CHAT_TRUST_CF_CONNECTING_IP", raising=False)
+    else:
+        monkeypatch.setenv("CHAT_TRUST_CF_CONNECTING_IP", raw)
+    assert config.load_settings().chat_trust_cf_connecting_ip is expected
 
 
 # --- failures ---------------------------------------------------------------
@@ -350,7 +447,142 @@ def test_busy_whisper_slots_return_503(server, rec):
     assert server.post()[0] == 200
 
 
+# --- deadlines (CR-01, WR-06) -----------------------------------------------
+
+
+def _slow_upload(port: int, first: bytes = b"ab", ctype: str = "audio/webm") -> socket.socket:
+    """Open an upload that declares 1 MB and sends only `first`."""
+    s = socket.create_connection(("127.0.0.1", port), timeout=10)
+    s.sendall(
+        b"POST /chat/transcribe HTTP/1.1\r\nHost: x\r\nContent-Type: " + ctype.encode() + b"\r\n"
+        b"Content-Length: 1000000\r\n\r\n" + first
+    )
+    return s
+
+
+def _trickle_then_read(s: socket.socket, seconds: float) -> bytes:
+    """Send one byte every 50 ms for `seconds`, then read the reply until the server closes."""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        s.sendall(b"x")
+        time.sleep(0.05)
+    raw = b""
+    while True:
+        chunk = s.recv(4096)
+        if not chunk:
+            break
+        raw += chunk
+    return raw
+
+
+def test_slow_uploads_do_not_take_whisper_slots(server, rec):
+    slow = [_slow_upload(server.port), _slow_upload(server.port)]
+    try:
+        time.sleep(0.3)  # both handlers are now waiting for the rest of their bodies
+        status, _, data = server.post(b"abc")
+        assert status == 200
+        assert _json(data) == {"text": "show recurring grants"}
+        assert len(rec.calls) == 1
+    finally:
+        for s in slow:
+            s.close()
+
+
+def test_trickled_upload_gets_408_at_the_total_deadline(rec):
+    s = Server(body_deadline=0.5)
+    try:
+        sock = _slow_upload(s.port)
+        try:
+            started = time.monotonic()
+            raw = _trickle_then_read(sock, 0.3)
+            elapsed = time.monotonic() - started
+        finally:
+            sock.close()
+        assert b" 408 " in raw.split(b"\r\n")[0]
+        assert elapsed < 5
+        assert rec.calls == []
+        # No slot was ever taken by the slow client.
+        assert s.slots.acquire(blocking=False) and s.slots.acquire(blocking=False)
+    finally:
+        s.close()
+
+
+def test_drain_of_rejected_upload_is_bounded_by_the_deadline(rec):
+    s = Server(body_deadline=0.5)
+    try:
+        sock = _slow_upload(s.port, ctype="text/plain")
+        try:
+            started = time.monotonic()
+            raw = _trickle_then_read(sock, 0.3)
+            elapsed = time.monotonic() - started
+        finally:
+            sock.close()
+        assert b" 415 " in raw.split(b"\r\n")[0]
+        assert elapsed < 5
+    finally:
+        s.close()
+
+
+def test_transcribe_over_deadline_is_504_and_frees_slot(rec):
+    s = Server(transcribe_deadline=0.3)
+    rec.gate = threading.Event()
+    try:
+        started = time.monotonic()
+        status, _, data = s.post(b"abc")
+        assert status == 504
+        assert "error" in _json(data)
+        assert time.monotonic() - started < 5
+        # Both slots are free again although the backend call has not returned.
+        assert s.slots.acquire(blocking=False) and s.slots.acquire(blocking=False)
+        s.slots.release()
+        s.slots.release()
+        assert rec.calls[0]["kwargs"].get("timeout") == 0.3
+    finally:
+        rec.gate.set()
+        s.close()
+    path = rec.calls[0]["path"]
+    deadline = time.monotonic() + 5
+    while os.path.exists(path) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert not os.path.exists(path)
+
+
+def test_hosted_whisper_client_has_timeout_and_no_retries(monkeypatch, tmp_path):
+    import openai
+
+    from did_agent import voice
+
+    seen: dict = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            seen.update(kwargs)
+            create = lambda **kw: SimpleNamespace(text=" hello ")  # noqa: E731
+            self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=create))
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    clip = tmp_path / "clip.ogg"
+    clip.write_bytes(b"abc")
+    # Positional call, as the Telegram voice handler makes it.
+    assert voice.transcribe(str(clip), "whisper-large-v3-turbo", "https://stt.example/v1", "k") == "hello"
+    assert seen["max_retries"] == 0
+    assert seen["timeout"] == voice.HOSTED_TIMEOUT
+    voice.transcribe(str(clip), "m", "https://stt.example/v1", "k", timeout=7.5)
+    assert seen["timeout"] == 7.5
+
+
 # --- auth -------------------------------------------------------------------
+
+
+def test_401_counts_toward_limit(rec):
+    s = Server(token="secret")
+    try:
+        for _ in range(10):
+            assert s.post()[0] == 401
+        assert s.post()[0] == 429
+        assert s.post(headers={"Authorization": "Bearer secret"})[0] == 429
+    finally:
+        s.close()
 
 
 def test_token_required_when_configured(rec):
@@ -415,6 +647,30 @@ def test_unknown_post_path_still_404(server):
         c.close()
 
 
+def test_static_files_stay_inside_the_dashboard_directory(server, monkeypatch, tmp_path):
+    root = tmp_path.resolve()
+    (root / "dashboard").mkdir()
+    (root / "dashboard" / "ok.txt").write_text("public")
+    (root / "dashboard-private").mkdir()  # a sibling whose name starts with the same text
+    (root / "dashboard-private" / "secret.txt").write_text("secret")
+    (root / "secret.txt").write_text("secret")
+    monkeypatch.setattr(chat_api, "_DASHBOARD_DIR", root / "dashboard")
+
+    def get(path: str):
+        c = server.conn()
+        try:
+            c.request("GET", path)
+            r = c.getresponse()
+            return r.status, r.read()
+        finally:
+            c.close()
+
+    assert get("/ok.txt") == (200, b"public")
+    assert get("/../dashboard-private/secret.txt")[0] == 404
+    assert get("/../secret.txt")[0] == 404
+    assert get("/missing.txt")[0] == 404
+
+
 def test_slow_transcribe_does_not_block_polling(server, rec):
     rec.gate = threading.Event()
     result: dict = {}
@@ -472,3 +728,37 @@ def test_limiter_prunes_stale_keys_over_cap():
     clock.advance(120)
     lim.allow("fresh")
     assert len(lim._hits) < 100
+
+
+def test_limiter_key_count_is_hard_bounded_within_a_window():
+    clock = FakeClock()
+    lim = chat_api._RateLimiter(limit=10, window=60.0, clock=clock, max_keys=100)
+    for i in range(1000):
+        assert lim.allow(f"ip-{i}") is True
+        assert len(lim._hits) <= 100
+    assert "ip-999" in lim._hits and "ip-0" not in lim._hits
+
+
+def test_limiter_evicts_expired_keys_before_live_ones():
+    clock = FakeClock()
+    lim = chat_api._RateLimiter(limit=2, window=60.0, clock=clock, max_keys=3)
+    lim.allow("old")
+    clock.advance(61)
+    lim.allow("b")
+    clock.advance(1)
+    lim.allow("c")
+    lim.allow("d")
+    assert set(lim._hits) == {"b", "c", "d"}  # "old" had expired
+    lim.allow("b")  # b is now the most recently used
+    lim.allow("e")  # full and nothing expired: the least recently used live key goes
+    assert set(lim._hits) == {"b", "d", "e"}
+    assert lim.allow("b") is False  # b kept its two hits through both evictions
+
+
+def test_limiter_stays_fast_with_many_distinct_keys():
+    lim = chat_api._RateLimiter(limit=10, window=60.0, clock=FakeClock())
+    started = time.monotonic()
+    for i in range(50_000):
+        lim.allow(f"ip-{i}")
+    assert time.monotonic() - started < 5
+    assert len(lim._hits) <= chat_api._MAX_TRACKED_IPS

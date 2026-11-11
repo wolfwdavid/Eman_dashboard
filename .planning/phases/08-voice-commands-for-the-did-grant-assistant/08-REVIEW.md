@@ -438,3 +438,29 @@ before uploading.
 _Reviewed: 2026-11-11T05:30:21Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+## Fixes applied
+
+Python (`agent/`) findings only, fixed 2026-11-11. Each fix has regression tests in
+`agent/tests/test_chat_transcribe.py` or `agent/tests/test_sweep.py`; the agent suite went from
+85 to 119 tests, all passing. Findings under `src/` and WR-14 were not touched.
+
+| Finding | Commit | Outcome |
+|---|---|---|
+| CR-01 | `1d842bc` | Fixed. The body is read in full under one 20 s deadline for the whole body before a Whisper slot is taken; a body still arriving at the deadline gets 408 and the connection is closed. The drain of rejected uploads uses the same deadline. |
+| WR-06 | `1d842bc` | Partially fixed. Transcription runs under a 60 s deadline and returns 504 with the slot released and the temp file removed. The hosted client gets `timeout` and `max_retries=0`. What remains: local faster-whisper cannot be interrupted, so after a 504 the abandoned call keeps running in the background until it returns, outside the two-slot count. |
+| (test stability) | `7872fea` | The 413 reply was lost to a connection reset on Windows about one run in eight (present before these fixes). After replying to an upload it will not read, the server now discards at most 64 KiB for at most 0.5 s before closing. |
+| CR-02 | `7278373` | Fixed. `CF-Connecting-IP` is ignored unless `CHAT_TRUST_CF_CONNECTING_IP=true` (default false, documented in `.env.example` and the README). The key is the rightmost `X-Forwarded-For` entry from a loopback or private peer, else the socket peer. No Caddyfile change is needed. |
+| WR-07 | `cd8df05` | Fixed. The limiter holds at most 5000 keys and prunes or evicts from the front of an ordered table with no scan. The rate limit runs before the 401 and 415 checks, so those now count toward the limit (the old "415 is not counted" behaviour is gone; test and README updated). A client over its limit has at most 256 KiB read before the 429. IPv6 is keyed by /64; IPv4-mapped peers are treated as IPv4. |
+| CR-04 | `8925bd5` | Fixed. Draft creation goes through `sweep.todays_drafts`: an `asyncio.Lock` with a re-check inside it, and the links are stored in the sweep state file, so a restart or a second run that day reuses them. Old-format state files still load. What remains by design: the drafts are still created by the 08:45 job, not the 06:00 sweep, and the links are saved after all of the day's drafts exist, so a crash part-way through creation would create that day's drafts again. |
+| WR-12 | `ed6e2eb` | Fixed. `top_open_now(new, today, n=3)` leaves out grants whose deadline is before today; a deadline of today counts; undated grants stay eligible and sort after dated ones of equal score. |
+| IN-04 | `d6c6ecd` | Partially fixed. The static file guard uses `Path.is_relative_to` on resolved paths. The second half of the finding (an empty recording reported as "unreachable") is in `src/lib/ChatWidget.svelte` and was out of scope here. |
+
+Behaviour changes to be aware of:
+
+- The Telegram voice-note path shares `voice.transcribe`, so in hosted mode it now also has a
+  60 s timeout and no retries (previously the SDK defaults: 600 s, 2 retries).
+- New statuses on `/chat/transcribe`: 408 (upload too slow) and 504 (transcription timed out).
+  The widget (`src/lib/voice/stt.ts`) has no case for them, so both show its generic
+  "couldn't reach the transcription server" message.
+- A full 1 MiB clip must arrive within 20 s, which needs roughly 420 kbit/s of uplink.

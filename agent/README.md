@@ -100,7 +100,9 @@ Use it only when the laptop copy is known to be complete and current.
 **Sweep state and drafts.** The 6:00AM sweep writes `data/local/sweep_state.json` (override with
 `SWEEP_STATE_PATH`; gitignored; compose mounts the `sweep_state` volume there) and the 8:45AM message
 reads it. Draft links need `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_TEMPLATE_DOC_ID`; without them, or if
-one draft fails, the summary is still sent with a one-line note.
+one draft fails, the summary is still sent with a one-line note. The drafts are created once per sweep
+day, whatever the number of chat ids: the links are stored in the same state file, so every chat gets
+the same links and a restart or a repeated 8:45AM message that day reuses them.
 
 Healthy startup log: `DID grant agent starting (long-polling)`, `Scheduled Mon/Wed/Fri 6:00AM
 (America/New_York) grant sweep.`, `Scheduled daily reminders + Monday 9AM digest + Mon/Wed/Fri 8:45AM
@@ -178,24 +180,49 @@ Errors are `{"error": "..."}` with these statuses:
 | 200 | transcript returned |
 | 400 | empty body or invalid `Content-Length` |
 | 401 | `CHAT_API_TOKEN` is set and the request lacks a matching `Authorization: Bearer` header (the same check `/chat` uses, so requests via the `trycloudflare.com` quick tunnel are exempt, as for `/chat`) |
+| 408 | the whole body did not arrive within 20 seconds; the connection is closed |
 | 411 | no `Content-Length` header |
 | 413 | body over 1,048,576 bytes (1 MiB); the body is not read and the connection is closed |
 | 415 | `Content-Type` is not one of the audio types above |
-| 429 | more than 10 requests per minute from one client IP; a `Retry-After` header gives the seconds to wait |
+| 429 | more than 10 requests per minute from one client IP; a `Retry-After` header gives the seconds to wait. Every request counts, including those answered 400, 401, 411, 413 or 415 |
 | 502 | transcription failed (Whisper error or undecodable audio) |
 | 503 | server busy; at most 2 transcriptions run at once |
+| 504 | transcription took longer than 60 seconds |
+
+**Deadlines.** The upload is read in full, under one 20-second limit for the whole
+body, before a transcription slot is taken, so a slow sender cannot hold a slot.
+The transcription itself is given 60 seconds; the hosted Whisper request uses the
+same limit and is not retried. In local mode a transcription that runs past the
+limit cannot be interrupted: the request gets 504 and its slot is freed, but the
+work finishes in the background.
 
 The 1 MiB cap is the enforcement behind "about 20 seconds of speech": the server
 does not measure duration. The dashboard stops recording at 18 seconds so a clip
 stays under the cap.
 
-**Client IP for the rate limit.** Behind the Cloudflare tunnel or the Docker
-proxy every connection arrives from a local address, so the limiter reads the real
-client from `CF-Connecting-IP` (or, failing that, the rightmost `X-Forwarded-For`
-entry, the hop our own proxy appended). Those headers are trusted only when the
-connection itself comes from loopback or a private range (`127.0.0.0/8`, `::1`,
-`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`). A direct public
-connection is keyed on its socket address, so it cannot forge the headers.
+**Client IP for the rate limit.** Behind the reverse proxy (Caddy on the VM) every
+connection arrives from a local address, so the limiter reads the real client from
+the rightmost `X-Forwarded-For` entry, the hop our own proxy appended. That header
+is trusted only when the connection itself comes from loopback or a private range
+(`127.0.0.0/8`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`,
+`fc00::/7`). A direct public connection is keyed on its socket address, so it
+cannot forge the header.
+
+`CF-Connecting-IP` is ignored unless `CHAT_TRUST_CF_CONNECTING_IP=true` is set in
+`.env` (default `false`). Caddy and other plain proxies pass a client-supplied
+`CF-Connecting-IP` through unchanged, so believing it there would let a client
+choose a new rate-limit key on every request. Turn the setting on only when every
+request reaches the agent through Cloudflare (a `cloudflared` tunnel or the
+Cloudflare proxy), which sets that header itself; it is then preferred over
+`X-Forwarded-For`, still only from a loopback or private peer.
+
+The rate limit is checked before anything else, so a request refused for a missing
+token or a wrong `Content-Type` uses up budget like any other. A client that is
+over its limit and declares a body larger than 256 KiB gets the 429 without the
+body being read, and the connection is closed. IPv6 clients are counted per /64
+network, not per address. IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) are
+treated as the IPv4 address. The limiter tracks at most 5,000 clients at a time;
+when full it forgets the one that has been quiet longest.
 
 **Access.** By owner decision the endpoint needs no token of its own beyond the
 `CHAT_API_TOKEN` rule above; it is protected by the size, type, rate and

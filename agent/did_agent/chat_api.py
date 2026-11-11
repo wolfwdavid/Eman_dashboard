@@ -21,11 +21,12 @@ import json
 import logging
 import mimetypes
 import os
+import socket
 import tempfile
 import threading
 import time
 import uuid
-from collections import deque
+from collections import OrderedDict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -65,29 +66,66 @@ _RATE_LIMIT = 10
 _RATE_WINDOW = 60.0
 _MAX_TRACKED_IPS = 5000
 _WHISPER_SLOTS = 2
+# Wall-clock budget for receiving one whole upload body, counted across every read. The
+# per-read socket timeout alone lets a client send a byte every few seconds forever.
+_BODY_DEADLINE = 20.0
+# Wall-clock budget for one transcription. Past it the request gets 504 and gives its
+# Whisper slot back.
+_TRANSCRIBE_DEADLINE = 60.0
+# How much of an upload we will not read is discarded, and for how long, after the reply.
+_LINGER_BYTES = 65536
+_LINGER_SECONDS = 0.5
+# A client already over its rate limit has at most this much of a body read before the
+# 429; anything larger is refused unread. Ordinary voice clips fit, so they get a clean 429.
+_OVER_LIMIT_DRAIN_BYTES = 262_144
+
+
+def _unlink(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 class _RateLimiter:
-    """In-memory sliding-window limiter, safe to share between handler threads."""
+    """In-memory sliding-window limiter, safe to share between handler threads.
 
-    def __init__(self, limit: int = _RATE_LIMIT, window: float = _RATE_WINDOW, clock=time.monotonic):
+    At most `max_keys` keys are tracked. `_hits` is kept ordered by each key's latest
+    counted request, oldest first, so expired keys sit at the front and both pruning
+    and eviction are a pop from the front rather than a scan.
+    """
+
+    def __init__(
+        self,
+        limit: int = _RATE_LIMIT,
+        window: float = _RATE_WINDOW,
+        clock=time.monotonic,
+        max_keys: int = _MAX_TRACKED_IPS,
+    ):
         self.limit = limit
         self.window = window
+        self.max_keys = max_keys
         self._clock = clock
-        self._hits: dict[str, deque] = {}
+        self._hits: OrderedDict[str, deque] = OrderedDict()
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:
         now = self._clock()
         with self._lock:
-            if len(self._hits) > _MAX_TRACKED_IPS:
-                self._prune(now)
-            hits = self._hits.setdefault(key, deque())
-            while hits and now - hits[0] >= self.window:
-                hits.popleft()
-            if len(hits) >= self.limit:
-                return False
+            self._prune(now)
+            hits = self._hits.get(key)
+            if hits is None:
+                if len(self._hits) >= self.max_keys:
+                    # Full and nothing has expired: the least recently counted key goes.
+                    self._hits.popitem(last=False)
+                hits = self._hits[key] = deque()
+            else:
+                while hits and now - hits[0] >= self.window:
+                    hits.popleft()
+                if len(hits) >= self.limit:
+                    return False
             hits.append(now)
+            self._hits.move_to_end(key)
             return True
 
     def retry_after(self, key: str) -> int:
@@ -99,9 +137,12 @@ class _RateLimiter:
             return max(1, int(self.window - (now - hits[0]) + 0.999))
 
     def _prune(self, now: float) -> None:
-        stale = [k for k, h in self._hits.items() if not h or now - h[-1] >= self.window]
-        for k in stale:
-            del self._hits[k]
+        """Drop keys whose latest request has left the window. Costs one step per dropped key."""
+        while self._hits:
+            hits = next(iter(self._hits.values()))
+            if hits and now - hits[-1] < self.window:
+                break
+            self._hits.popitem(last=False)
 
 
 # Explicit proxy-side ranges. ip.is_private is too broad: it also covers documentation
@@ -112,45 +153,84 @@ _TRUSTED_PEERS = tuple(
 )
 
 
+_V6_HOST_BITS = (1 << 64) - 1
+
+
 def _parse_ip(value: str):
+    """Parse an address; an IPv4-mapped IPv6 address (::ffff:a.b.c.d) comes back as IPv4."""
     try:
-        return ipaddress.ip_address(value.strip())
+        ip = ipaddress.ip_address(value.strip())
     except ValueError:
         return None
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
 
 
-def client_ip(peer: str, headers) -> str:
+def _limit_key(ip) -> str:
+    """IPv4 clients are keyed by address, IPv6 clients by /64.
+
+    One IPv6 subscriber normally holds a whole /64, so keying by full address would
+    give a single client as many buckets as it cares to use.
+    """
+    if ip.version == 4:
+        return str(ip)
+    return str(ipaddress.IPv6Network((int(ip) & ~_V6_HOST_BITS, 64)))
+
+
+def client_ip(peer: str, headers, trust_cf: bool = False) -> str:
     """Return the rate-limit key for a request.
 
     Trust rule (T-08-05): the forwarded headers are honoured only when the socket peer
-    is loopback or private, i.e. our own cloudflared / Docker proxy. A public peer could
-    forge them, so for those the socket address wins. From X-Forwarded-For we take the
-    RIGHTMOST entry, the hop our own proxy appended, which the client cannot spoof.
+    is loopback or private, i.e. our own reverse proxy. A public peer could forge them,
+    so for those the socket address wins. From X-Forwarded-For we take the RIGHTMOST
+    entry, the hop our own proxy appended, which the client cannot spoof.
+
+    CF-Connecting-IP is read only when `trust_cf` is set (CHAT_TRUST_CF_CONNECTING_IP),
+    for deployments that really sit behind Cloudflare. A plain reverse proxy such as
+    Caddy passes a client-supplied CF-Connecting-IP through unchanged, so trusting it
+    there would hand every request a rate-limit bucket of the client's choosing.
+
+    IPv4-mapped IPv6 addresses count as their IPv4 address, both for the trust test (a
+    dual-stack listener reports the local proxy as ::ffff:127.0.0.1) and for the key.
+    IPv6 clients are keyed by /64 (see _limit_key).
     """
     peer_ip = _parse_ip(peer or "")
-    if peer_ip is None or not any(peer_ip in net for net in _TRUSTED_PEERS if net.version == peer_ip.version):
+    if peer_ip is None:
         return peer
-    cf = headers.get("CF-Connecting-IP")
+    if not any(peer_ip in net for net in _TRUSTED_PEERS if net.version == peer_ip.version):
+        return _limit_key(peer_ip)
+    cf = headers.get("CF-Connecting-IP") if trust_cf else None
     if cf:
         parsed = _parse_ip(cf)
         if parsed is not None:
-            return str(parsed)
+            return _limit_key(parsed)
     xff = headers.get("X-Forwarded-For")
     if xff:
         parsed = _parse_ip(xff.split(",")[-1])
         if parsed is not None:
-            return str(parsed)
-    return peer
+            return _limit_key(parsed)
+    return _limit_key(peer_ip)
 
 
-def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=None):
+def _make_handler(
+    agent: Agent,
+    settings: Settings,
+    limiter=None,
+    whisper_slots=None,
+    body_deadline: float = _BODY_DEADLINE,
+    transcribe_deadline: float = _TRANSCRIBE_DEADLINE,
+):
     """Create a request handler class closed over the agent and settings."""
     token = settings.chat_api_token
+    trust_cf = settings.chat_trust_cf_connecting_ip
     limiter = limiter or _RateLimiter()
     whisper_slots = whisper_slots or threading.BoundedSemaphore(_WHISPER_SLOTS)
 
     class Handler(BaseHTTPRequestHandler):
-        timeout = 30  # slow-loris guard (T-08-08)
+        # Per-read socket timeout (T-08-08). Upload bodies are additionally held to a
+        # total deadline in _read_body.
+        timeout = 30
 
         def do_OPTIONS(self):
             self.send_response(204)
@@ -176,8 +256,11 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
             # Serve static files from the dashboard directory.
             if not path or path == "/":
                 path = "grants-dashboard.html"
-            fp = (_DASHBOARD_DIR / path).resolve()
-            if not str(fp).startswith(str(_DASHBOARD_DIR)) or not fp.is_file():
+            # Containment by path components, not by string prefix: a sibling directory
+            # such as "dashboard-old" starts with the same text but is not inside.
+            root = _DASHBOARD_DIR.resolve()
+            fp = (root / path).resolve()
+            if not fp.is_relative_to(root) or not fp.is_file():
                 self.send_error(404)
                 return
             ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
@@ -201,32 +284,103 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
             self._json_response(401, {"error": "Unauthorized"})
             return False
 
-        def _drain_body(self) -> None:
-            """Discard a declared upload of at most MAX_AUDIO_BYTES before an early reply.
+        def _read_body(self, n: int, keep: bool = True) -> tuple[str, bytes]:
+            """Read `n` body bytes under one wall-clock deadline for the whole body.
+
+            Returns ("ok", data), ("timeout", b"") when the deadline passes first, or
+            ("eof", b"") when the client stops or the socket fails. With keep=False the
+            bytes are discarded as they arrive. Anything but "ok" leaves the stream in an
+            unknown position, so the connection is marked for closing.
+            """
+            deadline_at = time.monotonic() + body_deadline
+            buf = bytearray()
+            got = 0
+            status = "ok"
+            try:
+                while got < n:
+                    left = deadline_at - time.monotonic()
+                    if left <= 0:
+                        status = "timeout"
+                        break
+                    self.connection.settimeout(left)
+                    chunk = self.rfile.read1(min(65536, n - got))
+                    if not chunk:
+                        status = "eof"
+                        break
+                    got += len(chunk)
+                    if keep:
+                        buf += chunk
+            except TimeoutError:
+                status = "timeout"
+            except OSError:
+                status = "eof"
+            finally:
+                try:
+                    self.connection.settimeout(self.timeout)
+                except OSError:
+                    pass
+            if status != "ok":
+                self.close_connection = True
+                return status, b""
+            return status, bytes(buf)
+
+        def _reject_upload(
+            self,
+            code: int,
+            data: dict,
+            extra_headers: dict | None = None,
+            drain_limit: int = MAX_AUDIO_BYTES,
+        ) -> None:
+            """Reply early to an upload, discarding a declared body of at most `drain_limit`.
 
             Closing a socket that still holds unread request data makes some stacks reset
             the connection, so the client sees a network error instead of the status code.
-            Oversize uploads are never read: that path drops the connection instead.
+            The read is held to the same total deadline as a real upload. A larger body, or
+            one still arriving at the deadline, is not read: the reply is sent and the
+            connection dropped (see _linger).
             """
             try:
-                remaining = int(self.headers.get("Content-Length") or 0)
+                declared = int(self.headers.get("Content-Length") or 0)
             except ValueError:
+                declared = -1
+            drained = declared == 0
+            if 0 < declared <= drain_limit:
+                drained = self._read_body(declared, keep=False)[0] != "timeout"
+            if drained:
+                self._json_response(code, data, extra_headers)
                 return
-            if remaining > MAX_AUDIO_BYTES:
-                self.close_connection = True
-                return
+            self.close_connection = True
             try:
-                while remaining > 0:
-                    chunk = self.rfile.read(min(65536, remaining))
+                self._json_response(code, data, {**(extra_headers or {}), "Connection": "close"})
+            except OSError:
+                return
+            self._linger()
+
+        def _linger(self) -> None:
+            """After replying to an upload we will not read, give the client a moment to see it.
+
+            Closing while request bytes are still arriving resets the connection on some
+            stacks and the reply is lost with it. So finish our side, then discard a small,
+            fixed amount of what is in flight (_LINGER_BYTES within _LINGER_SECONDS) and close.
+            """
+            self.close_connection = True
+            deadline_at = time.monotonic() + _LINGER_SECONDS
+            got = 0
+            try:
+                self.wfile.flush()
+                self.connection.shutdown(socket.SHUT_WR)
+                # Straight from the socket: rfile refuses to read again after a timeout.
+                while got < _LINGER_BYTES:
+                    left = deadline_at - time.monotonic()
+                    if left <= 0:
+                        break
+                    self.connection.settimeout(left)
+                    chunk = self.connection.recv(min(65536, _LINGER_BYTES - got))
                     if not chunk:
                         break
-                    remaining -= len(chunk)
+                    got += len(chunk)
             except OSError:
-                self.close_connection = True
-
-        def _reject_upload(self, code: int, data: dict, extra_headers: dict | None = None) -> None:
-            self._drain_body()
-            self._json_response(code, data, extra_headers)
+                pass
 
         def do_POST(self):
             route = self.path.split("?")[0]
@@ -271,6 +425,18 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
             self._json_response(202, {"job_id": job_id})
 
         def _handle_transcribe(self):
+            # The limiter comes first so that every request counts, including the ones
+            # refused below with 401 or 415. Otherwise those are a free path: each is
+            # answered only after its body, up to MAX_AUDIO_BYTES, has been read.
+            key = client_ip(self.client_address[0], self.headers, trust_cf)
+            if not limiter.allow(key):
+                self._reject_upload(
+                    429,
+                    {"error": "Too many requests"},
+                    {"Retry-After": str(limiter.retry_after(key))},
+                    drain_limit=_OVER_LIMIT_DRAIN_BYTES,
+                )
+                return
             if not self._token_ok():
                 self._reject_upload(401, {"error": "Unauthorized"})
                 return
@@ -278,14 +444,6 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
             suffix = _AUDIO_EXT.get(ctype)
             if suffix is None:
                 self._reject_upload(415, {"error": "Unsupported media type"})
-                return
-            key = client_ip(self.client_address[0], self.headers)
-            if not limiter.allow(key):
-                self._reject_upload(
-                    429,
-                    {"error": "Too many requests"},
-                    {"Retry-After": str(limiter.retry_after(key))},
-                )
                 return
             raw_len = self.headers.get("Content-Length")
             if raw_len is None:
@@ -300,37 +458,84 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
                 self._json_response(400, {"error": "Empty body"})
                 return
             if n > MAX_AUDIO_BYTES:
-                # Answer without reading the body and drop the connection (T-08-06).
+                # Answer without reading the body and drop the connection (T-08-06). Only
+                # the small fixed amount in _linger is discarded so the reply can be seen.
                 self.close_connection = True
-                self._json_response(413, {"error": "Audio too large"})
+                self._json_response(413, {"error": "Audio too large"}, {"Connection": "close"})
+                self._linger()
+                return
+            # The whole body is in memory before a Whisper slot is taken, so a slow
+            # sender can only tie up its own connection, never a slot.
+            status, body = self._read_body(n)
+            if status != "ok":
+                code, data = (
+                    (408, {"error": "Upload too slow"}) if status == "timeout" else (400, {"error": "Incomplete body"})
+                )
+                try:
+                    self._json_response(code, data, {"Connection": "close"})
+                except OSError:
+                    return  # the client has already gone
+                if status == "timeout":
+                    self._linger()
                 return
             if not whisper_slots.acquire(blocking=False):
-                self._reject_upload(503, {"error": "Server busy, try again"})
+                self._json_response(503, {"error": "Server busy, try again"})
                 return
-            path = None
-            code, payload = 200, {}
             try:
-                body = self.rfile.read(n)
+                code, payload = self._transcribe(body, suffix)
+            finally:
+                whisper_slots.release()
+            self._json_response(code, payload)
+
+        def _transcribe(self, body: bytes, suffix: str) -> tuple[int, dict]:
+            """Run Whisper on `body` under transcribe_deadline; returns (status, payload).
+
+            The call runs in a worker thread so the handler can stop waiting at the
+            deadline. The worker deletes the temp file as soon as the backend returns,
+            which is before the handler is woken, so a client that has seen a reply can
+            rely on the audio no longer being on disk (T-08-12). After a 504 the handler
+            deletes the file itself; the worker repeats that when the abandoned call
+            finally returns, for platforms that refuse to delete a file still in use.
+            """
+            try:
                 fd, path = tempfile.mkstemp(suffix=suffix)
+            except OSError:
+                log.exception("transcribe: could not create temp file")
+                return 502, {"error": "Transcription failed"}
+            try:
                 with os.fdopen(fd, "wb") as fh:
                     fh.write(body)
-                text = voice.transcribe(
-                    path, settings.whisper_model, settings.whisper_base_url, settings.whisper_api_key
-                )
-                payload = {"text": (text or "").strip()}
-            except Exception:
-                log.exception("transcribe failed")
-                code, payload = 502, {"error": "Transcription failed"}
-            finally:
-                if path:
-                    try:
-                        os.unlink(path)
-                    except OSError:
-                        pass
-                whisper_slots.release()
-            # Respond only after the temp file is gone, so a client that has seen the
-            # reply can rely on the audio no longer being on disk (T-08-12).
-            self._json_response(code, payload)
+            except OSError:
+                log.exception("transcribe: could not write temp file")
+                _unlink(path)
+                return 502, {"error": "Transcription failed"}
+
+            result: dict = {}
+            done = threading.Event()
+
+            def work() -> None:
+                try:
+                    result["text"] = voice.transcribe(
+                        path,
+                        settings.whisper_model,
+                        settings.whisper_base_url,
+                        settings.whisper_api_key,
+                        timeout=transcribe_deadline,
+                    )
+                except Exception:
+                    log.exception("transcribe failed")
+                finally:
+                    _unlink(path)
+                    done.set()
+
+            threading.Thread(target=work, daemon=True, name="transcribe").start()
+            if not done.wait(transcribe_deadline):
+                log.warning("transcribe exceeded %.0fs; giving up on it", transcribe_deadline)
+                _unlink(path)
+                return 504, {"error": "Transcription timed out"}
+            if "text" not in result:
+                return 502, {"error": "Transcription failed"}
+            return 200, {"text": (result["text"] or "").strip()}
 
         def _cors_headers(self):
             self.send_header("Access-Control-Allow-Origin", "*")
