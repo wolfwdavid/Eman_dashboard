@@ -189,14 +189,44 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
             self.end_headers()
             self.wfile.write(data)
 
-        def _authorized(self) -> bool:
+        def _token_ok(self) -> bool:
             # Token auth — skip for Cloudflare tunnel requests.
             if token and "trycloudflare.com" not in (self.headers.get("Host") or ""):
-                auth = self.headers.get("Authorization", "")
-                if auth != f"Bearer {token}":
-                    self._json_response(401, {"error": "Unauthorized"})
-                    return False
+                return self.headers.get("Authorization", "") == f"Bearer {token}"
             return True
+
+        def _authorized(self) -> bool:
+            if self._token_ok():
+                return True
+            self._json_response(401, {"error": "Unauthorized"})
+            return False
+
+        def _drain_body(self) -> None:
+            """Discard a declared upload of at most MAX_AUDIO_BYTES before an early reply.
+
+            Closing a socket that still holds unread request data makes some stacks reset
+            the connection, so the client sees a network error instead of the status code.
+            Oversize uploads are never read: that path drops the connection instead.
+            """
+            try:
+                remaining = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return
+            if remaining > MAX_AUDIO_BYTES:
+                self.close_connection = True
+                return
+            try:
+                while remaining > 0:
+                    chunk = self.rfile.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+            except OSError:
+                self.close_connection = True
+
+        def _reject_upload(self, code: int, data: dict, extra_headers: dict | None = None) -> None:
+            self._drain_body()
+            self._json_response(code, data, extra_headers)
 
         def do_POST(self):
             route = self.path.split("?")[0]
@@ -241,16 +271,17 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
             self._json_response(202, {"job_id": job_id})
 
         def _handle_transcribe(self):
-            if not self._authorized():
+            if not self._token_ok():
+                self._reject_upload(401, {"error": "Unauthorized"})
                 return
             ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
             suffix = _AUDIO_EXT.get(ctype)
             if suffix is None:
-                self._json_response(415, {"error": "Unsupported media type"})
+                self._reject_upload(415, {"error": "Unsupported media type"})
                 return
             key = client_ip(self.client_address[0], self.headers)
             if not limiter.allow(key):
-                self._json_response(
+                self._reject_upload(
                     429,
                     {"error": "Too many requests"},
                     {"Retry-After": str(limiter.retry_after(key))},
@@ -274,7 +305,7 @@ def _make_handler(agent: Agent, settings: Settings, limiter=None, whisper_slots=
                 self._json_response(413, {"error": "Audio too large"})
                 return
             if not whisper_slots.acquire(blocking=False):
-                self._json_response(503, {"error": "Server busy, try again"})
+                self._reject_upload(503, {"error": "Server busy, try again"})
                 return
             path = None
             code, payload = 200, {}
