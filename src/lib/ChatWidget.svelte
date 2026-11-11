@@ -266,6 +266,8 @@
 	function closeChat() {
 		cancelSpeech();
 		open = false;
+		// The panel unmounts: hand keyboard focus back to the toggle, as collapseChat does.
+		toggleEl?.focus();
 	}
 
 	/** @param {KeyboardEvent} e */

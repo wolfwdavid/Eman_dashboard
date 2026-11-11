@@ -1190,6 +1190,19 @@ test.describe('voice keyboard', () => {
 		await expect(mic).toHaveAttribute('aria-pressed', 'false');
 	});
 
+	test('keyboard: the close button returns focus to the chat toggle', async ({ page }) => {
+		await stubNetwork(page);
+		await openChat(page);
+		const close = page.getByRole('button', { name: 'Close chat' });
+		await close.focus();
+		await page.keyboard.press('Enter');
+		await expect(page.locator('.chat-panel')).toHaveCount(0);
+		await expect(page.locator('.chat-toggle')).toBeFocused();
+		// Enter on the toggle reopens the chat: the keyboard user is not stranded on <body>.
+		await page.keyboard.press('Enter');
+		await expect(page.locator('.chat-panel')).toBeVisible();
+	});
+
 	test('keyboard: existing controls still work', async ({ page }) => {
 		await installFakeSR(page);
 		await stubNetwork(page);
