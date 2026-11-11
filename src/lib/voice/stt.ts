@@ -296,11 +296,16 @@ export type TranscribeResult =
 export async function transcribeBlob(
 	base: string,
 	blob: Blob,
-	opts: { timeoutMs?: number; fetchImpl?: typeof fetch } = {}
+	opts: { timeoutMs?: number; fetchImpl?: typeof fetch; signal?: AbortSignal } = {}
 ): Promise<TranscribeResult> {
 	const f = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
 	const timeoutMs = opts.timeoutMs ?? 20000;
 	const ac = new AbortController();
+	// Caller-driven cancel (Escape, chat close) aborts the upload too.
+	if (opts.signal) {
+		if (opts.signal.aborted) ac.abort();
+		else opts.signal.addEventListener('abort', () => ac.abort(), { once: true });
+	}
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<'timeout'>((res) => {
 		timer = setTimeout(() => {

@@ -6,6 +6,16 @@
 	import { createRouter, isEmptyUtterance, capTranscript } from '$lib/voice/router';
 	import { COPY, assistantLive } from '$lib/voice/copy';
 	import { cancelSpeech } from '$lib/voice/tts';
+	import { onMount, untrack } from 'svelte';
+	import {
+		listen,
+		startRecording,
+		transcribeBlob,
+		getSpeechRecognition,
+		canRecord,
+		isSecureContextSafe
+	} from '$lib/voice/stt';
+	import { getBool, PREF_KEYS } from '$lib/voice/prefs';
 
 	// The clock is read only here, at event time.
 	const actions = createActions(dashboard, { grants, now: () => new Date() });
@@ -131,6 +141,8 @@
 	function send() {
 		const text = inputVal.trim();
 		if (!text || busy) return;
+		// A typed message discards any capture in progress, silently.
+		cancelCapture();
 		inputVal = '';
 		pushUser(text);
 		resolveChoices('none');
@@ -218,8 +230,296 @@
 
 	/** @param {KeyboardEvent} e */
 	function onKey(e) { if (e.key === 'Enter') send(); }
-	// handleUtterance() is called by the mic wiring added in the next plan.
+
+	// ---------------------------------------------------------------- mic
+	/** @type {'idle'|'listening'|'processing'|'error'|'blocked'|'unavailable'} */
+	let micState = $state('idle');
+	/** @type {null|'listening'|'processing'|'didnt'} */
+	let statusKind = $state(null);
+	let interim = $state('');
+	let elapsed = $state(0);
+	let mounted = $state(false);
+	let statusServer = $state(false);
+	/** @type {HTMLSpanElement | undefined} */
+	let interimEl = $state();
+	let sessionServer = false;
+	let unavailableShown = false;
+	let hasSR = false;
+	let hasRec = false;
+	/**
+	 * Current capture: browser recognizer or server recorder. Null when idle.
+	 * @type {null | { kind: 'sr', h: { stop(): void, abort(): void } } | { kind: 'rec', rec: any, ac: AbortController, cancelled: boolean, stopRequested: boolean }}
+	 */
+	let capture = null;
+
+	const useServerPath = () => hasRec && (getBool(PREF_KEYS.forceServer) || sessionServer || !hasSR);
+
+	const MIC_TITLES = {
+		idle: COPY.micTitleIdle,
+		listening: COPY.micTitleListening,
+		processing: COPY.micTitleProcessing,
+		error: COPY.micTitleError,
+		blocked: COPY.micTitleBlocked,
+		unavailable: COPY.micTitleUnavailable
+	};
+
+	/** @param {number} s */
+	function fmtTime(s) {
+		return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+	}
+
+	/** Silent cancel: stops the recognizer/recorder/upload, never announces or posts a bubble. */
+	function cancelCapture() {
+		const c = capture;
+		capture = null;
+		if (c) {
+			if (c.kind === 'sr') c.h.abort();
+			else {
+				c.cancelled = true;
+				c.ac.abort();
+				c.rec?.cancel();
+			}
+		}
+		statusKind = null;
+		interim = '';
+		elapsed = 0;
+		if (micState === 'listening' || micState === 'processing' || micState === 'error') micState = 'idle';
+	}
+
+	/** @param {string} text */
+	function failBubbleMic(text) {
+		pushBot(text);
+		announce(text);
+	}
+
+	function showDidnt() {
+		capture = null;
+		micState = 'idle';
+		interim = '';
+		statusKind = 'didnt';
+		announce(COPY.didntCatchLive);
+	}
+
+	/** @param {string} t */
+	function onTranscript(t) {
+		capture = null;
+		micState = 'idle';
+		statusKind = null;
+		interim = '';
+		if (isEmptyUtterance(t)) showDidnt();
+		else handleUtterance(t);
+	}
+
+	/** @param {string} code */
+	function onSrFail(code) {
+		capture = null;
+		statusKind = null;
+		interim = '';
+		micState = 'idle';
+		switch (code) {
+			case 'no-speech':
+				showDidnt();
+				break;
+			case 'aborted':
+				break;
+			case 'not-allowed':
+				micState = 'blocked';
+				failBubbleMic(COPY.errBlocked);
+				break;
+			case 'service-not-allowed':
+				sessionServer = true;
+				failBubbleMic(COPY.errServiceNotAllowed);
+				break;
+			case 'network':
+				sessionServer = true;
+				failBubbleMic(COPY.errNetwork);
+				break;
+			case 'audio-capture':
+				micState = 'error';
+				failBubbleMic(COPY.errNoMic);
+				break;
+			default:
+				micState = 'error';
+				failBubbleMic(COPY.errOther);
+		}
+	}
+
+	function startBrowser() {
+		micState = 'listening';
+		statusKind = 'listening';
+		statusServer = false;
+		interim = '';
+		// start() runs synchronously inside the click handler (user-gesture rule).
+		const h = listen({ onInterim: (t) => (interim = t), onFinal: onTranscript, onFail: onSrFail });
+		// listen() may already have failed synchronously (no recognizer): keep that outcome.
+		if (micState === 'listening') capture = { kind: 'sr', h };
+	}
+
+	function startServer() {
+		micState = 'listening';
+		statusKind = 'listening';
+		statusServer = true;
+		interim = '';
+		elapsed = 0;
+		/** @type {any} */
+		const cap = { kind: 'rec', rec: null, ac: new AbortController(), cancelled: false, stopRequested: false };
+		capture = cap;
+		// getUserMedia() is called synchronously by startRecording (user-gesture rule).
+		startRecording({
+			maxMs: 18000,
+			onTick: (s) => { if (capture === cap) elapsed = s; },
+			onAutoStop: (blob) => { if (capture === cap) upload(cap, blob); },
+			onError: (code) => {
+				if (capture !== cap) return;
+				capture = null;
+				statusKind = null;
+				if (code === 'not-allowed') { micState = 'blocked'; failBubbleMic(COPY.errBlocked); }
+				else if (code === 'audio-capture') { micState = 'error'; failBubbleMic(COPY.errNoMic); }
+				else { micState = 'error'; failBubbleMic(COPY.errOther); }
+			}
+		}).then((rec) => {
+			if (!rec) return;
+			cap.rec = rec;
+			if (cap.cancelled) rec.cancel();
+			else if (cap.stopRequested) finishRecording(cap);
+		});
+	}
+
+	/** @param {any} cap */
+	function finishRecording(cap) {
+		if (capture !== cap || !cap.rec) return;
+		micState = 'processing';
+		statusKind = 'processing';
+		cap.rec.stop().then((/** @type {Blob} */ blob) => {
+			if (capture === cap) upload(cap, blob);
+		});
+	}
+
+	/** @param {any} cap @param {Blob} blob */
+	async function upload(cap, blob) {
+		micState = 'processing';
+		statusKind = 'processing';
+		interim = '';
+		const res = await transcribeBlob(BASE, blob, { timeoutMs: 20000, signal: cap.ac.signal });
+		if (capture !== cap || cap.cancelled) return; // cancelled: no transcript, no announcement
+		capture = null;
+		statusKind = null;
+		if (res.ok) {
+			micState = 'idle';
+			if (isEmptyUtterance(res.text)) showDidnt();
+			else handleUtterance(res.text);
+			return;
+		}
+		micState = 'error';
+		const map = {
+			'rate-limited': COPY.errRateLimited,
+			'too-large': COPY.errTooLong,
+			unsupported: COPY.errUnsupportedFormat,
+			unreachable: COPY.errTranscribeUnreachable
+		};
+		failBubbleMic(map[res.reason]);
+	}
+
+	function onMic() {
+		if (micState === 'processing') return;
+		if (micState === 'unavailable') {
+			if (!unavailableShown) {
+				unavailableShown = true;
+				failBubbleMic(COPY.errUnavailable);
+			}
+			return;
+		}
+		if (micState === 'listening') {
+			const c = capture;
+			if (c?.kind === 'sr') c.h.stop();
+			else if (c) {
+				c.stopRequested = true;
+				finishRecording(c);
+			}
+			return;
+		}
+		cancelSpeech();
+		statusKind = null;
+		if (useServerPath()) startServer();
+		else startBrowser();
+	}
+
+	/**
+	 * Escape handling on the panel. Ordered rules, first match wins. Later plans append in
+	 * this order: (2) speech being read aloud, (3) privacy notice, (4) settings strip.
+	 * Escape never closes the chat.
+	 * @type {(() => boolean)[]}
+	 */
+	const escapeRules = [
+		// (1) listening or processing: cancel and discard, silently.
+		() => {
+			if (micState !== 'listening' && micState !== 'processing') return false;
+			cancelCapture();
+			return true;
+		}
+	];
+
+	/** @param {KeyboardEvent} e */
+	function onPanelKeydown(e) {
+		if (e.key !== 'Escape') return;
+		for (const rule of escapeRules) {
+			if (rule()) {
+				e.stopPropagation();
+				e.preventDefault();
+				return;
+			}
+		}
+	}
+
+	function onInputTyping() {
+		if (statusKind === 'didnt') statusKind = null;
+	}
+
+	onMount(() => {
+		hasSR = !!getSpeechRecognition();
+		hasRec = canRecord();
+		const secure = isSecureContextSafe();
+		micState = secure && (hasSR || hasRec) ? 'idle' : 'unavailable';
+		mounted = true;
+		const onVis = () => { if (document.hidden) cancelCapture(); };
+		document.addEventListener('visibilitychange', onVis);
+		return () => {
+			document.removeEventListener('visibilitychange', onVis);
+			cancelCapture();
+		};
+	});
+
+	// Closing the chat discards any capture and re-arms the once-per-open unavailable bubble.
+	$effect(() => {
+		if (!open) {
+			untrack(() => {
+				cancelCapture();
+				unavailableShown = false;
+			});
+		}
+	});
+
+	// Keep the interim text scrolled to its end as it grows.
+	$effect(() => {
+		interim;
+		if (interimEl) interimEl.scrollTop = interimEl.scrollHeight;
+	});
 </script>
+
+{#snippet micIcon(/** @type {string} */ s)}
+	<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+		{#if s === 'listening'}
+			<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />
+		{:else if s === 'processing'}
+			<path class="mic-arc" d="M12 4a8 8 0 1 0 8 8" />
+			<g class="mic-dots"><circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" /><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none" /></g>
+		{:else}
+			<rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" />
+			{#if s === 'error'}<path d="M20 4v5" /><path d="M20 12.5v.01" />{/if}
+			{#if s === 'blocked' || s === 'unavailable'}<path d="M4 4l16 16" />{/if}
+		{/if}
+	</svg>
+{/snippet}
 
 <button bind:this={toggleEl} class="chat-toggle" class:detail-open={ui.selected !== null} onclick={toggleChat} title="Chat with DID assistant">
 	&#128172;
@@ -227,7 +527,8 @@
 <div class="chat-live" role="status" aria-live="polite" aria-atomic="true">{liveText}</div>
 
 {#if open}
-<div class="chat-panel" class:detail-open={ui.selected !== null} role="dialog" aria-label="Chat with DID Grant Assistant">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div class="chat-panel" class:detail-open={ui.selected !== null} role="dialog" aria-label="Chat with DID Grant Assistant" tabindex="-1" onkeydown={onPanelKeydown}>
 	<div class="chat-head">
 		<span>DID Grant Assistant</span>
 		<button onclick={closeChat} aria-label="Close chat">&times;</button>
@@ -265,6 +566,17 @@
 			{/if}
 		{/each}
 	</div>
+	{#if statusKind}
+		<div id="voice-status" class="voice-status">
+			<strong class="lead">{statusKind === 'listening' ? COPY.listeningLead : statusKind === 'processing' ? COPY.transcribingLead : COPY.didntCatchLead}</strong>
+			{#if statusKind === 'listening'}
+				<span class="interim" bind:this={interimEl}>{interim || (statusServer ? COPY.hintServer : COPY.hintBrowser)}</span>
+				{#if statusServer}<span class="timer">{fmtTime(elapsed)}</span>{/if}
+			{:else if statusKind === 'didnt'}
+				<span class="interim">{COPY.didntCatchHint}</span>
+			{/if}
+		</div>
+	{/if}
 	<div class="chat-input-row">
 		<input
 			type="text"
@@ -273,7 +585,22 @@
 			bind:this={inputEl}
 			bind:value={inputVal}
 			onkeydown={onKey}
+			oninput={onInputTyping}
 		/>
+		{#if mounted}
+			<button
+				type="button"
+				class="chat-mic"
+				data-state={micState}
+				aria-label="Voice input"
+				aria-pressed={micState === 'listening'}
+				aria-disabled={micState === 'processing' ? 'true' : undefined}
+				aria-describedby={statusKind ? 'voice-status' : undefined}
+				title={MIC_TITLES[micState]}
+				bind:this={micEl}
+				onclick={onMic}
+			>{@render micIcon(micState)}</button>
+		{/if}
 		<button class="chat-send" onclick={send} disabled={busy} title="Send">&#10148;</button>
 	</div>
 </div>
@@ -420,6 +747,60 @@
 		background: #f5f7fa; color: #10233a; outline: none; font-family: inherit;
 	}
 	.chat-input-row input:focus { border-color: #1f6fb2; }
+
+	/* Mic button (UI-SPEC section 1) */
+	.chat-input-row input { min-width: 0; }
+	.chat-mic {
+		width: 44px; height: 44px; min-width: 44px; border-radius: 50%;
+		margin-left: 8px; padding: 0; display: flex; align-items: center; justify-content: center;
+		flex-shrink: 0; cursor: pointer;
+		background: var(--cw-sunken); border: 1px solid var(--cw-border); color: var(--cw-icon);
+		transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+	}
+	.chat-mic:hover { border-color: var(--cw-accent); }
+	.chat-mic:focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 2px; }
+	.chat-mic[data-state='listening'] {
+		background: var(--cw-accent); border-color: var(--cw-accent); color: var(--cw-on-brand);
+		animation: mic-pulse 1.4s ease-out infinite;
+	}
+	.chat-mic[data-state='listening']:focus-visible { outline-color: var(--cw-icon); }
+	.chat-mic[data-state='processing'] { color: var(--cw-accent); cursor: default; }
+	.chat-mic[data-state='processing'] .mic-arc { transform-origin: 12px 12px; animation: mic-spin 0.9s linear infinite; }
+	.chat-mic .mic-dots { display: none; }
+	.chat-mic[data-state='error'], .chat-mic[data-state='blocked'] {
+		border: 1px dashed var(--cw-muted); color: var(--cw-muted);
+	}
+	.chat-mic[data-state='unavailable'] {
+		border: 1px dashed var(--cw-border); color: var(--cw-muted); opacity: .6;
+	}
+	@keyframes mic-pulse {
+		0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cw-accent) 45%, transparent); }
+		100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--cw-accent) 0%, transparent); }
+	}
+	@keyframes mic-spin { to { transform: rotate(360deg); } }
+	@media (prefers-reduced-motion: reduce) {
+		.chat-mic[data-state='listening'] {
+			animation: none;
+			box-shadow: 0 0 0 4px color-mix(in srgb, var(--cw-accent) 35%, transparent);
+		}
+		.chat-mic[data-state='processing'] .mic-arc { animation: none; display: none; }
+		.chat-mic[data-state='processing'] .mic-dots { display: inline; }
+		.chat-mic { transition: none; }
+	}
+
+	/* Status strip (UI-SPEC section 2). Not a live region. */
+	.voice-status {
+		padding: 8px 16px; border-top: 1px solid var(--cw-border); background: var(--cw-surface);
+		font-size: .88rem; line-height: 1.45; color: var(--cw-text);
+	}
+	.voice-status .lead { font-weight: 600; margin-right: 8px; color: var(--cw-text); }
+	.voice-status .interim {
+		font-style: italic; color: var(--cw-muted);
+		display: inline-block; max-height: 4.35em; overflow-y: auto; vertical-align: top;
+	}
+	.voice-status .timer {
+		float: right; font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--cw-muted);
+	}
 
 	.chat-send {
 		background: #14467a; color: #fff; border: none; border-radius: 50%;
