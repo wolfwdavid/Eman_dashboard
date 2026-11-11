@@ -40,9 +40,12 @@ def _key(funder: str) -> str:
     return funder.strip().casefold()
 
 
-def new_grants(before: list[Grant], after: list[Grant]) -> list[Grant]:
-    """Grants in `after` whose funder is absent from `before` (order preserved)."""
-    seen = {_key(g.funder) for g in before}
+def new_grants(before: set[str] | list[Grant], after: list[Grant]) -> list[Grant]:
+    """Grants in `after` whose funder is absent from `before` (order preserved).
+
+    `before` is either a list of grants or a set of already-normalized funder keys.
+    """
+    seen = set(before) if isinstance(before, (set, frozenset)) else {_key(g.funder) for g in before}
     out: list[Grant] = []
     for g in after:
         k = _key(g.funder)
@@ -52,11 +55,37 @@ def new_grants(before: list[Grant], after: list[Grant]) -> list[Grant]:
     return out
 
 
-def save_state(path: str | Path, today: date, new: list[Grant]) -> None:
+def seen_keys(grants: list[Grant]) -> set[str]:
+    """Normalized funder keys for a list of grants."""
+    return {_key(g.funder) for g in grants}
+
+
+def sweep_new(previous_seen: set[str] | None, before: list[Grant], after: list[Grant]) -> list[Grant]:
+    """New = not in the previous sweep's `seen`; fall back to the pre-scrape list when there is none."""
+    return new_grants(previous_seen if previous_seen is not None else before, after)
+
+
+def load_previous_seen(path: str | Path) -> set[str] | None:
+    """The `seen` keys from the last sweep's state file, whatever its date; None if unavailable."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        seen = data["seen"]
+        if not isinstance(seen, list) or not all(isinstance(k, str) for k in seen):
+            return None
+        return set(seen)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def save_state(
+    path: str | Path, today: date, new: list[Grant], seen: set[str] | None = None
+) -> None:
     """Atomically write the sweep result (temp file + os.replace)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"date": today.isoformat(), "new": [dataclasses.asdict(g) for g in new]}
+    payload: dict = {"date": today.isoformat(), "new": [dataclasses.asdict(g) for g in new]}
+    if seen is not None:
+        payload["seen"] = sorted(seen)
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -128,9 +157,9 @@ def format_sweep_message(
     if not state_ok:
         return f"Sweep result unavailable for {d} - nothing to report."
     if not new:
-        return f"No new grants this sweep ({d})."
+        return f"No new grants since the last sweep ({d})."
 
-    header = f"New grants from this morning's sweep ({d}): {len(new)}"
+    header = f"New grants since the last sweep ({d}): {len(new)}"
     footer_parts: list[str] = []
     if drafts:
         footer_parts.append("Drafts ready:\n" + "\n".join(f"{f}: {u}" for f, u in drafts.items()))

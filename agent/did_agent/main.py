@@ -115,9 +115,11 @@ def main() -> None:
         except Exception:
             log.exception("sweep: could not read grants after scrape; no state written")
             return
-        new = sweep.new_grants(before, after)
+        # "New" = not present at the previous sweep (the midnight scrape adds grants in between).
+        previous_seen = sweep.load_previous_seen(sweep.DEFAULT_STATE_PATH)
+        new = sweep.sweep_new(previous_seen, before, after)
         try:
-            sweep.save_state(sweep.DEFAULT_STATE_PATH, datetime.now(tz).date(), new)
+            sweep.save_state(sweep.DEFAULT_STATE_PATH, datetime.now(tz).date(), new, sweep.seen_keys(after))
         except Exception:
             log.exception("sweep: could not save state")
         try:

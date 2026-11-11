@@ -22,7 +22,10 @@ and helps fill out grants, and reminds Eman via Telegram before deadlines.
   schedule (America/New_York): midnight grant scrape, daily 9AM deadline reminders (T-7), Monday 9AM
   grants/news digest (it used to fire on Sunday: PTB numbers weekdays 0=Sunday), Mon/Wed/Fri 6:00AM
   grant sweep, and a Mon/Wed/Fri 8:45AM Telegram message with the new-grant summary plus Google Doc
-  draft links for up to 3 new OPEN_NOW grants. No new grants sends a short "No new grants" message;
+  draft links for up to 3 new OPEN_NOW grants. "New" means not present at the previous Mon/Wed/Fri
+  sweep (so grants the midnight scrape added in between count). The first run, or a missing/old-format
+  state file, falls back to comparing against the grants present just before the 6AM scrape. No new
+  grants sends a short "No new grants since the last sweep" message;
   missing or stale sweep state sends a "result unavailable" message.
 
 > ⚠️ Runs only while the host machine is on and online. Host is a swappable config for a later VPS move.
