@@ -256,8 +256,11 @@ def _make_handler(
             # Serve static files from the dashboard directory.
             if not path or path == "/":
                 path = "grants-dashboard.html"
-            fp = (_DASHBOARD_DIR / path).resolve()
-            if not str(fp).startswith(str(_DASHBOARD_DIR)) or not fp.is_file():
+            # Containment by path components, not by string prefix: a sibling directory
+            # such as "dashboard-old" starts with the same text but is not inside.
+            root = _DASHBOARD_DIR.resolve()
+            fp = (root / path).resolve()
+            if not fp.is_relative_to(root) or not fp.is_file():
                 self.send_error(404)
                 return
             ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"

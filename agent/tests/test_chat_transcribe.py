@@ -647,6 +647,30 @@ def test_unknown_post_path_still_404(server):
         c.close()
 
 
+def test_static_files_stay_inside_the_dashboard_directory(server, monkeypatch, tmp_path):
+    root = tmp_path.resolve()
+    (root / "dashboard").mkdir()
+    (root / "dashboard" / "ok.txt").write_text("public")
+    (root / "dashboard-private").mkdir()  # a sibling whose name starts with the same text
+    (root / "dashboard-private" / "secret.txt").write_text("secret")
+    (root / "secret.txt").write_text("secret")
+    monkeypatch.setattr(chat_api, "_DASHBOARD_DIR", root / "dashboard")
+
+    def get(path: str):
+        c = server.conn()
+        try:
+            c.request("GET", path)
+            r = c.getresponse()
+            return r.status, r.read()
+        finally:
+            c.close()
+
+    assert get("/ok.txt") == (200, b"public")
+    assert get("/../dashboard-private/secret.txt")[0] == 404
+    assert get("/../secret.txt")[0] == 404
+    assert get("/missing.txt")[0] == 404
+
+
 def test_slow_transcribe_does_not_block_polling(server, rec):
     rec.gate = threading.Event()
     result: dict = {}
