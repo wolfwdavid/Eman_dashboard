@@ -14,7 +14,8 @@ export default defineConfig({
 		include: [
 			'tools/**/*.test.mjs',
 			'src/lib/data/**/*.test.ts',
-			'src/lib/crystarium/**/*.test.{js,ts}'
+			'src/lib/crystarium/**/*.test.{js,ts}',
+			'src/lib/voice/**/*.test.ts'
 		]
 	}
 });
