@@ -47,10 +47,19 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) · Audit:
 **Requirements**: VOICE-01, VOICE-02, VOICE-03, VOICE-04, VOICE-05, VOICE-06, VOICE-07
 **Depends on:** Phase 6.1
 **Owner decisions (2026-11-10, "full saved plan, recommended choices"):** scope change approved (accessibility for the voice feature only); STT = Web Speech API with server Whisper fallback; full v1 command set; spoken replies included, off by default; /chat stays open with rate limits (no CHAT_API_TOKEN); Telegram unchanged (voice in, text out). Source plan: Websites/Eman/plans/voice-commands-plan.md (private notes repo).
-**Plans:** 0 plans
+**Plans:** 10 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 8 to break down)
+- [ ] 08-01-PLAN.md — Pure voice logic: command grammar, fuzzy funder matcher, facts selectors (wave 1)
+- [ ] 08-02-PLAN.md — Agent POST /chat/transcribe with size, MIME, rate-limit and concurrency controls + pytest (wave 1)
+- [ ] 08-03-PLAN.md — Browser I/O modules: prefs, copy strings, TTS helpers, STT recognizer/recorder/transcribe client (wave 1)
+- [ ] 08-04-PLAN.md — Shared panels store, TemplatesPanel/QrPanel refactor, actions adapter (wave 2)
+- [ ] 08-05-PLAN.md — Docs: HOW-TO-UPDATE synonyms section, agent README transcribe endpoint (wave 2)
+- [ ] 08-06-PLAN.md — ChatWidget text pipeline: router, live region, command and did-you-mean bubbles (wave 3)
+- [ ] 08-07-PLAN.md — Mic button, Web Speech path and server MediaRecorder path (wave 4)
+- [ ] 08-08-PLAN.md — First-use privacy notice, voice settings strip, header actions (wave 5)
+- [ ] 08-09-PLAN.md — Spoken replies toggle and wiring, mobile CSS (wave 6)
+- [ ] 08-10-PLAN.md — Keyboard-only and prerender tests, full gate, manual check list (wave 7)
 
 ---
 
