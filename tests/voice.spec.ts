@@ -39,9 +39,23 @@ export async function stubNetwork(page: Page) {
 	return { posted };
 }
 
+/**
+ * Open the chat toggle. The toggle is prerendered, so a click that lands before Svelte
+ * hydrates is silently lost and the panel never opens (the cause of the intermittent
+ * "voice settings" timeout after a reload). Retry the click until the panel is there.
+ */
+export async function clickChatToggle(page: Page) {
+	await expect(async () => {
+		if ((await page.locator('.chat-panel').count()) === 0) {
+			await page.getByTitle('Chat with DID assistant').click();
+		}
+		await expect(page.locator('.chat-panel')).toBeVisible({ timeout: 1000 });
+	}).toPass({ timeout: 15_000 });
+}
+
 export async function openChat(page: Page) {
 	await page.goto('/Eman_dashboard/');
-	await page.getByTitle('Chat with DID assistant').click();
+	await clickChatToggle(page);
 }
 
 /**
@@ -420,7 +434,7 @@ test.describe('voice', () => {
 		await expect(notice).toHaveCount(0);
 
 		await page.reload();
-		await page.getByTitle('Chat with DID assistant').click();
+		await clickChatToggle(page);
 		await micButton(page).click();
 		await expect(page.locator('.voice-notice')).toHaveCount(0);
 		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
@@ -458,7 +472,7 @@ test.describe('voice', () => {
 		await expect(page.locator('.voice-notice')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Close chat' }).click();
-		await page.getByTitle('Chat with DID assistant').click();
+		await clickChatToggle(page);
 		await expect(page.locator('.voice-notice')).toHaveCount(0);
 		expect(await ls(page, 'did.voice.notice.browser')).toBeNull();
 	});
@@ -490,7 +504,7 @@ test.describe('voice', () => {
 		expect(await ls(page, 'did.voice.forceServer')).toBe('1');
 
 		await page.reload();
-		await page.getByTitle('Chat with DID assistant').click();
+		await clickChatToggle(page);
 		await page.getByRole('button', { name: 'Voice settings' }).click();
 		const box = page.getByRole('checkbox', { name: 'Use server speech recognition' });
 		await expect(box).toBeChecked();
@@ -603,7 +617,7 @@ test.describe('spoken replies', () => {
 		expect(await lsKey(page, 'did.voice.spokenReplies')).toBe('1');
 
 		await page.reload();
-		await page.getByTitle('Chat with DID assistant').click();
+		await clickChatToggle(page);
 		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
 
 		const cancelsBefore = await cancelCount(page);
@@ -738,7 +752,7 @@ test.describe('voice layout', () => {
 		const order: string[] = await page.evaluate(() => (window as any).__order);
 		expect(order.at(-1)).toBe('speak');
 
-		await page.getByTitle('Chat with DID assistant').click();
+		await clickChatToggle(page);
 		await expect(page.locator('.chat-msg.command')).toHaveCount(1);
 
 		for (const loc of [
@@ -785,5 +799,206 @@ test.describe('voice layout', () => {
 		expect(anim).toBe('none');
 		await page.evaluate(() => (window as any).__say('show recurring grants'));
 		await expect.poll(async () => (await spokenList(page)).some((t) => t.startsWith('Showing'))).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------- keyboard and a11y
+
+type Focused = { tag: string; cls: string; label: string; text: string; placeholder: string };
+
+const winVal = (page: Page, name: string) => page.evaluate((n) => (window as any)[n], name);
+
+const describeFocus = (page: Page): Promise<Focused> =>
+	page.evaluate(() => {
+		const el = document.activeElement as HTMLElement | null;
+		return {
+			tag: el?.tagName.toLowerCase() ?? '',
+			cls: el?.className && typeof el.className === 'string' ? el.className : '',
+			label: el?.getAttribute('aria-label') ?? '',
+			text: (el?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+			placeholder: el?.getAttribute('placeholder') ?? ''
+		};
+	});
+
+/**
+ * Press Tab (or Shift+Tab) until the focused element matches, within a bounded number of
+ * presses. Returns every element visited so callers can assert order.
+ */
+async function tabUntil(
+	page: Page,
+	match: (f: Focused) => boolean,
+	what: string,
+	opts: { max?: number; shift?: boolean } = {}
+): Promise<Focused[]> {
+	const max = opts.max ?? 60;
+	const visited: Focused[] = [];
+	for (let i = 0; i < max; i++) {
+		const f = await describeFocus(page);
+		visited.push(f);
+		if (match(f)) return visited;
+		await page.keyboard.press(opts.shift ? 'Shift+Tab' : 'Tab');
+	}
+	throw new Error(`keyboard: never reached ${what} within ${max} Tab presses`);
+}
+
+const hasClass = (f: Focused, c: string) => f.cls.split(/\s+/).includes(c);
+const isToggle = (f: Focused) => hasClass(f, 'chat-toggle');
+const isMic = (f: Focused) => f.label === 'Voice input';
+const isInput = (f: Focused) => f.placeholder === 'Ask about grants...';
+const isSend = (f: Focused) => hasClass(f, 'chat-send');
+
+/**
+ * Open the chat with the keyboard only. Enter is retried until hydration has attached the
+ * handler (a keypress on the prerendered button before hydration is lost).
+ */
+async function openChatByKeyboard(page: Page) {
+	await page.goto('/Eman_dashboard/');
+	await tabUntil(page, isToggle, 'the chat toggle');
+	await expect(async () => {
+		if ((await page.locator('.chat-panel').count()) === 0) await page.keyboard.press('Enter');
+		await expect(page.locator('.chat-panel')).toBeVisible({ timeout: 1000 });
+	}).toPass({ timeout: 15_000 });
+}
+
+test.describe('voice keyboard', () => {
+	test('keyboard: full flow without a pointer', async ({ page }) => {
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChatByKeyboard(page);
+
+		// DOM order inside the chat: text input, then mic, then Send.
+		const visited = await tabUntil(page, isMic, 'the voice input button');
+		if (!visited.some(isInput)) {
+			// The chat moved focus past the input on open; step back to confirm it precedes the mic.
+			await page.keyboard.press('Shift+Tab');
+			expect(isInput(await describeFocus(page))).toBe(true);
+			await page.keyboard.press('Tab');
+		}
+		await page.keyboard.press('Tab');
+		expect(isSend(await describeFocus(page))).toBe(true);
+		await page.keyboard.press('Shift+Tab');
+		expect(isMic(await describeFocus(page))).toBe(true);
+
+		const mic = micButton(page);
+		await page.keyboard.press('Space');
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__say('open ford'));
+		const choices = page.locator('.chat-msg.choices');
+		await expect(choices).toBeVisible();
+
+		await tabUntil(page, (f) => hasClass(f, 'dym-choice'), 'the first did-you-mean choice', {
+			shift: true,
+			max: 20
+		});
+		await page.keyboard.press('Enter');
+		await expect(choices.locator('.dym-choice').first()).toBeDisabled();
+		await expect(choices.locator('.dym-choice').nth(1)).toBeDisabled();
+		await expect(page.locator('.chat-msg.command').last()).toContainText(/^\s*Opening/);
+		await expect(mic).toBeFocused();
+		expect((await describeFocus(page)).label).toBe('Voice input');
+
+		await page.keyboard.press('Enter');
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__say('show recurring grants'));
+		await expect(page.locator('.chip', { hasText: 'Recurring' })).toHaveClass(/active/);
+
+		await expect(mic).toBeFocused();
+		await page.keyboard.press('Enter');
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.keyboard.press('Escape');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('keyboard: existing controls still work', async ({ page }) => {
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await page.goto('/Eman_dashboard/');
+
+		const templates = page.getByRole('button', { name: /^TEMPLATES/ });
+		await tabUntil(page, (f) => f.text.startsWith('TEMPLATES'), 'the TEMPLATES toggle');
+		await expect(async () => {
+			await page.keyboard.press('Enter');
+			await expect(templates).toHaveAttribute('aria-expanded', 'true', { timeout: 1000 });
+		}).toPass({ timeout: 15_000 });
+		await page.keyboard.press('Escape');
+		await expect(templates).toHaveAttribute('aria-expanded', 'false');
+
+		const share = page.getByRole('button', { name: /^SHARE/ });
+		await tabUntil(page, (f) => f.text.startsWith('SHARE'), 'the SHARE toggle');
+		await page.keyboard.press('Enter');
+		await expect(share).toHaveAttribute('aria-expanded', 'true');
+		await page.keyboard.press('Space');
+		await expect(share).toHaveAttribute('aria-expanded', 'false');
+
+		const recurring = page.locator('.chip', { hasText: 'Recurring' });
+		await tabUntil(page, (f) => f.text.includes('Recurring'), 'the Recurring chip', { shift: true });
+		await page.keyboard.press('Enter');
+		await expect(recurring).toHaveClass(/active/);
+		// Space activates too: reset to All with Space on the All chip, then back on Recurring.
+		const all = page.locator('.chip', { hasText: /^\s*All\s*$/ });
+		await tabUntil(page, (f) => f.text === 'All', 'the All chip', { shift: true });
+		await page.keyboard.press('Space');
+		await expect(all).toHaveClass(/active/);
+	});
+
+	test('keyboard: mic button semantics', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		expect(await mic.evaluate((el) => el.tagName)).toBe('BUTTON');
+		const box = await mic.boundingBox();
+		expect(box!.width).toBeGreaterThanOrEqual(44);
+		expect(box!.height).toBeGreaterThanOrEqual(44);
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+
+		for (const key of ['Space', 'Enter']) {
+			await mic.focus();
+			await page.keyboard.press(key);
+			await expect(mic).toHaveAttribute('aria-pressed', 'true');
+			await page.keyboard.press('Escape');
+			await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		}
+		expect(await winVal(page, '__srStarted')).toBe(2);
+	});
+});
+
+test.describe('voice a11y', () => {
+	test('voice a11y: prerendered HTML', async ({ page, browser, baseURL }) => {
+		const html = await (await page.request.get('/Eman_dashboard/')).text();
+		expect(html.match(/role="status"/g) ?? []).toHaveLength(1);
+		for (const marker of ['chat-mic', 'chat-speaker', 'chat-settings', 'voice-status']) {
+			expect(html, marker).not.toContain(marker);
+		}
+		expect(html).toMatch(/(?:href|src)="[^"]*\/Eman_dashboard\/_app\//);
+
+		const ctx = await browser.newContext({ javaScriptEnabled: false, baseURL });
+		try {
+			const noJs = await ctx.newPage();
+			const res = await noJs.goto('/Eman_dashboard/');
+			expect(res?.status()).toBe(200);
+			await expect(noJs.getByRole('status')).toHaveCount(1);
+		} finally {
+			await ctx.close();
+		}
+	});
+
+	test('voice a11y: live region content rules', async ({ page }) => {
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speak(page, 'show recurring grants');
+		const region = page.getByRole('status');
+		await expect(region).toHaveText(/^\s*You said:/);
+
+		await micButton(page).click();
+		await expect(micButton(page)).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__interim('open the pipel'));
+		await expect(page.locator('#voice-status')).toContainText('open the pipel');
+		await expect(region).not.toContainText('open the pipel');
+		const status = page.locator('#voice-status');
+		expect(await status.getAttribute('aria-live')).toBeNull();
+		expect(await status.getAttribute('role')).toBeNull();
 	});
 });
