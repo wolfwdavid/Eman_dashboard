@@ -158,4 +158,78 @@ python -m did_agent.main
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | path to service-account key file |
 | `GOOGLE_TEMPLATE_DOC_ID` | the application template Google Doc id |
 
+### Voice transcription endpoint (`POST /chat/transcribe`)
+
+Used by the dashboard mic on browsers without built-in speech recognition
+(Firefox and others). The browser records a short clip and this endpoint turns it
+into text. It ships with the next VM deploy; the VM does not have it yet.
+
+**Request.** The body is the raw audio bytes (not JSON, not multipart) and
+`Content-Type` is an audio type. Accepted types: webm, ogg, opus, mp4, m4a,
+mpeg/mp3, wav, flac (for example `audio/webm;codecs=opus`; parameters after `;`
+are ignored). Browsers record webm/opus on Chrome and Edge, ogg/opus on Firefox
+and mp4 on Safari. A `Content-Length` header is required.
+
+**Response.** `200` with `{"text": "..."}` (empty string if nothing was heard).
+Errors are `{"error": "..."}` with these statuses:
+
+| Status | Meaning |
+|---|---|
+| 200 | transcript returned |
+| 400 | empty body or invalid `Content-Length` |
+| 401 | `CHAT_API_TOKEN` is set and the request lacks a matching `Authorization: Bearer` header (the same check `/chat` uses, so requests via the `trycloudflare.com` quick tunnel are exempt, as for `/chat`) |
+| 411 | no `Content-Length` header |
+| 413 | body over 1,048,576 bytes (1 MiB); the body is not read and the connection is closed |
+| 415 | `Content-Type` is not one of the audio types above |
+| 429 | more than 10 requests per minute from one client IP; a `Retry-After` header gives the seconds to wait |
+| 502 | transcription failed (Whisper error or undecodable audio) |
+| 503 | server busy; at most 2 transcriptions run at once |
+
+The 1 MiB cap is the enforcement behind "about 20 seconds of speech": the server
+does not measure duration. The dashboard stops recording at 18 seconds so a clip
+stays under the cap.
+
+**Client IP for the rate limit.** Behind the Cloudflare tunnel or the Docker
+proxy every connection arrives from a local address, so the limiter reads the real
+client from `CF-Connecting-IP` (or, failing that, the rightmost `X-Forwarded-For`
+entry, the hop our own proxy appended). Those headers are trusted only when the
+connection itself comes from loopback or a private range (`127.0.0.0/8`, `::1`,
+`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`). A direct public
+connection is keyed on its socket address, so it cannot forge the headers.
+
+**Access.** By owner decision the endpoint needs no token of its own beyond the
+`CHAT_API_TOKEN` rule above; it is protected by the size, type, rate and
+concurrency limits instead. The server is threaded, so a slow transcription does
+not block chat polling. Each upload is written to a temp file whose suffix comes
+from the MIME map (never from the client) and the file is deleted before the reply
+is sent.
+
+**Whisper configuration** (in `.env`; names only, never commit values):
+
+| Key | Purpose |
+|---|---|
+| `WHISPER_BASE_URL` | hosted mode: any OpenAI-compatible `/audio/transcriptions` endpoint (Groq serves Whisper free). Empty means local mode |
+| `WHISPER_MODEL` | model name (`whisper-large-v3-turbo` hosted; `base`, `small`, ... local) |
+| `WHISPER_API_KEY` | key for the hosted backend; falls back to `LLM_API_KEY` when empty |
+
+Hosted mode needs only `WHISPER_BASE_URL` (plus `WHISPER_MODEL`) and no native
+dependencies. Local mode (empty `WHISPER_BASE_URL`) uses faster-whisper, which needs
+the `av` wheel and `ffmpeg` installed so the webm, ogg and mp4 clips browsers
+produce can be decoded.
+
+**Privacy.** On this path the audio leaves the browser and goes to the configured
+Whisper backend (Groq or similar when hosted). It is not stored on the server
+after the request.
+
+**Deploy.** After merging, redeploy the agent on the Oracle VM (an owner step, not
+automated here). Check it with one request, using a placeholder host and any small
+recording:
+
+```bash
+curl -s -X POST https://<your-tunnel-host>/chat/transcribe \
+  -H "Content-Type: audio/webm" --data-binary @sample.webm
+```
+
+Expect `{"text": "..."}` with status 200.
+
 See `../.planning/MILESTONE-2-agent-BRIEF.md` for the full plan.
