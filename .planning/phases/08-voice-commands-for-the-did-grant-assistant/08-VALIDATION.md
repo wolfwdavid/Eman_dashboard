@@ -2,7 +2,7 @@
 phase: 8
 slug: voice-commands-for-the-did-grant-assistant
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-11-10
 ---
@@ -63,7 +63,7 @@ Task IDs are assigned by the planner; the requirement → check mapping below is
 - [ ] `src/lib/voice/commands.test.ts`, `facts.test.ts`, `actions.test.ts` — VOICE-02/03
 - [ ] `tests/voice.spec.ts` — fake `SpeechRecognition`, fake `MediaRecorder`, `speechSynthesis` spy, route stubs for `127.0.0.1:8080` and the raw.githubusercontent.com config fetch — VOICE-01/04/05/06/07
 - [ ] `agent/tests/test_chat_transcribe.py` — VOICE-05
-- [ ] Confirm `pnpm test:unit` does not pick up `tests/*.spec.ts`; pin `test.include` if it does
+- [x] Confirm `pnpm test:unit` does not pick up `tests/*.spec.ts`; pin `test.include` if it does (done: explicit include list pinned, `src/lib/voice/**/*.test.ts` added)
 - [ ] No framework installs needed
 
 ---
