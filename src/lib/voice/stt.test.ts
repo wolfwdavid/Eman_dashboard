@@ -9,7 +9,11 @@ import {
 	transcribeBlob
 } from './stt';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+	vi.useFakeTimers();
+	FakeSR.autoStart = true;
+	FakeSR.throwOnStart = false;
+});
 afterEach(() => vi.useRealTimers());
 
 class FakeSR {
@@ -24,11 +28,18 @@ class FakeSR {
 	onresult: ((e: any) => void) | null = null;
 	onerror: ((e: any) => void) | null = null;
 	onend: (() => void) | null = null;
+	onstart: (() => void) | null = null;
+	onaudiostart: (() => void) | null = null;
+	/** false: the engine stays in its permission prompt until emitStart(). */
+	static autoStart = true;
+	static throwOnStart = false;
 	constructor() {
 		FakeSR.last = this;
 	}
 	start() {
+		if (FakeSR.throwOnStart) throw new Error('InvalidStateError');
 		this.started++;
+		if (FakeSR.autoStart) this.onstart?.();
 	}
 	stop() {
 		this.stopped++;
@@ -134,6 +145,102 @@ describe('listen', () => {
 		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
 	});
 
+	it('end after interim results only commits the last interim text as the final', () => {
+		const { cb, sr } = mkListen();
+		sr.emitResults([{ t: 'show recur', final: false }]);
+		sr.emitResults([{ t: ' show recurring grants ', final: false }]);
+		sr.onend?.();
+		sr.onend?.();
+		vi.advanceTimersByTime(60000);
+		expect(cb.onFinal).toHaveBeenCalledTimes(1);
+		expect(cb.onFinal).toHaveBeenCalledWith('show recurring grants');
+		expect(cb.onFail).not.toHaveBeenCalled();
+	});
+
+	it('end after an empty interim result is a single no-speech failure', () => {
+		const { cb, sr } = mkListen();
+		sr.emitResults([{ t: '   ', final: false }]);
+		sr.onend?.();
+		sr.onend?.();
+		expect(cb.onFinal).not.toHaveBeenCalled();
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+	});
+
+	it('stop() after interim results delivers them when the engine ends without a final', () => {
+		const { cb, h, sr } = mkListen();
+		sr.emitResults([{ t: 'open ford', final: false }]);
+		h.stop();
+		expect(sr.stopped).toBe(1);
+		sr.onend?.();
+		expect(cb.onFinal).toHaveBeenCalledTimes(1);
+		expect(cb.onFinal).toHaveBeenCalledWith('open ford');
+	});
+
+	it('a throwing start() fails once as other and leaves nothing running', () => {
+		FakeSR.throwOnStart = true;
+		const { cb, h, sr } = mkListen();
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('other');
+		h.stop();
+		h.abort();
+		sr.onend?.();
+		vi.advanceTimersByTime(60000);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFinal).not.toHaveBeenCalled();
+		expect(sr.stopped).toBe(0);
+	});
+
+	it('the silence timer starts when the engine starts, not at start()', () => {
+		FakeSR.autoStart = false;
+		const { cb, sr } = mkListen();
+		// Permission prompt still open: well past 8 s, nothing is reported.
+		vi.advanceTimersByTime(20000);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		sr.onstart?.();
+		vi.advanceTimersByTime(3000);
+		// A second start signal does not restart the count.
+		sr.onaudiostart?.();
+		vi.advanceTimersByTime(4999);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+		expect(sr.aborted).toBe(1);
+	});
+
+	it('onaudiostart alone arms the silence timer', () => {
+		FakeSR.autoStart = false;
+		const { cb, sr } = mkListen({ silenceMs: 1000 });
+		vi.advanceTimersByTime(5000);
+		sr.onaudiostart?.();
+		vi.advanceTimersByTime(999);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+	});
+
+	it('an engine that never starts still settles at the outer guard', () => {
+		FakeSR.autoStart = false;
+		const { cb, sr } = mkListen();
+		vi.advanceTimersByTime(29999);
+		expect(cb.onFail).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+		expect(sr.aborted).toBe(1);
+		sr.onstart?.();
+		vi.advanceTimersByTime(60000);
+		expect(cb.onFail).toHaveBeenCalledTimes(1);
+	});
+
+	it('honours a custom startGuardMs', () => {
+		FakeSR.autoStart = false;
+		const { cb } = mkListen({ startGuardMs: 2000 });
+		vi.advanceTimersByTime(2000);
+		expect(cb.onFail).toHaveBeenCalledWith('no-speech');
+	});
+
 	it('maps engine errors, unknown to other', () => {
 		for (const code of [
 			'no-speech',
@@ -191,7 +298,7 @@ describe('pickMimeType', () => {
 });
 
 describe('startRecording', () => {
-	function rig(opts: { rejectWith?: string; supported?: string[] } = {}) {
+	function rig(opts: { rejectWith?: string; supported?: string[]; throwOnStart?: boolean } = {}) {
 		const tracks = [{ stop: vi.fn() }, { stop: vi.fn() }];
 		const stream = { getTracks: () => tracks };
 		const getUserMedia = vi.fn(() =>
@@ -206,6 +313,7 @@ describe('startRecording', () => {
 			mimeType: string;
 			ondataavailable: ((e: any) => void) | null = null;
 			onstop: (() => void) | null = null;
+			onerror: ((e: any) => void) | null = null;
 			ctorOpts: any;
 			constructor(
 				public stream: any,
@@ -216,6 +324,7 @@ describe('startRecording', () => {
 				rec = this;
 			}
 			start() {
+				if (opts.throwOnStart) throw new Error('NotSupportedError');
 				this.state = 'recording';
 			}
 			stop() {
@@ -302,6 +411,49 @@ describe('startRecording', () => {
 			expect(await startRecording({ onError }, deps)).toBeNull();
 			expect(onError).toHaveBeenCalledWith(code);
 		}
+	});
+
+	it('a throwing recorder.start() releases the microphone and reports other', async () => {
+		const { deps, tracks } = rig({ throwOnStart: true });
+		const onError = vi.fn();
+		const onTick = vi.fn();
+		const onAutoStop = vi.fn();
+		const r = await startRecording({ onError, onTick, onAutoStop }, deps);
+		expect(r).toBeNull();
+		for (const t of tracks) expect(t.stop).toHaveBeenCalledTimes(1);
+		expect(onError).toHaveBeenCalledTimes(1);
+		expect(onError).toHaveBeenCalledWith('other');
+		await vi.advanceTimersByTimeAsync(30000);
+		expect(onTick).not.toHaveBeenCalled();
+		expect(onAutoStop).not.toHaveBeenCalled();
+	});
+
+	it('a recorder error mid-capture releases the microphone and reports other once', async () => {
+		const { deps, tracks, rec } = rig();
+		const onError = vi.fn();
+		const onTick = vi.fn();
+		const onAutoStop = vi.fn();
+		const r = await startRecording({ onError, onTick, onAutoStop }, deps);
+		rec().onerror?.({ error: new Error('boom') });
+		rec().onerror?.({ error: new Error('boom') });
+		for (const t of tracks) expect(t.stop).toHaveBeenCalled();
+		expect(onError).toHaveBeenCalledTimes(1);
+		expect(onError).toHaveBeenCalledWith('other');
+		await vi.advanceTimersByTimeAsync(30000);
+		expect(onTick).not.toHaveBeenCalled();
+		expect(onAutoStop).not.toHaveBeenCalled();
+		// A late stop() still resolves, with nothing in it.
+		expect((await r!.stop()).size).toBe(0);
+	});
+
+	it('auto-stop and a manual stop share one blob', async () => {
+		const { deps } = rig();
+		const onAutoStop = vi.fn();
+		const r = await startRecording({ onAutoStop, onError: vi.fn(), maxMs: 1000 }, deps);
+		await vi.advanceTimersByTimeAsync(1000);
+		const manual = await r!.stop();
+		expect(onAutoStop).toHaveBeenCalledTimes(1);
+		expect(onAutoStop.mock.calls[0][0]).toBe(manual);
 	});
 
 	it('reports other when the APIs are missing', async () => {

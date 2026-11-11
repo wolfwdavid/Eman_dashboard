@@ -21,7 +21,7 @@ export type Intent =
 	| { kind: 'filter'; axis: 'status' | 'gate' | 'type'; value: string; label: string }
 	| { kind: 'reset' }
 	| { kind: 'open-grant'; id: string; label: string }
-	| { kind: 'did-you-mean'; options: PendingOption[] } // 2 or 3 options, never more
+	| { kind: 'did-you-mean'; options: PendingOption[] } // 1 to 3 options, never more
 	| { kind: 'panel'; name: 'templates' | 'share' }
 	| { kind: 'close' }
 	| { kind: 'fact'; fact: 'next-deadlines' | 'secured' }
@@ -186,7 +186,7 @@ const TYPE_LABELS: Record<string, string> = {
 const LEADING_POLITE = /^(?:(?:please|hey|okay|ok|can you|could you|would you)\s+)+/;
 
 /** Lowercase, speech-recognition quirks folded, punctuation removed, whitespace collapsed. */
-export function normalize(raw: string): string {
+function fold(raw: string): string {
 	let s = raw.toLowerCase();
 	s = s.replace(/’|‘/g, "'");
 	s = s.replace(/&/g, ' and ');
@@ -195,7 +195,12 @@ export function normalize(raw: string): string {
 	s = s.replace(/501\s*\(?\s*c\s*\)?\s*\(?\s*(?:3|three)(?:\s*\))?/g, '501c3');
 	s = s.replace(/['.$]/g, '');
 	s = s.replace(/[^a-z0-9]+/g, ' ');
-	s = s.trim().replace(/\s+/g, ' ');
+	return s.trim().replace(/\s+/g, ' ');
+}
+
+/** fold() plus leading filler removed ("please", "hey", "can you"): for spoken input only. */
+export function normalize(raw: string): string {
+	let s = fold(raw);
 	let prev: string;
 	do {
 		prev = s;
@@ -210,15 +215,20 @@ const tokens = (s: string): string[] => (s ? s.split(' ') : []);
 // Step 1: pending follow-ups
 // ---------------------------------------------------------------------------
 
-function resolveOrdinal(norm: string, pending: PendingOption[]): PendingOption | null {
+/**
+ * An ordinal follow-up. Returns the option, 'reask' when the words are a follow-up that
+ * picks nothing ("third" of two, or "the one" with no ordinal), or null when not an ordinal.
+ */
+function resolveOrdinal(norm: string, pending: PendingOption[]): PendingOption | 'reask' | null {
+	if (norm === 'the one') return 'reask';
 	let s = norm;
 	s = s.replace(/^the\s+/, '');
 	s = s.replace(/^number\s+/, '');
 	if (s.includes(' ')) s = s.replace(/\s+(?:one|please)$/, '');
-	if (!(s in ORDINALS)) return null;
+	if (!Object.hasOwn(ORDINALS, s)) return null;
 	const idx = ORDINALS[s];
 	const opt = idx === -1 ? pending[pending.length - 1] : pending[idx];
-	return opt ?? null;
+	return opt ?? 'reask';
 }
 
 // ---------------------------------------------------------------------------
@@ -227,8 +237,9 @@ function resolveOrdinal(norm: string, pending: PendingOption[]): PendingOption |
 
 function lookupFilter(rem: string): Intent | null {
 	const hit = (axis: 'status' | 'gate' | 'type', table: Record<string, string>, labels: Record<string, string>) => {
+		// Own keys only: "constructor" and friends are inherited, not vocabulary.
+		if (!Object.hasOwn(table, rem)) return null;
 		const value = table[rem];
-		if (value === undefined) return null;
 		if (!(FILTER_VALUES[axis] as readonly string[]).includes(value)) return null;
 		return { kind: 'filter', axis, value, label: labels[value] ?? value } as Intent;
 	};
@@ -281,7 +292,8 @@ export const FUNDER_ALIASES: Record<string, string> = {
 	'ben and jerry': 'ben and jerrys',
 	'mackenzie scott': 'yield giving',
 	'c e k': 'cek',
-	't g r': 'tgr'
+	't g r': 'tgr',
+	'new york': 'ny'
 };
 
 const NAV_VERBS = ['take me to', 'go to', 'open', 'show', 'select', 'find'];
@@ -357,7 +369,14 @@ function mergeJoins(a: string[], b: string[]): string[] {
 	return out;
 }
 
-type Entry = { g: Grant; sets: string[][]; funderSet: string[]; progTokens: string[] };
+type Entry = {
+	g: Grant;
+	sets: string[][]; // funder-based token sets: these may open a grant outright
+	prog: string[]; // program-only tokens: may suggest a grant, never open one
+	all: string[]; // funder + program tokens
+	funderSet: string[];
+	progTokens: string[];
+};
 type Index = { entries: Entry[]; df: Map<string, number>; n: number };
 
 const INDEX = new WeakMap<Grant[], Index>();
@@ -366,23 +385,30 @@ function uniq(a: string[]): string[] {
 	return [...new Set(a)];
 }
 
+function aliasify(norm: string): string {
+	let s = norm;
+	const keys = Object.keys(FUNDER_ALIASES).sort((a, b) => b.length - a.length);
+	for (const k of keys) {
+		s = s.replace(new RegExp(`(?:^| )${k}(?= |$)`, 'g'), (m) => (m.startsWith(' ') ? ' ' : '') + FUNDER_ALIASES[k]);
+	}
+	return s;
+}
+
 function buildIndex(grants: Grant[]): Index {
 	const df = new Map<string, number>();
 	const entries: Entry[] = grants.map((g) => {
-		const parens = [...g.funder.matchAll(/\(([^)]*)\)/g)].map((m) => tokens(normalize(m[1])));
-		const base = tokens(normalize(g.funder.replace(/\([^)]*\)/g, ' ')));
-		const funderSet = uniq(tokens(normalize(g.funder)));
-		const prog = uniq(tokens(normalize(g.program ?? '')));
-		const sets = [
-			uniq([...funderSet, ...prog]),
-			funderSet,
-			uniq(base),
-			...parens.map(uniq),
-			prog
-		].filter((s) => s.length > 0);
+		// Aliases are folded on both sides, so "new york" and "NY" are the same token.
+		// fold(), not normalize(): a funder name keeps its first word ("Hey Helen Grant").
+		const toks = (text: string) => tokens(aliasify(fold(text)));
+		const parens = [...g.funder.matchAll(/\(([^)]*)\)/g)].map((m) => toks(m[1]));
+		const base = toks(g.funder.replace(/\([^)]*\)/g, ' '));
+		const funderSet = uniq(toks(g.funder));
+		const prog = uniq(toks(g.program ?? ''));
+		const all = uniq([...funderSet, ...prog]);
+		const sets = [all, funderSet, uniq(base), ...parens.map(uniq)].filter((s) => s.length > 0);
 		const progTokens = prog.filter((t) => !GENERIC.has(t) && !funderSet.includes(t));
-		for (const t of new Set(sets[0])) df.set(t, (df.get(t) ?? 0) + 1);
-		return { g, sets, funderSet, progTokens };
+		for (const t of all) df.set(t, (df.get(t) ?? 0) + 1);
+		return { g, sets, prog, all, funderSet, progTokens };
 	});
 	return { entries, df, n: grants.length };
 }
@@ -426,13 +452,15 @@ type Match =
 	| { kind: 'ambiguous'; rows: Grant[] }
 	| { kind: 'none' };
 
-function aliasify(norm: string): string {
-	let s = norm;
-	const keys = Object.keys(FUNDER_ALIASES).sort((a, b) => b.length - a.length);
-	for (const k of keys) {
-		s = s.replace(new RegExp(`(?:^| )${k}(?= |$)`, 'g'), (m) => (m.startsWith(' ') ? ' ' : '') + FUNDER_ALIASES[k]);
-	}
-	return s;
+const MAX_OPTIONS = 3;
+
+/** Up to three rows, best first, covering as many different funders as possible. */
+function pickOptions(rows: Grant[]): Grant[] {
+	const seen = new Set<string>();
+	const lead = rows.filter((g) => !seen.has(g.funder) && !!seen.add(g.funder));
+	const rest = rows.filter((g) => !lead.includes(g));
+	const picked = new Set([...lead, ...rest].slice(0, MAX_OPTIONS));
+	return rows.filter((g) => picked.has(g));
 }
 
 /** Fuzzy-match a normalized funder phrase against the pool (default: every grant). */
@@ -444,7 +472,12 @@ function matchFunder(phrase: string, grants: Grant[], poolIds?: Set<string>): Ma
 	if (q.length === 0 || q.every((t) => GENERIC.has(t))) return { kind: 'none' };
 	const pool = poolIds ? ix.entries.filter((e) => poolIds.has(e.g.id)) : ix.entries;
 	const scored = pool
-		.map((e) => ({ e, score: Math.max(...e.sets.map((s) => scoreSet(ix, q, s))) }))
+		.map((e) => {
+			const named = Math.max(...e.sets.map((s) => scoreSet(ix, q, s)));
+			const score = Math.max(named, e.prog.length > 0 ? scoreSet(ix, q, e.prog) : 0);
+			// A program name alone may open a grant only among options already offered.
+			return { e, score, openScore: poolIds ? score : named };
+		})
 		.sort((a, b) => b.score - a.score);
 	const best = scored[0];
 	if (!best || best.score < LOW) return { kind: 'none' };
@@ -455,17 +488,27 @@ function matchFunder(phrase: string, grants: Grant[], poolIds?: Set<string>): Ma
 		const progHit = best.e.progTokens.some((pt) => q.some((qt) => sim(qt, pt) >= 0.75));
 		const funderCover = coverage(ix, q, best.e.funderSet);
 		if (!progHit && funderCover >= 0.9) {
-			return { kind: 'ambiguous', rows: family.slice(0, 3).map((s) => s.e.g) };
+			return { kind: 'ambiguous', rows: family.slice(0, MAX_OPTIONS).map((s) => s.e.g) };
+		}
+	}
+
+	// Words shared by several funders ("bank", "funding", "new york") identify none of
+	// them: when every informative word of the query appears in rows of two or more
+	// funders, offer those rows instead of opening whichever happens to score highest.
+	if (!poolIds) {
+		const informative = q.filter((t) => !GENERIC.has(t));
+		const sharers = scored.filter((s) => informative.every((t) => s.e.all.includes(t)));
+		if (new Set(sharers.map((s) => s.e.g.funder)).size > 1) {
+			return { kind: 'ambiguous', rows: pickOptions(sharers.map((s) => s.e.g)) };
 		}
 	}
 
 	const second = scored.find((s) => s.e !== best.e)?.score ?? 0;
-	if (best.score >= openAt && best.score - second >= MARGIN) return { kind: 'open', rows: [best.e.g] };
+	if (best.openScore >= openAt && best.score - second >= MARGIN) return { kind: 'open', rows: [best.e.g] };
 
-	// Ambiguous or merely plausible: offer the closest 2 or 3 rows.
-	let near = scored.filter((s) => s.score >= LOW && s.score >= best.score - 0.25).slice(0, 3);
-	if (near.length < 2) near = scored.slice(0, 2);
-	if (near.length < 2) return { kind: 'none' };
+	// Ambiguous or merely plausible: offer the closest rows, never padded with weaker ones.
+	// A lone candidate is offered by itself ("Did you mean X?").
+	const near = scored.filter((s) => s.score >= LOW && s.score >= best.score - 0.25).slice(0, MAX_OPTIONS);
 	return { kind: 'ambiguous', rows: near.map((s) => s.e.g) };
 }
 
@@ -501,17 +544,36 @@ function parseNavigate(norm: string, ctx: Ctx): Intent | null {
 	return null;
 }
 
-/** "the justfilms one" while options are pending: re-match restricted to those options. */
+/**
+ * A funder or program name while options are pending ("the justfilms one", "ford"):
+ * re-match restricted to those options. One clear winner opens it; a name that still
+ * fits several of them asks again with just those, so the choices stay open.
+ */
 function rematchPending(norm: string, ctx: Ctx): Intent | null {
 	let rem = navigateRemainder(norm) ?? norm;
 	rem = rem.replace(/^the\s+/, '').replace(/\s+one$/, '');
 	if (!rem || tokens(rem).length > 4) return null;
-	const ids = new Set((ctx.pending ?? []).map((p) => p.id));
+	const pending = ctx.pending ?? [];
+	const ids = new Set(pending.map((p) => p.id));
 	const m = matchFunder(rem, ctx.grants, ids);
-	if (m.kind !== 'open') return null;
-	const g = m.rows[0];
-	const label = ctx.pending?.find((p) => p.id === g.id)?.label ?? optionLabel(g, ctx.grants);
-	return { kind: 'open-grant', id: g.id, label };
+	if (m.kind === 'open') {
+		const g = m.rows[0];
+		const label = pending.find((p) => p.id === g.id)?.label ?? optionLabel(g, ctx.grants);
+		return { kind: 'open-grant', id: g.id, label };
+	}
+	if (m.kind === 'ambiguous' && m.rows.length > 1) {
+		// Only when the words are fully explained by the option names; anything else
+		// ("ford deadline") is a question, not a follow-up.
+		const ix = getIndex(ctx.grants);
+		const q = tokens(aliasify(rem));
+		const hit = new Set(
+			ix.entries
+				.filter((e) => m.rows.includes(e.g) && coverage(ix, q, e.all) >= 0.9)
+				.map((e) => e.g.id)
+		);
+		if (hit.size > 1) return { kind: 'did-you-mean', options: pending.filter((p) => hit.has(p.id)) };
+	}
+	return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +589,8 @@ export function parse(raw: string, ctx: Ctx): Intent {
 	if (ctx.pending && ctx.pending.length > 0) {
 		if (CANCEL_PHRASES.includes(norm)) return { kind: 'cancel-pending' };
 		const opt = resolveOrdinal(norm, ctx.pending);
+		// Out of range ("third" of two): ask again rather than sending a stray word to chat.
+		if (opt === 'reask') return { kind: 'did-you-mean', options: ctx.pending };
 		if (opt) return { kind: 'open-grant', id: opt.id, label: opt.label };
 		const re = rematchPending(norm, ctx);
 		if (re) return re;
@@ -535,8 +599,8 @@ export function parse(raw: string, ctx: Ctx): Intent {
 	// 2. system phrases
 	if (RESET_PHRASES.includes(norm)) return { kind: 'reset' };
 	if (CLOSE_PHRASES.includes(norm)) return { kind: 'close' };
-	if (norm in PANEL_PHRASES) return { kind: 'panel', name: PANEL_PHRASES[norm] };
-	if (norm in FACT_PHRASES) return { kind: 'fact', fact: FACT_PHRASES[norm] };
+	if (Object.hasOwn(PANEL_PHRASES, norm)) return { kind: 'panel', name: PANEL_PHRASES[norm] };
+	if (Object.hasOwn(FACT_PHRASES, norm)) return { kind: 'fact', fact: FACT_PHRASES[norm] };
 
 	// 3. filters
 	const filter = parseFilter(norm);

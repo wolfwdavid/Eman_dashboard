@@ -62,10 +62,17 @@ export async function openChat(page: Page) {
  * Replace SpeechRecognition with a controllable fake. __interim / __say drive the
  * active recognizer; __srStarted counts start() calls. Seeds the browser-path privacy
  * notice as seen unless noticeSeen is false.
+ * deferStart: the engine does not report "start" until __srStart() (an open permission
+ * prompt). throwOnStart: start() throws. __srEnd() ends the session with no final result.
  */
-export async function installFakeSR(page: Page, opts: { noticeSeen?: boolean } = {}) {
+export async function installFakeSR(
+	page: Page,
+	opts: { noticeSeen?: boolean; deferStart?: boolean; throwOnStart?: boolean } = {}
+) {
 	const noticeSeen = opts.noticeSeen ?? true;
-	await page.addInitScript((seen: boolean) => {
+	const deferStart = opts.deferStart ?? false;
+	const throwOnStart = opts.throwOnStart ?? false;
+	await page.addInitScript(({ seen, defer, throws }: { seen: boolean; defer: boolean; throws: boolean }) => {
 		const w = window as any;
 		if (seen) {
 			localStorage.setItem('did.voice.notice.browser', '1');
@@ -81,9 +88,13 @@ export async function installFakeSR(page: Page, opts: { noticeSeen?: boolean } =
 			onresult: any = null;
 			onerror: any = null;
 			onend: any = null;
+			onstart: any = null;
+			onaudiostart: any = null;
 			start() {
+				if (throws) throw new Error('InvalidStateError');
 				FakeSR.last = this;
 				w.__srStarted++;
+				if (!defer) this.onstart?.();
 			}
 			stop() {
 				setTimeout(() => this.onend?.(), 0);
@@ -104,22 +115,48 @@ export async function installFakeSR(page: Page, opts: { noticeSeen?: boolean } =
 			FakeSR.last?.onresult?.(result(t, true));
 			setTimeout(() => FakeSR.last?.onend?.(), 0);
 		};
-	}, noticeSeen);
+		w.__srStart = () => FakeSR.last?.onstart?.();
+		w.__srEnd = () => FakeSR.last?.onend?.();
+	}, { seen: noticeSeen, defer: deferStart, throws: throwOnStart });
 }
 
 /**
  * Remove SpeechRecognition and install a fake getUserMedia + MediaRecorder so the
  * server path runs. Seeds did.voice.notice.server (and the browser key) unless
  * noticeSeen is false. window.__tracksStopped counts track.stop() calls.
+ * throwOnStart: MediaRecorder.start() throws. deferStop: stop() does not fire onstop
+ * until __recFinishStop() (the gap between a stop request and the recorder's onstop).
+ * emptyClip: the recorder delivers no audio data, so the clip is zero bytes.
  */
 export async function installFakeRecorder(
 	page: Page,
-	opts: { noticeSeen?: boolean; keepSR?: boolean } = {}
+	opts: {
+		noticeSeen?: boolean;
+		keepSR?: boolean;
+		throwOnStart?: boolean;
+		deferStop?: boolean;
+		emptyClip?: boolean;
+	} = {}
 ) {
 	const noticeSeen = opts.noticeSeen ?? true;
 	const keepSR = opts.keepSR ?? false;
+	const throwOnStart = opts.throwOnStart ?? false;
+	const deferStop = opts.deferStop ?? false;
+	const emptyClip = opts.emptyClip ?? false;
 	await page.addInitScript(
-		({ seen, keep }: { seen: boolean; keep: boolean }) => {
+		({
+			seen,
+			keep,
+			throws,
+			defer,
+			empty
+		}: {
+			seen: boolean;
+			keep: boolean;
+			throws: boolean;
+			defer: boolean;
+			empty: boolean;
+		}) => {
 			const w = window as any;
 			if (seen) {
 				localStorage.setItem('did.voice.notice.server', '1');
@@ -145,18 +182,20 @@ export async function installFakeRecorder(
 				ondataavailable: any = null;
 				onstop: any = null;
 				start() {
+					if (throws) throw new Error('NotSupportedError');
 					w.__recStarted++;
 					this.state = 'recording';
 				}
 				stop() {
 					this.state = 'inactive';
-					this.ondataavailable?.({ data: new Blob(['fake-audio'], { type: this.mimeType }) });
-					setTimeout(() => this.onstop?.(), 0);
+					this.ondataavailable?.({ data: new Blob(empty ? [] : ['fake-audio'], { type: this.mimeType }) });
+					if (defer) w.__recFinishStop = () => this.onstop?.();
+					else setTimeout(() => this.onstop?.(), 0);
 				}
 			}
 			w.MediaRecorder = FakeMR;
 		},
-		{ seen: noticeSeen, keep: keepSR }
+		{ seen: noticeSeen, keep: keepSR, throws: throwOnStart, defer: deferStop, empty: emptyClip }
 	);
 }
 
@@ -187,6 +226,34 @@ test.describe('voice', () => {
 			timeout: 10_000
 		});
 		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' })).toBeVisible();
+	});
+
+	test('api_url: an unencrypted remote address is ignored', async ({ page }) => {
+		const net = await stubNetwork(page);
+		// Registered last, so it wins over the stub: the published config points somewhere unsafe.
+		await page.route('https://raw.githubusercontent.com/**', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ api_url: 'http://collector.example:9999' })
+			})
+		);
+		const stray: string[] = [];
+		await page.route('http://collector.example:9999/**', (route) => {
+			stray.push(route.request().url());
+			return route.abort();
+		});
+		const config = page.waitForResponse(/raw\.githubusercontent\.com/);
+		await openChat(page);
+		await config;
+		await page.getByPlaceholder('Ask about grants...').fill('which grants are due soon');
+		await page.getByPlaceholder('Ask about grants...').press('Enter');
+		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' })).toBeVisible({
+			timeout: 10_000
+		});
+		// The question went to the default address, and nothing reached the published one.
+		expect(net.posted).toEqual([JSON.stringify({ message: 'which grants are due soon' })]);
+		expect(stray).toEqual([]);
 	});
 
 	test('live region is a single persistent role=status outside the chat panel', async ({ page }) => {
@@ -295,6 +362,58 @@ test.describe('voice', () => {
 		await expect(page.locator('.chat-msg')).toHaveCount(bubbles);
 	});
 
+	test('voice silence: a slow permission prompt is not silence', async ({ page }) => {
+		await page.clock.install();
+		await installFakeSR(page, { deferStart: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		// The recognizer has not started yet (prompt open): 8 s must not count as silence.
+		await page.clock.fastForward(12_000);
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.locator('#voice-status')).toContainText('Listening…');
+		await expect(page.locator('#voice-status')).not.toContainText("I didn't catch that.");
+
+		await page.evaluate(() => (window as any).__srStart());
+		await page.clock.fastForward(8500);
+		await expect(page.locator('#voice-status')).toContainText("I didn't catch that.");
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('voice end: interim words are used when the recognizer ends without a final', async ({ page }) => {
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__interim('show recurring grants'));
+		await expect(page.locator('#voice-status')).toContainText('show recurring grants');
+		await page.evaluate(() => (window as any).__srEnd());
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await expect(mic).toHaveAttribute('data-state', 'idle');
+		await expect(page.locator('.chat-msg.user', { hasText: 'show recurring grants' })).toBeVisible();
+		await expect(page.locator('.chip', { hasText: 'Recurring' })).toHaveClass(/active/);
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+	});
+
+	test('voice start failure: a throwing recognizer leaves the mic usable', async ({ page }) => {
+		await installFakeSR(page, { throwOnStart: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errOther })).toHaveCount(1);
+		await expect(mic).toHaveAttribute('data-state', 'error');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+		// Not stuck: the next press tries again.
+		await mic.click();
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errOther })).toHaveCount(2);
+	});
+
 	test('voice cancel: Escape and typing', async ({ page }) => {
 		await installFakeSR(page);
 		const net = await stubNetwork(page);
@@ -346,6 +465,53 @@ test.describe('voice', () => {
 		expect(await page.evaluate(() => (window as any).__tracksStopped)).toBeGreaterThanOrEqual(1);
 	});
 
+	test('server fallback: a throwing recorder releases the mic and reports the failure', async ({ page }) => {
+		await installFakeRecorder(page, { throwOnStart: true });
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errOther })).toHaveCount(1);
+		await expect(mic).toHaveAttribute('data-state', 'error');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await expect(page.locator('#voice-status')).toHaveCount(0);
+		expect(await page.evaluate(() => (window as any).__tracksStopped)).toBeGreaterThanOrEqual(1);
+	});
+
+	test('server fallback: auto-stop plus a mic press uploads the clip once', async ({ page }) => {
+		await page.clock.install();
+		await installFakeRecorder(page, { deferStop: true });
+		await stubNetwork(page);
+		let uploads = 0;
+		await page.route('http://127.0.0.1:8080/chat/transcribe', (route) => {
+			uploads++;
+			return route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				headers: { 'access-control-allow-origin': '*' },
+				body: JSON.stringify({ text: 'show recurring grants' })
+			});
+		});
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect(await page.evaluate(() => (window as any).__recStarted)).toBe(1);
+		// The 18 s cap asks the recorder to stop; its onstop has not fired yet.
+		await page.clock.fastForward(18_500);
+		await expect
+			.poll(() => page.evaluate(() => typeof (window as any).__recFinishStop))
+			.toBe('function');
+		// A press in that gap must not produce a second upload of the same clip.
+		await mic.click();
+		await page.evaluate(() => (window as any).__recFinishStop());
+		await expect(page.locator('.chip', { hasText: 'Recurring' })).toHaveClass(/active/);
+		await expect(mic).toHaveAttribute('data-state', 'idle');
+		await page.waitForTimeout(300);
+		expect(uploads).toBe(1);
+		await expect(page.locator('.chat-msg.user', { hasText: 'show recurring grants' })).toHaveCount(1);
+	});
+
 	test.describe('server fallback: error messages', () => {
 		const cases: [number, string][] = [
 			[429, COPY.errRateLimited],
@@ -393,6 +559,35 @@ test.describe('voice', () => {
 			await mic.click();
 			await expect(page.locator('#voice-status')).toContainText("I didn't catch that.");
 		});
+	});
+
+	test('server fallback: an empty recording is "I didn\'t catch that", with no upload', async ({ page }) => {
+		await installFakeRecorder(page, { emptyClip: true });
+		await stubNetwork(page);
+		let uploads = 0;
+		await page.route('http://127.0.0.1:8080/chat/transcribe', (route) => {
+			uploads++;
+			return route.fulfill({
+				status: 400,
+				contentType: 'application/json',
+				headers: { 'access-control-allow-origin': '*' },
+				body: JSON.stringify({ error: 'Empty body' })
+			});
+		});
+		await openChat(page);
+		const mic = micButton(page);
+		const bubbles = await page.locator('.chat-msg').count();
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await mic.click();
+		const strip = page.locator('#voice-status');
+		await expect(strip).toContainText(COPY.didntCatchLead);
+		await expect(strip).toContainText(COPY.didntCatchHint);
+		await expect(mic).toHaveAttribute('data-state', 'idle');
+		await expect(page.getByRole('status')).toContainText(COPY.didntCatchLive);
+		await expect(page.locator('.chat-msg')).toHaveCount(bubbles);
+		await expect(page.locator('.chat-msg.bot', { hasText: COPY.errTranscribeUnreachable })).toHaveCount(0);
+		expect(uploads).toBe(0);
 	});
 
 	test('voice mic: unavailable', async ({ page }) => {
@@ -453,6 +648,63 @@ test.describe('voice', () => {
 		expect(await ls(page, 'did.voice.notice.browser')).toBe('1');
 		expect(await ls(page, 'did.voice.notice.server')).toBe('1');
 		expect(await win(page, '__recStarted')).toBeGreaterThanOrEqual(1);
+		expect(await win(page, '__srStarted')).toBe(0);
+	});
+
+	/** localStorage access throws, as in Safari with cookies blocked or a sandboxed iframe. */
+	const blockStorage = (page: Page) =>
+		page.addInitScript(() => {
+			Object.defineProperty(window, 'localStorage', {
+				configurable: true,
+				get() {
+					throw new DOMException('The operation is insecure.', 'SecurityError');
+				}
+			});
+		});
+
+	test('voice notice: Use the server instead holds without localStorage', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await installFakeRecorder(page, { noticeSeen: false, keepSR: true });
+		await blockStorage(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.voice-notice')).toContainText(COPY.noticeBrowser);
+		await page.getByRole('button', { name: COPY.noticeUseServer }).click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		// The audio must go to the server recorder, never to the browser recognizer.
+		expect(await win(page, '__recStarted')).toBe(1);
+		expect(await win(page, '__srStarted')).toBe(0);
+		await expect(page.locator('#voice-status')).toContainText(COPY.hintServer);
+
+		// The choice lasts for the page load: the next press is the server again, no notice.
+		await page.keyboard.press('Escape');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.locator('.voice-notice')).toHaveCount(0);
+		expect(await win(page, '__recStarted')).toBe(2);
+		expect(await win(page, '__srStarted')).toBe(0);
+	});
+
+	test('voice settings: the server checkbox holds without localStorage', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await installFakeRecorder(page, { noticeSeen: false, keepSR: true });
+		await blockStorage(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await page.getByRole('button', { name: 'Voice settings' }).click();
+		const box = page.getByRole('checkbox', { name: 'Use server speech recognition' });
+		await box.check();
+		await expect(box).toBeChecked();
+		const mic = micButton(page);
+		await mic.click();
+		// The first-use notice is the server one, and starting records for the server.
+		await expect(page.locator('.voice-notice')).toContainText(COPY.noticeServer);
+		await page.getByRole('button', { name: COPY.noticeStart }).click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect(await win(page, '__recStarted')).toBe(1);
 		expect(await win(page, '__srStarted')).toBe(0);
 	});
 
@@ -724,6 +976,42 @@ test.describe('spoken replies', () => {
 		expect(await cancelCount(page)).toBeGreaterThan(before);
 	});
 
+	test('spoken replies: a reply arriving during a capture is not spoken into the mic', async ({ page }) => {
+		await installFakeSR(page);
+		await installFakeSpeech(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await speakerOn(page);
+		await page.getByPlaceholder('Ask about grants...').fill('hello there');
+		await page.getByPlaceholder('Ask about grants...').press('Enter');
+		await expect(page.locator('.chat-msg.typing')).toBeVisible();
+
+		// Open the mic while the question is still pending; an interim result stops the silence timer.
+		const mic = micButton(page);
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await page.evaluate(() => (window as any).__interim('show'));
+
+		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' })).toBeVisible({
+			timeout: 10_000
+		});
+		await expect(page.getByRole('status')).toContainText('Assistant: Hello from the assistant');
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect((await spokenList(page)).some((t) => t.includes('Hello from the assistant'))).toBe(false);
+
+		// Turning spoken replies on mid-capture stays silent too.
+		const before = (await spokenList(page)).length;
+		await speakerButton(page).click();
+		await speakerButton(page).click();
+		await expect(speakerButton(page)).toHaveAttribute('aria-pressed', 'true');
+		expect((await spokenList(page)).length).toBe(before);
+
+		// Not queued either: after the capture ends only the new confirmation is spoken.
+		await page.evaluate(() => (window as any).__say('show recurring grants'));
+		await expect.poll(async () => (await spokenList(page)).some((t) => t.startsWith('Showing'))).toBe(true);
+		expect((await spokenList(page)).some((t) => t.includes('Hello from the assistant'))).toBe(false);
+	});
+
 	test('spoken replies: toggle absent without speechSynthesis', async ({ page }) => {
 		await page.addInitScript(() => {
 			Object.defineProperty(window, 'speechSynthesis', { value: undefined, configurable: true });
@@ -771,6 +1059,48 @@ test.describe('voice layout', () => {
 		await page.setViewportSize({ width: 320, height: 568 });
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 		await expect(page.locator('.chat-panel')).toBeVisible();
+	});
+
+	test('voice mobile: a panel command replaces the open grant detail', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 800 });
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const cases: [string, () => ReturnType<Page['locator']>, RegExp][] = [
+			['open templates', () => page.locator('#templates-popover'), /^TEMPLATES/],
+			['share', () => page.locator('.qr-widget .panel'), /^SHARE/]
+		];
+		for (const [words, surface, toggleName] of cases) {
+			await speak(page, 'open north star');
+			await expect(page.locator('h2.funder')).toContainText('North Star');
+			// The detail sheet collapsed the chat (one surface); reopen it for the next command.
+			await clickChatToggle(page);
+			await speak(page, words);
+			// The panel is what the user sees: the grant detail stepped aside.
+			await expect(page.locator('h2.funder')).toHaveCount(0);
+			await expect(surface()).toBeVisible();
+			await expect(page.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'true');
+			await clickChatToggle(page);
+			await speak(page, 'close');
+			await expect(page.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'false');
+		}
+	});
+
+	test('voice commands: opening a grant closes the templates list first', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await installFakeSR(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const toggle = page.getByRole('button', { name: /^TEMPLATES/ });
+		await speak(page, 'open templates');
+		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+		await speak(page, 'open north star');
+		await expect(page.locator('h2.funder')).toContainText('North Star');
+		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+		// One "close" closes what is on screen: the grant.
+		await speak(page, 'close');
+		await expect(page.locator('.chat-msg.command').last()).toContainText('Closed North Star Fund.');
+		await expect(page.locator('h2.funder')).toHaveCount(0);
 	});
 
 	test('voice desktop: detail keeps chat open', async ({ page }) => {
@@ -907,6 +1237,19 @@ test.describe('voice keyboard', () => {
 		await expect(mic).toHaveAttribute('aria-pressed', 'true');
 		await page.keyboard.press('Escape');
 		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('keyboard: the close button returns focus to the chat toggle', async ({ page }) => {
+		await stubNetwork(page);
+		await openChat(page);
+		const close = page.getByRole('button', { name: 'Close chat' });
+		await close.focus();
+		await page.keyboard.press('Enter');
+		await expect(page.locator('.chat-panel')).toHaveCount(0);
+		await expect(page.locator('.chat-toggle')).toBeFocused();
+		// Enter on the toggle reopens the chat: the keyboard user is not stranded on <body>.
+		await page.keyboard.press('Enter');
+		await expect(page.locator('.chat-panel')).toBeVisible();
 	});
 
 	test('keyboard: existing controls still work', async ({ page }) => {

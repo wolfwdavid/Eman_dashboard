@@ -16,9 +16,11 @@
 		isSecureContextSafe
 	} from '$lib/voice/stt';
 	import { getBool, setBool, PREF_KEYS } from '$lib/voice/prefs';
+	import { safeApiUrl } from '$lib/voice/apiUrl';
 
-	// The clock is read only here, at event time.
-	const actions = createActions(dashboard, { grants, now: () => new Date() });
+	// The clock and the viewport are read only here, at event time (never during prerender).
+	const isPhone = () => window.matchMedia('(max-width: 768px)').matches;
+	const actions = createActions(dashboard, { grants, now: () => new Date(), oneSurface: isPhone });
 	const router = createRouter(actions, { grants });
 
 	let open = $state(false);
@@ -47,6 +49,7 @@
 	let BASE = LOCAL;
 
 	// Discover API: try localhost, fall back to tunnel URL from GitHub.
+	// Called from onMount only, so prerender makes no network request.
 	async function loadConfig() {
 		try {
 			const r = await fetch(LOCAL + '/chat-config.json', { signal: AbortSignal.timeout(2000) });
@@ -54,11 +57,14 @@
 		} catch {
 			try {
 				const r2 = await fetch('https://raw.githubusercontent.com/wolfwdavid/Eman_dashboard/main/agent/dashboard/chat-config.json?_=' + Date.now());
-				if (r2.ok) { const c = await r2.json(); if (c.api_url) BASE = c.api_url; }
+				if (r2.ok) {
+					// Questions and recordings go to this address: https only (or this machine).
+					const url = safeApiUrl((await r2.json())?.api_url);
+					if (url) BASE = url;
+				}
 			} catch {}
 		}
 	}
-	loadConfig();
 
 	function scrollDown() {
 		if (messagesEl) { const el = messagesEl; setTimeout(() => el.scrollTop = el.scrollHeight, 50); }
@@ -81,6 +87,9 @@
 	function say(/** @type {string} */ text, { allowClosed = false } = {}) {
 		if (!spoken || !canSpeak) return;
 		if (!open && !allowClosed) return;
+		// Never speak into an open microphone: the recognizer would hear the assistant and
+		// route its words as the user's. The text is still in the chat and the live region.
+		if (capturing()) return;
 		speak(text);
 	}
 
@@ -88,8 +97,8 @@
 		spoken = !spoken;
 		setBool(PREF_KEYS.spokenReplies, spoken);
 		// Turning on speaks inside the click handler, which unlocks Safari/iOS speech.
-		if (spoken) speak(COPY.spokenOn);
-		else cancelSpeech();
+		if (!spoken) cancelSpeech();
+		else if (!capturing()) speak(COPY.spokenOn);
 	}
 
 	function pushUser(/** @type {string} */ text) {
@@ -188,13 +197,12 @@
 	/** One primary surface (UI-SPEC 3d). matchMedia is evaluated at event time. */
 	function collapseRule(/** @type {string | null} */ opened) {
 		if (!opened) return false;
-		const mobile = window.matchMedia('(max-width: 768px)').matches;
-		const collapse = mobile ? ['detail', 'templates', 'share'].includes(opened) : opened === 'share';
+		const collapse = isPhone() ? ['detail', 'templates', 'share'].includes(opened) : opened === 'share';
 		if (collapse) collapseChat();
 		return collapse;
 	}
 
-	/** A final transcript from the mic (wired in a later plan). Never touches inputVal. */
+	/** A final transcript from the mic. Never touches inputVal. */
 	function handleUtterance(/** @type {string} */ rawTranscript) {
 		if (isEmptyUtterance(rawTranscript)) return;
 		const text = capTranscript(rawTranscript);
@@ -258,6 +266,8 @@
 	function closeChat() {
 		cancelSpeech();
 		open = false;
+		// The panel unmounts: hand keyboard focus back to the toggle, as collapseChat does.
+		toggleEl?.focus();
 	}
 
 	/** @param {KeyboardEvent} e */
@@ -266,6 +276,8 @@
 	// ---------------------------------------------------------------- mic
 	/** @type {'idle'|'listening'|'processing'|'error'|'blocked'|'unavailable'} */
 	let micState = $state('idle');
+	/** True while the microphone is open or its audio is being transcribed. */
+	const capturing = () => micState === 'listening' || micState === 'processing';
 	/** @type {null|'listening'|'processing'|'didnt'} */
 	let statusKind = $state(null);
 	let interim = $state('');
@@ -291,11 +303,13 @@
 	let settingsBtnEl = $state();
 	/**
 	 * Current capture: browser recognizer or server recorder. Null when idle.
-	 * @type {null | { kind: 'sr', h: { stop(): void, abort(): void } } | { kind: 'rec', rec: any, ac: AbortController, cancelled: boolean, stopRequested: boolean }}
+	 * @type {null | { kind: 'sr', h: { stop(): void, abort(): void } } | { kind: 'rec', rec: any, ac: AbortController, cancelled: boolean, stopRequested: boolean, uploading: boolean }}
 	 */
 	let capture = null;
 
-	const useServerPath = () => hasRec && (getBool(PREF_KEYS.forceServer) || sessionServer || !hasSR);
+	// Reads the in-memory choice, never storage: when localStorage is unavailable the write
+	// is dropped, and the user who chose the server must still get the server.
+	const useServerPath = () => hasRec && (forceServer || sessionServer || !hasSR);
 
 	const MIC_TITLES = {
 		idle: COPY.micTitleIdle,
@@ -407,26 +421,32 @@
 		interim = '';
 		elapsed = 0;
 		/** @type {any} */
-		const cap = { kind: 'rec', rec: null, ac: new AbortController(), cancelled: false, stopRequested: false };
+		const cap = { kind: 'rec', rec: null, ac: new AbortController(), cancelled: false, stopRequested: false, uploading: false };
 		capture = cap;
+		/** @param {'not-allowed' | 'audio-capture' | 'other'} code */
+		const onError = (code) => {
+			if (capture !== cap) return;
+			capture = null;
+			statusKind = null;
+			if (code === 'not-allowed') { micState = 'blocked'; failBubbleMic(COPY.errBlocked); }
+			else if (code === 'audio-capture') { micState = 'error'; failBubbleMic(COPY.errNoMic); }
+			else { micState = 'error'; failBubbleMic(COPY.errOther); }
+		};
 		// getUserMedia() is called synchronously by startRecording (user-gesture rule).
 		startRecording({
 			maxMs: 18000,
 			onTick: (s) => { if (capture === cap) elapsed = s; },
 			onAutoStop: (blob) => { if (capture === cap) upload(cap, blob); },
-			onError: (code) => {
-				if (capture !== cap) return;
-				capture = null;
-				statusKind = null;
-				if (code === 'not-allowed') { micState = 'blocked'; failBubbleMic(COPY.errBlocked); }
-				else if (code === 'audio-capture') { micState = 'error'; failBubbleMic(COPY.errNoMic); }
-				else { micState = 'error'; failBubbleMic(COPY.errOther); }
-			}
+			onError
 		}).then((rec) => {
 			if (!rec) return;
 			cap.rec = rec;
 			if (cap.cancelled) rec.cancel();
 			else if (cap.stopRequested) finishRecording(cap);
+		}).catch(() => {
+			// Anything unexpected while starting: release the mic and never stay in "listening".
+			cap.rec?.cancel();
+			onError('other');
 		});
 	}
 
@@ -442,6 +462,16 @@
 
 	/** @param {any} cap @param {Blob} blob */
 	async function upload(cap, blob) {
+		// One upload per capture: the 18 s auto-stop and a mic press in the gap before the
+		// recorder's onstop both arrive here with the same clip.
+		if (cap.uploading) return;
+		cap.uploading = true;
+		// Nothing was recorded (mic pressed twice during the permission prompt): that is
+		// "nothing heard", not a server problem, and there is nothing to send.
+		if (blob.size === 0) {
+			showDidnt();
+			return;
+		}
 		micState = 'processing';
 		statusKind = 'processing';
 		interim = '';
@@ -515,8 +545,8 @@
 	}
 
 	function useServerAndStart() {
-		setBool(PREF_KEYS.forceServer, true);
 		forceServer = true;
+		setBool(PREF_KEYS.forceServer, true);
 		setBool(PREF_KEYS.noticeBrowser, true);
 		setBool(PREF_KEYS.noticeServer, true);
 		noticeSeenSession.browser = true;
@@ -583,6 +613,7 @@
 	}
 
 	onMount(() => {
+		loadConfig();
 		hasSR = !!getSpeechRecognition();
 		hasRec = canRecord();
 		const secure = isSecureContextSafe();
