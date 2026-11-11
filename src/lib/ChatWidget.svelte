@@ -48,6 +48,18 @@
 	const LOCAL = 'http://127.0.0.1:8080';
 	let BASE = LOCAL;
 
+	// One random id per page load. The server keeps chat history per id, so one visitor's
+	// questions never become context for another visitor's answer.
+	let sessionId = '';
+	function chatSession() {
+		if (!sessionId) {
+			sessionId =
+				globalThis.crypto?.randomUUID?.() ??
+				Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+		}
+		return sessionId;
+	}
+
 	// Discover API: try localhost, fall back to tunnel URL from GitHub.
 	// Called from onMount only, so prerender makes no network request.
 	async function loadConfig() {
@@ -135,7 +147,7 @@
 			const r = await fetch(BASE + '/chat', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ message: text })
+				body: JSON.stringify({ message: text, session_id: chatSession() })
 			});
 			const submit = await r.json();
 			if (!submit.job_id) {

@@ -21,6 +21,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import socket
 import tempfile
 import threading
@@ -36,8 +37,68 @@ from did_agent.llm.client import Agent
 
 log = logging.getLogger("did_agent.chat_api")
 
-_HISTORY: dict[str, list[dict]] = {}
 _HISTORY_TURNS = 12
+# Conversation memory is per browser tab: the widget sends a random session id and each id
+# gets its own history. A request without a valid id gets no memory at all, so one
+# visitor's questions can never become context for another visitor's answer.
+_SESSION_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+SESSION_IDLE_SECONDS = 30 * 60
+MAX_SESSIONS = 500
+
+
+def valid_session(value) -> str | None:
+    """The session id if it is a well-formed client token, else None."""
+    return value if isinstance(value, str) and _SESSION_RE.fullmatch(value) else None
+
+
+class SessionStore:
+    """Bounded, expiring per-session chat history (thread-safe)."""
+
+    def __init__(self, max_sessions: int = MAX_SESSIONS, idle_seconds: float = SESSION_IDLE_SECONDS, clock=time.monotonic):
+        self._max = max_sessions
+        self._idle = idle_seconds
+        self._clock = clock
+        self._data: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def _expire(self, now: float) -> None:
+        # Oldest-used entries are first, so stop at the first one still fresh.
+        while self._data:
+            key, (used, _) = next(iter(self._data.items()))
+            if now - used <= self._idle:
+                break
+            del self._data[key]
+
+    def get(self, session: str | None) -> list[dict]:
+        if session is None:
+            return []
+        with self._lock:
+            now = self._clock()
+            self._expire(now)
+            entry = self._data.get(session)
+            if entry is None:
+                return []
+            self._data[session] = (now, entry[1])
+            self._data.move_to_end(session)
+            return list(entry[1])
+
+    def put(self, session: str | None, turns: list[dict]) -> None:
+        if session is None:
+            return
+        with self._lock:
+            now = self._clock()
+            self._expire(now)
+            self._data[session] = (now, turns[-_HISTORY_TURNS:])
+            self._data.move_to_end(session)
+            while len(self._data) > self._max:
+                self._data.popitem(last=False)
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._data)
+
+
+_SESSIONS = SessionStore()
 _DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 
 # Job store: job_id -> {"status": "pending"|"done"|"error", "reply": str}
@@ -404,18 +465,19 @@ def _make_handler(
                 self._json_response(400, {"error": "message is required"})
                 return
 
-            session = body.get("session_id", "dashboard")
+            session = valid_session(body.get("session_id"))
             job_id = uuid.uuid4().hex[:12]
             _JOBS[job_id] = {"status": "pending"}
 
             # Run inference in a background thread so we respond within seconds.
             def _run():
-                history = _HISTORY.get(session, [])
+                history = _SESSIONS.get(session)
                 try:
                     reply = agent.respond(message, history)
-                    _HISTORY[session] = (
-                        history + [{"role": "user", "content": message}, {"role": "assistant", "content": reply}]
-                    )[-_HISTORY_TURNS:]
+                    _SESSIONS.put(
+                        session,
+                        history + [{"role": "user", "content": message}, {"role": "assistant", "content": reply}],
+                    )
                     _JOBS[job_id] = {"status": "done", "reply": reply or "(no reply)"}
                 except Exception:
                     log.exception("agent.respond failed in chat API")

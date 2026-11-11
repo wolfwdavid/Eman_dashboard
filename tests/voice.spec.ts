@@ -39,6 +39,11 @@ export async function stubNetwork(page: Page) {
 	return { posted };
 }
 
+/** The `message` of each body POSTed to /chat, in order. */
+export function postedMessages(posted: string[]): string[] {
+	return posted.map((body) => JSON.parse(body).message);
+}
+
 /**
  * Open the chat toggle. The toggle is prerendered, so a click that lands before Svelte
  * hydrates is silently lost and the panel never opens (the cause of the intermittent
@@ -220,7 +225,7 @@ test.describe('voice', () => {
 			'Asking the assistant, this can take a minute…'
 		);
 		await expect(page.getByRole('status')).toContainText('Asking the assistant');
-		expect(net.posted).toEqual([JSON.stringify({ message: 'which grants are due soon' })]);
+		expect(postedMessages(net.posted)).toEqual(['which grants are due soon']);
 
 		await expect(page.getByRole('status')).toContainText('Assistant: Hello from the assistant', {
 			timeout: 10_000
@@ -252,7 +257,7 @@ test.describe('voice', () => {
 			timeout: 10_000
 		});
 		// The question went to the default address, and nothing reached the published one.
-		expect(net.posted).toEqual([JSON.stringify({ message: 'which grants are due soon' })]);
+		expect(postedMessages(net.posted)).toEqual(['which grants are due soon']);
 		expect(stray).toEqual([]);
 	});
 
@@ -339,7 +344,7 @@ test.describe('voice', () => {
 		await expect(page.locator('.chat-msg.typing')).toHaveText(COPY.asking);
 		await expect(page.getByRole('status')).toContainText('You said:');
 		await expect(page.getByRole('status')).toContainText('Asking the assistant');
-		expect(net.posted).toEqual([JSON.stringify({ message: q })]);
+		expect(postedMessages(net.posted)).toEqual([q]);
 	});
 
 	test('voice silence: I didn\'t catch that', async ({ page }) => {
@@ -435,7 +440,7 @@ test.describe('voice', () => {
 		await input.press('Enter');
 		await expect(mic).toHaveAttribute('aria-pressed', 'false');
 		await expect(page.locator('.chat-msg.user', { hasText: 'typed question' })).toBeVisible();
-		expect(net.posted).toEqual([JSON.stringify({ message: 'typed question' })]);
+		expect(postedMessages(net.posted)).toEqual(['typed question']);
 	});
 
 	test('server fallback: records and posts audio', async ({ page }) => {
@@ -1343,5 +1348,34 @@ test.describe('voice a11y', () => {
 		const status = page.locator('#voice-status');
 		expect(await status.getAttribute('aria-live')).toBeNull();
 		expect(await status.getAttribute('role')).toBeNull();
+	});
+});
+
+test.describe('chat session', () => {
+	const ask = async (page: Page, text: string) => {
+		const input = page.getByPlaceholder('Ask about grants...');
+		await input.fill(text);
+		await input.press('Enter');
+		await expect(page.locator('.chat-msg.bot', { hasText: 'Hello from the assistant' }).last()).toBeVisible({
+			timeout: 10_000
+		});
+	};
+
+	test('each page load sends its own stable session id', async ({ page }) => {
+		const net = await stubNetwork(page);
+		await openChat(page);
+		await ask(page, 'first question');
+		await ask(page, 'second question');
+		const first = net.posted.map((body) => JSON.parse(body).session_id);
+		expect(first).toHaveLength(2);
+		expect(first[0]).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+		expect(first[1]).toBe(first[0]);
+
+		await page.reload();
+		await clickChatToggle(page);
+		await ask(page, 'after reload');
+		const afterReload = JSON.parse(net.posted[2]).session_id;
+		expect(afterReload).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+		expect(afterReload).not.toBe(first[0]);
 	});
 });
