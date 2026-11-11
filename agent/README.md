@@ -178,12 +178,21 @@ Errors are `{"error": "..."}` with these statuses:
 | 200 | transcript returned |
 | 400 | empty body or invalid `Content-Length` |
 | 401 | `CHAT_API_TOKEN` is set and the request lacks a matching `Authorization: Bearer` header (the same check `/chat` uses, so requests via the `trycloudflare.com` quick tunnel are exempt, as for `/chat`) |
+| 408 | the whole body did not arrive within 20 seconds; the connection is closed |
 | 411 | no `Content-Length` header |
 | 413 | body over 1,048,576 bytes (1 MiB); the body is not read and the connection is closed |
 | 415 | `Content-Type` is not one of the audio types above |
 | 429 | more than 10 requests per minute from one client IP; a `Retry-After` header gives the seconds to wait |
 | 502 | transcription failed (Whisper error or undecodable audio) |
 | 503 | server busy; at most 2 transcriptions run at once |
+| 504 | transcription took longer than 60 seconds |
+
+**Deadlines.** The upload is read in full, under one 20-second limit for the whole
+body, before a transcription slot is taken, so a slow sender cannot hold a slot.
+The transcription itself is given 60 seconds; the hosted Whisper request uses the
+same limit and is not retried. In local mode a transcription that runs past the
+limit cannot be interrupted: the request gets 504 and its slot is freed, but the
+work finishes in the background.
 
 The 1 MiB cap is the enforcement behind "about 20 seconds of speech": the server
 does not measure duration. The dashboard stops recording at 18 seconds so a clip

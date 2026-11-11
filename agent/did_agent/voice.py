@@ -19,6 +19,9 @@ import logging
 
 log = logging.getLogger("did_agent")
 
+# Seconds allowed for one hosted transcription request.
+HOSTED_TIMEOUT = 60.0
+
 _model = None
 _model_name: str | None = None
 
@@ -41,10 +44,14 @@ def _transcribe_local(audio_path: str, model_name: str) -> str:
     return " ".join(seg.text for seg in segments).strip()
 
 
-def _transcribe_hosted(audio_path: str, model_name: str, base_url: str, api_key: str) -> str:
+def _transcribe_hosted(
+    audio_path: str, model_name: str, base_url: str, api_key: str, timeout: float = HOSTED_TIMEOUT
+) -> str:
     from openai import OpenAI  # already a hard dependency for the LLM client
 
-    client = OpenAI(base_url=base_url, api_key=api_key or "whisper")
+    # The SDK defaults (600 s timeout, 2 retries) would let one stalled backend hold a
+    # caller for half an hour; a voice clip either comes back quickly or has failed.
+    client = OpenAI(base_url=base_url, api_key=api_key or "whisper", timeout=timeout, max_retries=0)
     # Telegram voice notes are OGG/Opus; the file's name matters because the API sniffs
     # the container from the extension, and mkstemp(suffix=".ogg") upstream provides it.
     with open(audio_path, "rb") as fh:
@@ -57,13 +64,16 @@ def transcribe(
     model_name: str = "base",
     base_url: str = "",
     api_key: str = "",
+    timeout: float = HOSTED_TIMEOUT,
 ) -> str:
     """Transcribe an audio file (Telegram voice notes are OGG/Opus) to plain text.
 
     Routes to the hosted backend when `base_url` is set, else runs Whisper locally.
+    `timeout` (seconds) bounds the hosted request, which is never retried; the local
+    backend cannot be interrupted, so callers that need a bound there enforce their own.
     """
     if base_url:
         log.info("Transcribing via hosted Whisper (%s, model=%s)", base_url, model_name)
-        return _transcribe_hosted(audio_path, model_name, base_url, api_key)
+        return _transcribe_hosted(audio_path, model_name, base_url, api_key, timeout)
     log.info("Transcribing via local faster-whisper (model=%s)", model_name)
     return _transcribe_local(audio_path, model_name)

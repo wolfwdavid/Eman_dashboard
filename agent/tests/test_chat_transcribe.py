@@ -57,13 +57,14 @@ class Recorder:
         self.gate: threading.Event | None = None
         self.entered = threading.Event()
 
-    def __call__(self, audio_path, model_name="base", base_url="", api_key=""):
+    def __call__(self, audio_path, model_name="base", base_url="", api_key="", **kwargs):
         self.calls.append(
             {
                 "path": audio_path,
                 "existed": os.path.exists(audio_path),
                 "size": os.path.getsize(audio_path) if os.path.exists(audio_path) else -1,
                 "model": model_name,
+                "kwargs": kwargs,
             }
         )
         self.entered.set()
@@ -75,12 +76,16 @@ class Recorder:
 
 
 class Server:
-    def __init__(self, token: str = "") -> None:
+    def __init__(self, token: str = "", **handler_kwargs) -> None:
         self.clock = FakeClock()
         self.limiter = chat_api._RateLimiter(limit=10, window=60.0, clock=self.clock)
         self.slots = threading.BoundedSemaphore(2)
         handler = chat_api._make_handler(
-            agent=FakeAgent(), settings=_settings(token), limiter=self.limiter, whisper_slots=self.slots
+            agent=FakeAgent(),
+            settings=_settings(token),
+            limiter=self.limiter,
+            whisper_slots=self.slots,
+            **handler_kwargs,
         )
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         self.httpd.daemon_threads = True
@@ -348,6 +353,130 @@ def test_busy_whisper_slots_return_503(server, rec):
     server.slots.release()
     server.slots.release()
     assert server.post()[0] == 200
+
+
+# --- deadlines (CR-01, WR-06) -----------------------------------------------
+
+
+def _slow_upload(port: int, first: bytes = b"ab", ctype: str = "audio/webm") -> socket.socket:
+    """Open an upload that declares 1 MB and sends only `first`."""
+    s = socket.create_connection(("127.0.0.1", port), timeout=10)
+    s.sendall(
+        b"POST /chat/transcribe HTTP/1.1\r\nHost: x\r\nContent-Type: " + ctype.encode() + b"\r\n"
+        b"Content-Length: 1000000\r\n\r\n" + first
+    )
+    return s
+
+
+def _trickle_then_read(s: socket.socket, seconds: float) -> bytes:
+    """Send one byte every 50 ms for `seconds`, then read the reply until the server closes."""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        s.sendall(b"x")
+        time.sleep(0.05)
+    raw = b""
+    while True:
+        chunk = s.recv(4096)
+        if not chunk:
+            break
+        raw += chunk
+    return raw
+
+
+def test_slow_uploads_do_not_take_whisper_slots(server, rec):
+    slow = [_slow_upload(server.port), _slow_upload(server.port)]
+    try:
+        time.sleep(0.3)  # both handlers are now waiting for the rest of their bodies
+        status, _, data = server.post(b"abc")
+        assert status == 200
+        assert _json(data) == {"text": "show recurring grants"}
+        assert len(rec.calls) == 1
+    finally:
+        for s in slow:
+            s.close()
+
+
+def test_trickled_upload_gets_408_at_the_total_deadline(rec):
+    s = Server(body_deadline=0.5)
+    try:
+        sock = _slow_upload(s.port)
+        try:
+            started = time.monotonic()
+            raw = _trickle_then_read(sock, 0.3)
+            elapsed = time.monotonic() - started
+        finally:
+            sock.close()
+        assert b" 408 " in raw.split(b"\r\n")[0]
+        assert elapsed < 5
+        assert rec.calls == []
+        # No slot was ever taken by the slow client.
+        assert s.slots.acquire(blocking=False) and s.slots.acquire(blocking=False)
+    finally:
+        s.close()
+
+
+def test_drain_of_rejected_upload_is_bounded_by_the_deadline(rec):
+    s = Server(body_deadline=0.5)
+    try:
+        sock = _slow_upload(s.port, ctype="text/plain")
+        try:
+            started = time.monotonic()
+            raw = _trickle_then_read(sock, 0.3)
+            elapsed = time.monotonic() - started
+        finally:
+            sock.close()
+        assert b" 415 " in raw.split(b"\r\n")[0]
+        assert elapsed < 5
+    finally:
+        s.close()
+
+
+def test_transcribe_over_deadline_is_504_and_frees_slot(rec):
+    s = Server(transcribe_deadline=0.3)
+    rec.gate = threading.Event()
+    try:
+        started = time.monotonic()
+        status, _, data = s.post(b"abc")
+        assert status == 504
+        assert "error" in _json(data)
+        assert time.monotonic() - started < 5
+        # Both slots are free again although the backend call has not returned.
+        assert s.slots.acquire(blocking=False) and s.slots.acquire(blocking=False)
+        s.slots.release()
+        s.slots.release()
+        assert rec.calls[0]["kwargs"].get("timeout") == 0.3
+    finally:
+        rec.gate.set()
+        s.close()
+    path = rec.calls[0]["path"]
+    deadline = time.monotonic() + 5
+    while os.path.exists(path) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert not os.path.exists(path)
+
+
+def test_hosted_whisper_client_has_timeout_and_no_retries(monkeypatch, tmp_path):
+    import openai
+
+    from did_agent import voice
+
+    seen: dict = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            seen.update(kwargs)
+            create = lambda **kw: SimpleNamespace(text=" hello ")  # noqa: E731
+            self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=create))
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    clip = tmp_path / "clip.ogg"
+    clip.write_bytes(b"abc")
+    # Positional call, as the Telegram voice handler makes it.
+    assert voice.transcribe(str(clip), "whisper-large-v3-turbo", "https://stt.example/v1", "k") == "hello"
+    assert seen["max_retries"] == 0
+    assert seen["timeout"] == voice.HOSTED_TIMEOUT
+    voice.transcribe(str(clip), "m", "https://stt.example/v1", "k", timeout=7.5)
+    assert seen["timeout"] == 7.5
 
 
 # --- auth -------------------------------------------------------------------
