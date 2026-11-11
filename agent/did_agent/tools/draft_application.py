@@ -71,6 +71,38 @@ def _draft_narrative(client: OpenAI, model: str, grant: Grant, notes: str) -> st
     return (resp.choices[0].message.content or "").strip()
 
 
+class DraftUnavailable(Exception):
+    """Google Docs drafting is not configured."""
+
+
+def create_draft(settings: Settings, client: OpenAI, grant: Grant, notes: str = "") -> str:
+    """Write the narrative, fill the Google Docs template and return the Doc URL."""
+    if not settings.google_service_account_json or not settings.google_template_doc_id:
+        raise DraftUnavailable(
+            "Google Docs isn't configured yet. Set GOOGLE_SERVICE_ACCOUNT_JSON and "
+            "GOOGLE_TEMPLATE_DOC_ID (a template Doc with {{placeholders}}, shared with the SA)."
+        )
+    narrative = _draft_narrative(client, settings.llm_model_reasoning, grant, notes)
+    fields = {
+        "org_legal_name": "Diversity Includes Disability",
+        "ein": "EIN pending (501(c)(3) application in progress)",
+        "fiscal_sponsor": "Pursuing fiscal sponsorship (Fund for the City of NY / NY Community Trust)",
+        "grant_name": _clean_name(grant.funder),
+        "funder": _clean_name(grant.funder),
+        "amount_requested": grant.amount_note or (f"${grant.amount:,.0f}" if grant.amount else "TBD"),
+        "deadline": grant.deadline_note or grant.deadline or "see funder",
+        "project_summary": narrative,
+        "mission": _MISSION,
+    }
+    return google_docs.fill_application(
+        settings.google_service_account_json,
+        settings.google_template_doc_id,
+        settings.google_output_folder_id,
+        fields,
+        title=f"DID application — {_clean_name(grant.funder)}",
+    )
+
+
 def build(settings: Settings) -> SimpleTool:
     client = make_client(settings)
     store = NotionStore(settings)
@@ -87,26 +119,10 @@ def build(settings: Settings) -> SimpleTool:
         grant = store.get_grant(funder)
         if grant is None:
             return f"No grant named '{funder}' in Notion."
-
-        narrative = _draft_narrative(client, settings.llm_model_reasoning, grant, tool_input.get("notes", ""))
-        fields = {
-            "org_legal_name": "Diversity Includes Disability",
-            "ein": "EIN pending (501(c)(3) application in progress)",
-            "fiscal_sponsor": "Pursuing fiscal sponsorship (Fund for the City of NY / NY Community Trust)",
-            "grant_name": _clean_name(grant.funder),
-            "funder": _clean_name(grant.funder),
-            "amount_requested": grant.amount_note or (f"${grant.amount:,.0f}" if grant.amount else "TBD"),
-            "deadline": grant.deadline_note or grant.deadline or "see funder",
-            "project_summary": narrative,
-            "mission": _MISSION,
-        }
-        url = google_docs.fill_application(
-            settings.google_service_account_json,
-            settings.google_template_doc_id,
-            settings.google_output_folder_id,
-            fields,
-            title=f"DID application — {_clean_name(grant.funder)}",
-        )
+        try:
+            url = create_draft(settings, client, grant, tool_input.get("notes", ""))
+        except DraftUnavailable as e:
+            return str(e)
         return f"Draft created for '{funder}': {url}\n(Review before submitting — nothing is auto-submitted.)"
 
     return SimpleTool(
