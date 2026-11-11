@@ -574,6 +574,63 @@ test.describe('voice', () => {
 		expect(await win(page, '__srStarted')).toBe(0);
 	});
 
+	/** localStorage access throws, as in Safari with cookies blocked or a sandboxed iframe. */
+	const blockStorage = (page: Page) =>
+		page.addInitScript(() => {
+			Object.defineProperty(window, 'localStorage', {
+				configurable: true,
+				get() {
+					throw new DOMException('The operation is insecure.', 'SecurityError');
+				}
+			});
+		});
+
+	test('voice notice: Use the server instead holds without localStorage', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await installFakeRecorder(page, { noticeSeen: false, keepSR: true });
+		await blockStorage(page);
+		await stubNetwork(page);
+		await openChat(page);
+		const mic = micButton(page);
+		await mic.click();
+		await expect(page.locator('.voice-notice')).toContainText(COPY.noticeBrowser);
+		await page.getByRole('button', { name: COPY.noticeUseServer }).click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		// The audio must go to the server recorder, never to the browser recognizer.
+		expect(await win(page, '__recStarted')).toBe(1);
+		expect(await win(page, '__srStarted')).toBe(0);
+		await expect(page.locator('#voice-status')).toContainText(COPY.hintServer);
+
+		// The choice lasts for the page load: the next press is the server again, no notice.
+		await page.keyboard.press('Escape');
+		await expect(mic).toHaveAttribute('aria-pressed', 'false');
+		await mic.click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.locator('.voice-notice')).toHaveCount(0);
+		expect(await win(page, '__recStarted')).toBe(2);
+		expect(await win(page, '__srStarted')).toBe(0);
+	});
+
+	test('voice settings: the server checkbox holds without localStorage', async ({ page }) => {
+		await installFakeSR(page, { noticeSeen: false });
+		await installFakeRecorder(page, { noticeSeen: false, keepSR: true });
+		await blockStorage(page);
+		await stubNetwork(page);
+		await openChat(page);
+		await page.getByRole('button', { name: 'Voice settings' }).click();
+		const box = page.getByRole('checkbox', { name: 'Use server speech recognition' });
+		await box.check();
+		await expect(box).toBeChecked();
+		const mic = micButton(page);
+		await mic.click();
+		// The first-use notice is the server one, and starting records for the server.
+		await expect(page.locator('.voice-notice')).toContainText(COPY.noticeServer);
+		await page.getByRole('button', { name: COPY.noticeStart }).click();
+		await expect(mic).toHaveAttribute('aria-pressed', 'true');
+		expect(await win(page, '__recStarted')).toBe(1);
+		expect(await win(page, '__srStarted')).toBe(0);
+	});
+
 	test('voice notice: Escape hides without remembering', async ({ page }) => {
 		await installFakeSR(page, { noticeSeen: false });
 		await stubNetwork(page);

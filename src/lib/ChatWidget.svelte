@@ -295,7 +295,9 @@
 	 */
 	let capture = null;
 
-	const useServerPath = () => hasRec && (getBool(PREF_KEYS.forceServer) || sessionServer || !hasSR);
+	// Reads the in-memory choice, never storage: when localStorage is unavailable the write
+	// is dropped, and the user who chose the server must still get the server.
+	const useServerPath = () => hasRec && (forceServer || sessionServer || !hasSR);
 
 	const MIC_TITLES = {
 		idle: COPY.micTitleIdle,
@@ -525,8 +527,8 @@
 	}
 
 	function useServerAndStart() {
-		setBool(PREF_KEYS.forceServer, true);
 		forceServer = true;
+		setBool(PREF_KEYS.forceServer, true);
 		setBool(PREF_KEYS.noticeBrowser, true);
 		setBool(PREF_KEYS.noticeServer, true);
 		noticeSeenSession.browser = true;
