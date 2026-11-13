@@ -9,9 +9,8 @@ https://www.diversityincludesdisability.org/. Each `##` heading is one lookup se
 Diversity Includes Disability (DID) advances intersectional disability equity, for and by disabled
 people. Through training, consulting, representation, and public speaking, DID helps organizations
 move beyond compliance to genuine inclusion, centering the leadership of disabled people of color.
-Founded and led by Eman Rimawi-Doster in New York City. Legal status: 501(c)(3) pending (do not
-promise tax-deductibility). Website: https://www.diversityincludesdisability.org/ (moved from Wix to
-GitHub Pages on 2026-09-24; the old Wix site is archived, not deleted).
+Founded and led by Eman Rimawi-Doster in New York City. DID's 501(c)(3) status is pending, so
+donations are not yet tax-deductible. Website: https://www.diversityincludesdisability.org/
 
 ## Founder: Eman Rimawi-Doster
 Eman Rimawi-Doster is a disability-justice advocate, organizer, speaker, educator, and writer, and the
@@ -46,27 +45,25 @@ The old Wix site sold these bookable services (Wix Bookings). Prices were Eman's
 - Conferences and Panels: 1 hour, $100, at the customer's location.
 - Disability Consulting: 1 hour, $100, online.
 - Disability Inclusion Training: course, $100, online.
-- Career Coaching: 1 hour, listed at $1 (placeholder price), in person in Harlem, Manhattan.
+- Career Coaching: 1 hour, in person in Harlem, Manhattan; ask Eman for the rate.
 Trainings were also described as sliding scale. The new site has no booking calendar; to book Eman
 or request a training, use the contact form or email (see Contact). Quote prices as "listed rates,
 confirm with Eman" since they may have changed.
 
 ## Contact
-Email: diversityincludesdisability@gmail.com (current). The old Wix site used emanrimawi@gmail.com.
+Email: diversityincludesdisability@gmail.com (current).
 Contact form: https://www.diversityincludesdisability.org/contact/
-Volunteer form and donation link: https://www.diversityincludesdisability.org/get-involved/
-(the donation platform link is still a placeholder; donations are not processed on the site).
+Volunteer form: https://www.diversityincludesdisability.org/get-involved/ . Online donations are not open yet; to give or support DID, email diversityincludesdisability@gmail.com.
 The organization is based in New York City (Harlem, Manhattan). No public phone number.
 
 ## Website pages
 Current site (https://www.diversityincludesdisability.org/): Home, About & Mission (/about/),
 Creative (/creative/, runway photo and two clips from The Model Experience show at New York Fashion
-Week, designer One World Peace Co.), Programs & Services (/programs/), Events (/events/, placeholder
-until real listings), Get Involved (/get-involved/), Blog (/blog/), Contact (/contact/), and an Accessibility statement
+Week, designer One World Peace Co.), Programs & Services (/programs/), Events (/events/, upcoming
+listings to come), Get Involved (/get-involved/), Blog (/blog/), Contact (/contact/), and an Accessibility statement
 (/accessibility/, linked in the footer: WCAG 2.2 AA target, how the site is tested, known issues, and
 the help email). The site has two themes, Accessible (WCAG 2.2 AA+, the
-default) and Premium (3D hero), switchable in the header. The site is built with SvelteKit and hosted
-on GitHub Pages; the domain is registered at Wix.
+default) and Premium (3D hero), switchable in the header.
 
 ## Events (from the old Wix Events page, all past as of 2026-09)
 - THISABILITY: Let's Create Together Series, Feb 23 2026. Collaboration session for people with
@@ -98,9 +95,3 @@ paintings and mixed-media pieces. The old site's Mixed Media Portfolio listed wo
 "Deep in Curly Thoughts", "Holy, Muqadas, Holy", "Qalbi" and "Warada". Gallery projects included
 "Action for Access: Envisioning an Accessible NYC" and the "Odera Editorial / Vertige Adaptive" shoot
 (17 editorial photos, archived). She welcomes submissions, collaborations, and creative projects.
-
-## Old Wix chat widget
-The Wix site had the standard Wix Chat widget (a live-chat box answered by Eman through Wix Inbox,
-with automated welcome and offline messages). It was not an AI bot. Its conversation history stays in
-Eman's Wix Inbox and was not exported. This assistant now covers the questions that chat used to get:
-what DID does, how to book Eman, prices, events, and how to reach the organization.

@@ -17,18 +17,34 @@ def test_public_registry_has_only_site_knowledge():
 
 def test_public_prompt_forbids_actions_and_points_to_email():
     p = PUBLIC_SYSTEM_PROMPT.lower()
-    assert "site_knowledge" in p
+    assert "site_knowledge" not in p
+    assert "answer only from the facts below" in p
     assert "diversityincludesdisability@gmail.com" in p
     assert "never claim to book" in p
     assert "no other tools" in p
 
 
-def test_messages_inject_matching_facts_for_a_price_question():
-    msgs = public_agent.build_messages("How much does a speaking engagement cost?")
+def test_system_prompt_carries_every_section_and_is_visitor_safe():
+    msgs = public_agent.build_messages("What does Diversity Includes Disability do?")
+    sysm = msgs[0]["content"]
     assert msgs[0]["role"] == "system"
-    assert "SITE FACTS" in msgs[0]["content"]
-    assert "$100" in msgs[0]["content"]
-    assert msgs[-1] == {"role": "user", "content": "How much does a speaking engagement cost?"}
+    assert "advances intersectional disability equity" in sysm
+    assert "Four core services" in sysm
+    assert "Pricing and booking" in sysm and "$100" in sysm
+    low = sysm.lower()
+    assert "placeholder" not in low and "SITE FACTS" not in sysm and "call site_knowledge" not in low
+    assert msgs[-1] == {"role": "user", "content": "What does Diversity Includes Disability do?"}
+
+
+def test_system_prompt_is_identical_across_questions():
+    assert public_agent.build_messages("How much is a talk?")[0] == public_agent.build_messages("Who is Eman?")[0]
+
+
+def test_history_is_capped_at_six():
+    hist = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i}"} for i in range(10)]
+    msgs = public_agent.build_messages("q", hist)
+    assert len(msgs) == 8
+    assert msgs[1:7] == hist[-6:]
 
 
 def test_messages_keep_history_between_system_and_user():
