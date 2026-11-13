@@ -19,6 +19,7 @@ from datetime import time as dtime
 from zoneinfo import ZoneInfo
 
 from telegram import Update
+from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -61,6 +62,15 @@ def _allowed(update: Update, allowed_ids: list[int], allow_all: bool) -> bool:
     return False
 
 
+async def _send_md(bot, chat_id, text: str) -> None:
+    """Send as Markdown; if Telegram rejects the entities, resend the same text as plain text."""
+    try:
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+    except BadRequest:
+        log.warning("Markdown send rejected; resending as plain text", exc_info=True)
+        await bot.send_message(chat_id=chat_id, text=text)
+
+
 def main() -> None:
     settings = load_settings()
     missing = settings.missing()
@@ -86,13 +96,13 @@ def main() -> None:
             reminders.due_reminders(grants, date.today(), settings.reminder_lead_days), date.today()
         )
         if text:
-            await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text, parse_mode="Markdown")
+            await _send_md(ctx.bot, ctx.job.chat_id, text)
 
     async def weekly_digest(ctx: ContextTypes.DEFAULT_TYPE) -> None:
         grants = await asyncio.to_thread(store.list_grants)
         news = await asyncio.to_thread(feeds.fetch_digest)
         text = reminders.format_digest(grants, news, date.today(), settings.reminder_lead_days)
-        await ctx.bot.send_message(chat_id=ctx.job.chat_id, text=text, parse_mode="Markdown")
+        await _send_md(ctx.bot, ctx.job.chat_id, text)
 
     async def _run_queries() -> None:
         for q in ("disability", "accessibility", "assistive technology"):

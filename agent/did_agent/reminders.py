@@ -7,12 +7,18 @@ deadline, until it's filled (Submitted/Applied) or the deadline passes.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from did_agent.models import Grant
 
 # Statuses that mean "no more reminders" — filled or out of consideration.
 _TERMINAL = {"Submitted", "Applied", "Skipped", "Not eligible", "Declined"}
+
+
+def _md(text: str) -> str:
+    """Backslash-escape Telegram legacy-Markdown specials (_ * ` [) in row data."""
+    return re.sub(r"([_*`\[])", r"\\\1", text)
 
 
 def _deadline_date(g: Grant) -> date | None:
@@ -50,12 +56,15 @@ def format_reminder(due: list[Grant], today: date) -> str:
     for g in due:
         n = days_until(g, today)
         when = "DUE TODAY" if n == 0 else f"{n} day{'s' if n != 1 else ''} left"
-        amt = f"${g.amount:,.0f}" if g.amount else (g.amount_note or "")
-        lines.append(f"• *{g.funder}* — {when} ({g.deadline}){f', {amt}' if amt else ''}")
+        amt = f"${g.amount:,.0f}" if g.amount else _md(g.amount_note or "")
+        lines.append(f"• *{_md(g.funder)}* — {when} ({_md(g.deadline or '')}){f', {amt}' if amt else ''}")
         if g.next_action:
-            lines.append(f"   ↳ {g.next_action}")
+            lines.append(f"   ↳ {_md(g.next_action)}")
         if g.link:
-            lines.append(f"   {g.link}")
+            # Telegram legacy Markdown reads `\_` as a literal `_` and detects URLs on the resulting
+            # text, so an escaped bare link stays clickable. The unescaped `_` pair is what caused
+            # "can't parse entities" on 2026-11-09/10.
+            lines.append(f"   {_md(g.link)}")
     return "\n".join(lines)
 
 
@@ -79,11 +88,11 @@ def format_digest(grants: list[Grant], news_items: list[dict], today: date, lead
         parts.append("\n*Actionable now (open, no 501c3 blocker):*")
         for g in actionable[:5]:
             sc = f" — {g.score:.0f}/100" if g.score is not None else ""
-            parts.append(f"• {g.funder}{sc}")
+            parts.append(f"• {_md(g.funder)}{sc}")
 
     if news_items:
         parts.append("\n*Grant/news headlines:*")
         for it in news_items[:5]:
-            parts.append(f"• [{it.get('source', '')}] {it.get('title', '')}")
+            parts.append(f"• {_md('[' + it.get('source', '') + ']')} {_md(it.get('title', ''))}")
 
     return "\n".join(parts)
