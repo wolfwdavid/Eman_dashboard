@@ -30,6 +30,7 @@ def _grant() -> Grant:
 
 def _assert_safe(text: str) -> None:
     bare = re.sub(r"\\.", "", text)  # drop every backslash-escape pair
+    bare = re.sub(r"\*[^*\n]*\*", "", bare)  # drop bold spans: inside bold only * is special
     assert "_" not in bare and "`" not in bare and "[" not in bare
     assert bare.count("*") % 2 == 0
 
@@ -37,6 +38,7 @@ def _assert_safe(text: str) -> None:
 def test_format_reminder_escapes_row_data():
     text = format_reminder([_grant()], TODAY)
     assert "*Grant deadlines within 7 days:*" in text
+    assert "• *[grants.gov] A_B C* — " in text
     _assert_safe(text)
 
 

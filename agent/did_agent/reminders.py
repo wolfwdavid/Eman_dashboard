@@ -57,7 +57,8 @@ def format_reminder(due: list[Grant], today: date) -> str:
         n = days_until(g, today)
         when = "DUE TODAY" if n == 0 else f"{n} day{'s' if n != 1 else ''} left"
         amt = f"${g.amount:,.0f}" if g.amount else _md(g.amount_note or "")
-        lines.append(f"• *{_md(g.funder)}* — {when} ({_md(g.deadline or '')}){f', {amt}' if amt else ''}")
+        # Inside *bold* Telegram processes no escapes and treats _ ` [ as literal; only * ends the span.
+        lines.append(f"• *{g.funder.replace('*', '')}* — {when} ({_md(g.deadline or '')}){f', {amt}' if amt else ''}")
         if g.next_action:
             lines.append(f"   ↳ {_md(g.next_action)}")
         if g.link:
