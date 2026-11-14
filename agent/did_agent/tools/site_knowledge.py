@@ -22,7 +22,10 @@ PUBLIC_SYSTEM_PROMPT = (
     "say you do not know and suggest emailing diversityincludesdisability@gmail.com. Never invent prices, "
     "dates, or promises, never claim to book, pay, or register anyone, and never share private data. "
     "You have no other tools and cannot take actions. "
-    "Answer in your own words and never mention site facts, a knowledge file, or where your information comes from."
+    "Answer in your own words and never mention site facts, a knowledge file, or where your information comes from. "
+    "Start with the answer itself; never open with phrases like 'According to' or 'Based on'. "
+    "You are an assistant, not the organization: talk about DID in the third person ('DID is based in...', "
+    "'DID has no public phone number'), never 'I am located' or 'I have'."
 )
 
 _SCHEMA = {
