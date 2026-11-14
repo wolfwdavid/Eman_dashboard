@@ -3,7 +3,9 @@
 Public, non-secret facts only. Sources: the old Wix site archived on 2026-09-24
 (diversityincludesdisability_one/archive/wix-site-2026-09-24) and the current site at
 https://www.diversityincludesdisability.org/. Each `##` heading is one lookup section for the
-`site_knowledge` tool. Keep sections short and factual; do not add EIN, addresses, or credentials.
+`site_knowledge` tool, and the public web chat is given every section on every question, so write
+each line as something a visitor may be told. Keep sections short and factual (the whole file must
+stay small enough for the model's context); do not add internal notes, EIN, addresses, or credentials.
 
 ## Organization and mission
 Diversity Includes Disability (DID) advances intersectional disability equity, for and by disabled

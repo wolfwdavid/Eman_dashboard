@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: FFXIII Fidelity
 status: in-progress
 stopped_at: Phase 8 (voice commands) built and review-fixed on main; awaiting manual browser checks M1-M8, push, and agent redeploy
-last_updated: "2026-11-11T05:40:00.000Z"
+last_updated: "2026-11-14T20:00:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
@@ -142,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-11-11
-Stopped at: Phase 8 (voice) built, reviewed, pushed and live on Pages and the VM; per-session chat history fix (1358f94) live on both. Open: manual browser checks M1-M8 in 08-MANUAL-CHECKS.md, then mark VOICE-01..07 complete.
+Last session: 2026-11-14
+Stopped at: Phase 8 (voice) built, reviewed, pushed and live on Pages and the VM. 2026-11-13/14 agent fixes live on the VM at 8ff1d0b: public chat gets the whole knowledge file and new wording (261113-pj6, 261114-fast2), Telegram reminder/digest Markdown escaping with plain-text resend (261113-pj6), POST 404/401 drain the request body (261114-fast). VM dashboard folder made group-writable, GET / is 200. Open: manual browser checks M1-M8 in 08-MANUAL-CHECKS.md, then mark VOICE-01..07 complete; first real 9:00 reminder through the new send path not yet observed.
 Resume file: None

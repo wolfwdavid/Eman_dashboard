@@ -59,11 +59,22 @@ agent/
 The old Wix site's chat widget was a plain Wix Chat box answered by Eman, not an AI bot. When the
 site moved to GitHub Pages (2026-09-24) its content was archived in
 `diversityincludesdisability_one/archive/wix-site-2026-09-24/`, and the public facts from it plus the
-current site were condensed into `knowledge/did-site-knowledge.md`. The `site_knowledge` tool splits
-that file on `## ` headings and returns the best-matching sections, and the system prompt tells the
-model to call it before answering any question about DID itself. To update the assistant's answers,
-edit the markdown file and restart the bot; keep it free of EIN, addresses and credentials (the tests
-check for that).
+current site were condensed into `knowledge/did-site-knowledge.md`. It is used in two ways:
+
+- **Public web chat** (`did_agent/public_agent.py`): every `## ` section of the file goes into the
+  system prompt on every question, followed by one model call with no tools. The earlier keyword
+  lookup returned nothing for questions made only of common words ("What does Diversity Includes
+  Disability do?"), so the model answered without facts. The prompt also tells the model to start
+  with the answer, never say where its facts come from, and talk about DID in the third person.
+- **Telegram grant agent**: the `site_knowledge` tool splits the file on `## ` headings and returns
+  the best-matching sections.
+
+Everything under a `## ` heading is shown to the model that answers the public, so write it as
+visitor-safe fact: no internal notes, placeholders, EIN, addresses or credentials (the tests check
+for some of that). Keep the file small: it takes about 1,700 tokens of the prompt, the VM's Ollama
+context may be 4,096, and the web chat therefore keeps only the last 6 history messages. To update
+the assistant's answers, edit the file, push, and redeploy the VM (the file is baked into the image).
+Tests: `tests/test_public_agent.py`, `tests/test_site_knowledge.py`.
 
 ## Hosting on the Oracle VM (current — live since 2026-09-25)
 
@@ -109,6 +120,29 @@ Healthy startup log: `DID grant agent starting (long-polling)`, `Scheduled Mon/W
 sweep message for N chat(s)`, `Application started`, and no `httpx` lines (silenced because request URLs embed
 the bot token). `Unauthorized message from chat_id=…` means that id is missing from
 `TELEGRAM_ALLOWED_CHAT_IDS`.
+
+**Reminder and digest formatting.** The daily reminder and the Monday digest are sent with Telegram's
+legacy Markdown. Tracker text is escaped in `did_agent/reminders.py` (`_md`), except inside a bold
+funder name, where Telegram shows backslashes literally, so only `*` is removed there. Every such send
+goes through `_send_md` in `did_agent/main.py`: if Telegram still answers `can't parse entities`, the
+same text is sent again as plain text and a warning is logged. Before this (2026-11-09 and 11-10) an
+underscore in a Google Doc link made Telegram reject the whole reminder. A day with no grant due
+within `reminder_lead_days` sends no reminder; that is by design. Tests: `tests/test_reminders_md.py`.
+When changing the format, send the real text to the owner's chat to check it; unit tests do not
+reproduce Telegram's parser.
+
+**Dashboard folder.** The container runs as uid 1000 and writes `dashboard/grants-dashboard.html` into
+the bind-mounted `/opt/did-agent/agent/dashboard`. That folder must be group-writable by gid 1000, or
+every refresh logs `PermissionError` and `GET /` returns 404. One-time fix, applied 2026-11-13:
+```bash
+ssh -i <key> ubuntu@<vm-ip> "sudo chgrp -R 1000 /opt/did-agent/agent/dashboard && sudo chmod -R g+rwX /opt/did-agent/agent/dashboard"
+```
+
+**Health checks.** `POST /chat` with a JSON `message` returns a `job_id`; poll `GET /chat/<job_id>`
+for the reply. The first reply after a restart can take up to a minute while Ollama loads the model
+and the facts; later ones take a few seconds. `GET /` returns 200 once the dashboard file exists.
+POST replies that refuse a request (404 unknown path, 401 missing token) read the request body first,
+because closing a connection with unread data resets it and the client loses the reply.
 
 Rules: one Telegram poller per token (never run a laptop copy while the VM is up); never re-run
 `python -m did_agent.bootstrap create` (the Notion grants DB already exists).
