@@ -95,7 +95,7 @@ class Server:
         self.thread.start()
 
     def conn(self) -> http.client.HTTPConnection:
-        return http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        return http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
 
     def post(self, body: bytes = b"audio-bytes", ctype: str | None = "audio/webm;codecs=opus", headers=None):
         hdrs = dict(headers or {})

@@ -342,7 +342,8 @@ def _make_handler(
         def _authorized(self) -> bool:
             if self._token_ok():
                 return True
-            self._json_response(401, {"error": "Unauthorized"})
+            # Drain the body first: closing on unread request data resets the connection.
+            self._reject_upload(401, {"error": "Unauthorized"}, drain_limit=_OVER_LIMIT_DRAIN_BYTES)
             return False
 
         def _read_body(self, n: int, keep: bool = True) -> tuple[str, bytes]:
@@ -449,7 +450,7 @@ def _make_handler(
                 self._handle_transcribe()
                 return
             if route != "/chat":
-                self.send_error(404)
+                self._reject_upload(404, {"error": "Not found"}, drain_limit=_OVER_LIMIT_DRAIN_BYTES)
                 return
             if not self._authorized():
                 return
