@@ -137,6 +137,7 @@ None yet.
 | 261110-vgj | DID bot: Mon/Wed/Fri 6AM ET grant sweep + 8:45AM Telegram summary with draft links (new = not present at the previous sweep); Monday digest weekday fixed (was firing Sunday) | 2026-11-10 | 7f2de2e | [261110-vgj-did-bot-mon-wed-fri-6am-grant-sweep-and-](./quick/261110-vgj-did-bot-mon-wed-fri-6am-grant-sweep-and-/) |
 | 261111-fast | Chat history is now per browser session (random id per page load; server store bounded to 500 sessions, 30 min idle expiry; no shared default) | 2026-11-11 | 1358f94 | (fast task, no directory) |
 | 261113-pj6 | Public chat: whole knowledge file in the prompt (keyword lookup returned nothing for "What does DID do?"), visitor-safe wording, history capped at 6. Telegram reminders/digest: Markdown-escape row data, plain-text resend on BadRequest (an underscore URL dropped the 11-09/10 reminders) | 2026-11-13 | 2e6d05a | [261113-pj6-fix-public-chat-knowledge-and-telegram-m](./quick/261113-pj6-fix-public-chat-knowledge-and-telegram-m/) |
+| 261114-fast | Chat API: POST replies 404 (unknown path) and 401 (/chat without token) now drain the request body first; closing on unread data reset the connection about 1 time in 130 on Windows and made three transcribe tests flaky. Test client timeout raised from 10 s to 30 s | 2026-11-14 | 9c4f898 | (fast task, no directory) |
 
 ## Session Continuity
 
