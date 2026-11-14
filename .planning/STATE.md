@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: FFXIII Fidelity
 status: in-progress
-stopped_at: Phase 8 (voice commands) built and review-fixed on main; awaiting manual browser checks M1-M8, push, and agent redeploy
+stopped_at: Phase 8 (voice commands) built, pushed and live; awaiting manual browser checks M1-M8. Agent fixes of 2026-11-13/14 live on the VM at 8ff1d0b
 last_updated: "2026-11-14T20:00:00.000Z"
 progress:
   total_phases: 8
