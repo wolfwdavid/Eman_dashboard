@@ -49,8 +49,8 @@ The old Wix site sold these bookable services (Wix Bookings). Prices were Eman's
 - Disability Inclusion Training: course, $100, online.
 - Career Coaching: 1 hour, in person in Harlem, Manhattan; ask Eman for the rate.
 Trainings were also described as sliding scale. The new site has no booking calendar; to book Eman
-or request a training, use the contact form or email (see Contact). Quote prices as "listed rates,
-confirm with Eman" since they may have changed.
+or request a training, use the contact form or email (see Contact). These are listed rates and may
+have changed, so confirm the price with Eman.
 
 ## Contact
 Email: diversityincludesdisability@gmail.com (current).

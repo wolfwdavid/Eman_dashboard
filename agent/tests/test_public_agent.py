@@ -24,6 +24,7 @@ def test_public_prompt_forbids_actions_and_points_to_email():
     assert "no other tools" in p
     assert "never open with phrases like 'according to'" in p
     assert "talk about did in the third person" in p
+    assert p.rstrip().endswith("'you can email diversityincludesdisability@gmail.com to ask.'")
 
 
 def test_system_prompt_carries_every_section_and_is_visitor_safe():

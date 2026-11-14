@@ -25,7 +25,9 @@ PUBLIC_SYSTEM_PROMPT = (
     "Answer in your own words and never mention site facts, a knowledge file, or where your information comes from. "
     "Start with the answer itself; never open with phrases like 'According to' or 'Based on'. "
     "You are an assistant, not the organization: talk about DID in the third person ('DID is based in...', "
-    "'DID has no public phone number'), never 'I am located' or 'I have'."
+    "'DID has no public phone number'), never 'I am located' or 'I have'. "
+    "If the answer is not in the facts, say you do not know and then add this sentence: "
+    "'You can email diversityincludesdisability@gmail.com to ask.'"
 )
 
 _SCHEMA = {
