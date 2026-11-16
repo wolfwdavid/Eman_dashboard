@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable
 from datetime import date
 from pathlib import Path
 
+from did_agent.geo import is_nyc
 from did_agent.models import Grant
 from did_agent.reminders import _TERMINAL, days_until
 
@@ -188,7 +189,7 @@ async def todays_drafts(
 
 
 def top_open_now(new: list[Grant], today: date, n: int = 3) -> list[Grant]:
-    """Best `n` actionable OPEN_NOW grants: score desc, deadline asc, then funder.
+    """Best `n` actionable OPEN_NOW grants, NYC first, then score desc, deadline asc, then funder.
 
     A grant whose deadline is before `today` is left out: a draft for it would cost an
     LLM call and a Google Doc for nothing. A deadline of today still counts. Grants with
@@ -199,6 +200,7 @@ def top_open_now(new: list[Grant], today: date, n: int = 3) -> list[Grant]:
     cands = [(g, left) for g, left in cands if left is None or left >= 0]
     cands.sort(
         key=lambda c: (
+            not is_nyc(c[0]),
             c[0].score is None,
             -(c[0].score or 0),
             c[1] is None,
@@ -242,6 +244,7 @@ def format_sweep_message(
     if not new:
         return f"No new grants since the last sweep ({d})."
 
+    new = sorted(new, key=lambda g: not is_nyc(g))  # NYC first, stable
     header = f"New grants since the last sweep ({d}): {len(new)}"
     footer_parts: list[str] = []
     if drafts:

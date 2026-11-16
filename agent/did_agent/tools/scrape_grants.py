@@ -11,6 +11,7 @@ from collections import Counter
 
 from did_agent.clients import feeds, grants_gov, propublica
 from did_agent.config import Settings
+from did_agent.geo import is_international
 from did_agent.llm.client import SimpleTool
 from did_agent.notion_store import NotionStore
 
@@ -41,8 +42,10 @@ def build(settings: Settings) -> SimpleTool:
         if "grants_gov" in sources:
             try:
                 hits = grants_gov.search(query, max_records=max_results * 2)
+                kept = [h for h in hits if not is_international(h)]
+                skipped = len(hits) - len(kept)
                 grants = []
-                for h in hits[:max_results]:
+                for h in kept[:max_results]:
                     try:
                         grants.append(grants_gov.to_grant(h, grants_gov.fetch(h["id"])))
                     except Exception:
@@ -56,7 +59,8 @@ def build(settings: Settings) -> SimpleTool:
                         unsaved += 1
                 dist = dict(Counter(g.bucket for g in grants))
                 note = f", {unsaved} not saved (run `bootstrap create` to set up Notion)" if unsaved else ""
-                lines.append(f"grants.gov: {len(grants)} federal opps for '{query}' {dist}; saved {saved}{note}")
+                skip = f", {skipped} international skipped" if skipped else ""
+                lines.append(f"grants.gov: {len(grants)} federal opps for '{query}' {dist}; saved {saved}{note}{skip}")
                 for g in [x for x in grants if x.bucket == "OPEN_NOW"][:5]:
                     due = g.deadline or g.deadline_note or "—"
                     lines.append(f"  OPEN_NOW: {g.funder[:58]} | {g.amount_note} | due {due}")
@@ -66,7 +70,7 @@ def build(settings: Settings) -> SimpleTool:
         if "foundations" in sources:
             try:
                 leads = propublica.search_funders(query)
-                lines.append(f"ProPublica funder leads (NY 501c3): {len(leads)} — research, not auto-added:")
+                lines.append(f"ProPublica funder leads (NYC 501c3): {len(leads)} — research, not auto-added:")
                 for l in leads[:6]:
                     lines.append(f"  {l['name'][:58]} (EIN {l['ein']})")
             except Exception as exc:

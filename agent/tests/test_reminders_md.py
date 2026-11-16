@@ -72,3 +72,10 @@ def test_send_md_single_call_when_accepted():
     bot = _Bot(fail_first=False)
     asyncio.run(_send_md(bot, 1, "t_x"))
     assert len(bot.calls) == 1
+
+
+def test_digest_actionable_nyc_first():
+    hi = Grant(funder="High Fund", bucket="OPEN_NOW", score=90.0)
+    nyc = Grant(funder="Harlem Fund", bucket="OPEN_NOW", score=10.0)
+    text = format_digest([hi, nyc], [], TODAY)
+    assert text.index("Harlem Fund") < text.index("High Fund")

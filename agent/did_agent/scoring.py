@@ -38,6 +38,8 @@ _SYSTEM = (
     "- AFTER_501C3: needs an ISSUED IRS determination letter (pending does not count). actionable_now=false; "
     "near-term odds low.\n"
     "- UNKNOWN: note the eligibility uncertainty as a key factor.\n"
+    "DID works in New York City: an NYC or New York State funder is a strong fit; a program for work "
+    "outside the United States is a poor fit, score under 10.\n"
     "score = 0-100 realistic probability of an award given a strong application. Be candid, not optimistic; "
     "a great mission fit that DID can't yet apply for should score low on near-term odds."
 )

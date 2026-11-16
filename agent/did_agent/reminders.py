@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
+from did_agent.geo import is_nyc
 from did_agent.models import Grant
 
 # Statuses that mean "no more reminders" — filled or out of consideration.
@@ -84,7 +85,7 @@ def format_digest(grants: list[Grant], news_items: list[dict], today: date, lead
         g for g in grants
         if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL
     ]
-    actionable.sort(key=lambda g: (g.score is None, -(g.score or 0)))
+    actionable.sort(key=lambda g: (not is_nyc(g), g.score is None, -(g.score or 0)))
     if actionable:
         parts.append("\n*Actionable now (open, no 501c3 blocker):*")
         for g in actionable[:5]:

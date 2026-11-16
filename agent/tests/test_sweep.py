@@ -271,3 +271,17 @@ def test_message_trimmed_to_telegram_limit():
     msg = sweep.format_sweep_message(new, {}, TODAY)
     assert len(msg) <= 4096
     assert "more" in msg.splitlines()[-1] or "+" in msg
+
+
+def test_top_open_now_nyc_first():
+    nyc = g("New York Fund", bucket="OPEN_NOW", score=40.0, deadline="2026-12-01")
+    hi = g("High Fund", bucket="OPEN_NOW", score=90.0, deadline="2026-12-01")
+    lo = g("Low Fund", bucket="OPEN_NOW", score=50.0, deadline="2026-12-01")
+    assert [x.funder for x in sweep.top_open_now([hi, lo, nyc], TODAY)] == ["New York Fund", "High Fund", "Low Fund"]
+
+
+def test_format_sweep_message_nyc_first():
+    a, b, c = g("Alpha Fund"), g("Brooklyn Fund"), g("Gamma Fund", fit_notes="NYC only")
+    text = sweep.format_sweep_message([a, b, c], {}, TODAY)
+    assert text.index("Brooklyn Fund") < text.index("Gamma Fund") < text.index("Alpha Fund")
+    assert "New grants since the last sweep (2026-11-13): 3" in text

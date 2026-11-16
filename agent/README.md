@@ -30,6 +30,8 @@ and helps fill out grants, and reminds Eman via Telegram before deadlines.
 
 > ⚠️ Runs only while the host machine is on and online. Host is a swappable config for a later VPS move.
 
+NYC-first: grants whose funder or fit notes name NYC or a borough sort first in the sweep message, the top-3 draft pick and the Monday digest. International grants.gov hits (State Dept, USAID, embassies) are skipped. The digest shows NYC funder feeds (New York Community Trust, CitizensNYC, NYFA) filtered to grant-related titles, ProPublica leads are limited to NYC cities, and the scorer treats NYC/NY State funders as a strong fit and non-US programs as a poor fit.
+
 ## Layout
 
 ```

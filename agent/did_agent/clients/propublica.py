@@ -11,10 +11,17 @@ import requests
 
 _BASE = "https://projects.propublica.org/nonprofits/api/v2"
 _HEADERS = {"User-Agent": "DID-grant-agent/1.0"}
+# shortcut: fixed list of 11 city names, Queens uses many more postal city names; upgrade to a zip-code or county filter if leads are missed
+_NYC_CITIES = {
+    "NEW YORK", "BROOKLYN", "BRONX", "STATEN ISLAND", "QUEENS", "FLUSHING", "JAMAICA",
+    "LONG ISLAND CITY", "ASTORIA", "FOREST HILLS", "JACKSON HEIGHTS",
+}
 
 
-def search_funders(query: str, state: str = "NY", private_foundation: bool = True, limit: int = 15) -> list[dict]:
+def search_funders(query: str, state: str = "NY", private_foundation: bool = True, limit: int = 15, nyc_only: bool = True) -> list[dict]:
     """Search nonprofits by keyword + state. c_code 3 = 501(c)(3); private foundations file 990-PF.
+
+    nyc_only keeps only organizations whose city is an NYC borough/neighborhood name.
 
     Returns compact dicts: {name, ein, ntee, state, subsection}.
     """
@@ -24,6 +31,8 @@ def search_funders(query: str, state: str = "NY", private_foundation: bool = Tru
     resp = requests.get(f"{_BASE}/search.json", params=params, headers=_HEADERS, timeout=30)
     resp.raise_for_status()
     orgs = resp.json().get("organizations", []) or []
+    if nyc_only:
+        orgs = [o for o in orgs if (o.get("city") or "").upper() in _NYC_CITIES]
     out = []
     for o in orgs[:limit]:
         out.append(
