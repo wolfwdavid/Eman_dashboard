@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: FFXIII Fidelity
 status: in-progress
 stopped_at: Phase 8 (voice commands) built, pushed and live; awaiting manual browser checks M1-M8. Agent fixes of 2026-11-13/14 live on the VM at 8ff1d0b
-last_updated: "2026-11-14T20:00:00.000Z"
+last_updated: "2026-11-16T15:00:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
@@ -140,6 +140,7 @@ None yet.
 | 261114-fast | Chat API: POST replies 404 (unknown path) and 401 (/chat without token) now drain the request body first; closing on unread data reset the connection about 1 time in 130 on Windows and made three transcribe tests flaky. Test client timeout raised from 10 s to 30 s | 2026-11-14 | 9c4f898 | (fast task, no directory) |
 | 261114-fast2 | Public chat prompt: start with the answer (no 'According to' openers) and talk about DID in the third person (was 'I am located in...'); checked on 10 questions with local llama3.2:3b | 2026-11-14 | 44b77bd | (fast task, no directory) |
 | 261114-fast3 | Public chat prompt: a 'do not know' reply always ends with the email pointer (it had stopped appearing); knowledge file price note reworded as a fact (the model repeated 'Quote prices as...' to a visitor); checked on 14 questions with local llama3.2:3b | 2026-11-14 | 0dca542 | (fast task, no directory) |
+| 261116-dc6 | DID bot: NYC funders first in the sweep message, draft pick and Monday digest; international federal hits skipped; NYC feeds and NYC-only funder leads | 2026-11-16 | 5333682 | [261116-dc6-nyc-first-grants-rank-nyc-funders-first-](./quick/261116-dc6-nyc-first-grants-rank-nyc-funders-first-/) |
 
 ## Session Continuity
 
