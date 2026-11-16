@@ -13,7 +13,7 @@ def _e(title):
 
 def test_nyc_feeds_filtered_and_first(monkeypatch):
     data = {
-        "http://nyc": [_e("Staff news"), _e("Staff party"), _e("New grant round"), _e("Apply by May")],
+        "http://nyc": [_e("Staff news"), _e("Grantee Spotlight: X"), _e("2026 Award Recipient"), _e("New grant round"), _e("Apply by May")],
         "http://other": [_e("Staff news")],
     }
     monkeypatch.setattr(feeds.feedparser, "parse", lambda url: SimpleNamespace(entries=data[url]))

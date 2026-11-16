@@ -19,7 +19,8 @@ DIGEST_FEEDS = [
 
 # NYC funder feeds are blogs: keep only grant-related titles, else the headlines are noise.
 _NYC_SOURCES = {"New York Community Trust", "CitizensNYC", "NYFA"}
-_GRANT_TITLE = re.compile(r"grant|rfp|funding|fellowship|award|apply|application|deadline", re.I)
+# Whole words, and no "award": "Grantee Spotlight" / "... Award Recipient" posts are not open calls.
+_GRANT_TITLE = re.compile(r"\b(grants?|rfps?|funding|fellowships?|apply|applications?|deadlines?)\b", re.I)
 
 
 def fetch_digest(feeds: list[tuple[str, str]] | None = None, per_feed: int = 5) -> list[dict]:
