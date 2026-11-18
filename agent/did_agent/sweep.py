@@ -17,7 +17,7 @@ from pathlib import Path
 
 from did_agent.geo import is_nyc
 from did_agent.models import Grant
-from did_agent.reminders import _TERMINAL, days_until
+from did_agent.reminders import _TERMINAL, days_until, is_open
 
 log = logging.getLogger("did_agent.sweep")
 
@@ -216,7 +216,7 @@ def _block(g: Grant, today: date) -> str:
     dl = g.deadline or g.deadline_note or "none listed"
     n = days_until(g, today)
     if n is not None:
-        dl += " (DUE TODAY)" if n == 0 else f" ({n} day{'s' if n != 1 else ''} left)" if n > 0 else " (passed)"
+        dl += " (DUE TODAY)" if n == 0 else f" ({n} day{'s' if n != 1 else ''} left)"
     nxt = g.next_action or _DEFAULT_NEXT.get(g.bucket, "Research eligibility")
     lines = [
         f"- {g.funder}",
@@ -241,6 +241,7 @@ def format_sweep_message(
     d = today.isoformat()
     if not state_ok:
         return f"Sweep result unavailable for {d} - nothing to report."
+    new = [g for g in new if is_open(g, today)]  # closed grants are never reported
     if not new:
         return f"No new grants since the last sweep ({d})."
 

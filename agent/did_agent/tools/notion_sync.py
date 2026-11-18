@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from did_agent.config import Settings
 from did_agent.llm.client import SimpleTool
 from did_agent.models import (
@@ -12,6 +14,7 @@ from did_agent.models import (
     parse_deadline,
 )
 from did_agent.notion_store import NotionStore
+from did_agent.reminders import is_open
 
 _SCHEMA = {
     "type": "object",
@@ -85,11 +88,15 @@ def build(settings: Settings) -> SimpleTool:
             grants = store.list_grants()
             if not grants:
                 return "No grants in Notion yet. Seed with `python -m did_agent.bootstrap seed`."
+            total = len(grants)
+            grants = [g for g in grants if is_open(g, date.today())]
+            closed = total - len(grants)
             grants.sort(key=lambda g: g.deadline or "9999-99-99")
             head = grants[:40]
             body = "\n".join(_fmt(g) for g in head)
             more = f"\n… and {len(grants) - len(head)} more." if len(grants) > len(head) else ""
-            return f"{len(grants)} grants:\n{body}{more}"
+            hidden = f" ({closed} closed, deadline passed, not shown)" if closed else ""
+            return f"{len(grants)} open grants{hidden}:\n{body}{more}"
 
         if action == "get":
             funder = tool_input.get("funder")

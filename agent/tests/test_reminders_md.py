@@ -79,3 +79,34 @@ def test_digest_actionable_nyc_first():
     nyc = Grant(funder="Harlem Fund", bucket="OPEN_NOW", score=10.0)
     text = format_digest([hi, nyc], [], TODAY)
     assert text.index("Harlem Fund") < text.index("High Fund")
+
+
+def test_digest_actionable_leaves_out_closed_grants():
+    closed = Grant(funder="Closed Fund", bucket="OPEN_NOW", score=99.0, deadline="2026-11-12")
+    today = Grant(funder="Today Fund", bucket="OPEN_NOW", score=50.0, deadline="2026-11-13")
+    rolling = Grant(funder="Rolling Fund", bucket="OPEN_NOW", deadline_note="rolling")
+    text = format_digest([closed, today, rolling], [], TODAY)
+    assert "Closed Fund" not in text
+    assert "Today Fund" in text and "Rolling Fund" in text
+
+
+def test_notion_list_leaves_out_closed_grants(monkeypatch):
+    from did_agent.tools import notion_sync
+
+    rows = [
+        Grant(funder="Closed Fund", deadline="2000-01-01"),
+        Grant(funder="Open Fund", deadline="2999-01-01"),
+        Grant(funder="Rolling Fund", deadline_note="rolling"),
+    ]
+
+    class _Store:
+        def __init__(self, _settings) -> None:
+            pass
+
+        def list_grants(self):
+            return list(rows)
+
+    monkeypatch.setattr(notion_sync, "NotionStore", _Store)
+    text = notion_sync.build(None).run({"action": "list"})
+    assert text.startswith("2 open grants (1 closed, deadline passed, not shown):")
+    assert "Closed Fund" not in text and "Open Fund" in text and "Rolling Fund" in text

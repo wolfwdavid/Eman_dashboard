@@ -285,3 +285,12 @@ def test_format_sweep_message_nyc_first():
     text = sweep.format_sweep_message([a, b, c], {}, TODAY)
     assert text.index("Brooklyn Fund") < text.index("Gamma Fund") < text.index("Alpha Fund")
     assert "New grants since the last sweep (2026-11-13): 3" in text
+
+
+def test_format_sweep_message_leaves_out_closed_grants():
+    closed = g("Closed Fund", bucket="OPEN_NOW", deadline="2026-11-12")
+    text = sweep.format_sweep_message([closed, g("Today Fund", deadline="2026-11-13"), g("Rolling Fund")], {}, TODAY)
+    assert "Closed Fund" not in text and "passed" not in text
+    assert "Today Fund" in text and "Rolling Fund" in text
+    assert "New grants since the last sweep (2026-11-13): 2" in text
+    assert sweep.format_sweep_message([closed], {}, TODAY) == "No new grants since the last sweep (2026-11-13)."

@@ -36,6 +36,12 @@ def days_until(g: Grant, today: date) -> int | None:
     return (d - today).days if d else None
 
 
+def is_open(g: Grant, today: date) -> bool:
+    """False once the deadline date has passed. Due today, or no usable date (rolling), is open."""
+    n = days_until(g, today)
+    return n is None or n >= 0
+
+
 def due_reminders(grants: list[Grant], today: date, lead_days: int = 7) -> list[Grant]:
     """Grants inside the reminder window (0..lead_days days out) that still need action."""
     out = []
@@ -83,7 +89,7 @@ def format_digest(grants: list[Grant], news_items: list[dict], today: date, lead
     # Actionable-now prospects (OPEN_NOW), highest score first, that aren't done.
     actionable = [
         g for g in grants
-        if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL
+        if g.bucket == "OPEN_NOW" and g.status not in _TERMINAL and is_open(g, today)
     ]
     actionable.sort(key=lambda g: (not is_nyc(g), g.score is None, -(g.score or 0)))
     if actionable:
