@@ -141,6 +141,7 @@ None yet.
 | 261114-fast2 | Public chat prompt: start with the answer (no 'According to' openers) and talk about DID in the third person (was 'I am located in...'); checked on 10 questions with local llama3.2:3b | 2026-11-14 | 44b77bd | (fast task, no directory) |
 | 261114-fast3 | Public chat prompt: a 'do not know' reply always ends with the email pointer (it had stopped appearing); knowledge file price note reworded as a fact (the model repeated 'Quote prices as...' to a visitor); checked on 14 questions with local llama3.2:3b | 2026-11-14 | 0dca542 | (fast task, no directory) |
 | 261116-dc6 | DID bot: NYC funders first in the sweep message, draft pick and Monday digest; international federal hits skipped; NYC feeds and NYC-only funder leads | 2026-11-16 | 5333682 | [261116-dc6-nyc-first-grants-rank-nyc-funders-first-](./quick/261116-dc6-nyc-first-grants-rank-nyc-funders-first-/) |
+| 261118-fast | Bot reports only open grants: a passed deadline is left out of the Monday digest, the sweep message and the grant list | 2026-11-18 | ef1114c | (fast, no directory) |
 
 ## Session Continuity
 
